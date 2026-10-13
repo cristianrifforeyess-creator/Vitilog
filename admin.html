@@ -122,6 +122,24 @@
       }
 
       /* -------- Cuentas -------- */
+      /* Desde cuándo existe la cuenta y, si quedó anotado, cuándo entró por
+         última vez. Las fechas viejas pueden venir vacías. */
+      function historialCuenta(a) {
+        const fecha = t => {
+          const d = new Date(t);
+          return isNaN(d) ? null : d.toLocaleDateString('es-CL', {
+            day: '2-digit', month: '2-digit', year: 'numeric',
+          });
+        };
+        const alta = a.creada ? fecha(a.creada) : null;
+        const ultimo = a.ultimo_acceso ? fecha(a.ultimo_acceso) : null;
+        const partes = [];
+        if (alta) partes.push('Registrada el ' + alta);
+        if (ultimo) partes.push('último acceso ' + ultimo);
+        if (a.accesos) partes.push(a.accesos + ' ingreso(s)');
+        return partes.length ? Shell.escape(partes.join(' · ')) : 'Sin fecha de registro';
+      }
+
       function panelCuentas() {
         const lista = cuentas().slice().sort((a, b) => Store.rolDe(a).localeCompare(Store.rolDe(b)));
         $('panel').innerHTML = `
@@ -143,6 +161,7 @@
                     <div class="li-sub">${Shell.escape(a.email)} · ${Store.nombreRol(rol)}${a.comuna ? ' · ' + Shell.escape(a.comuna) : ''}</div>
                     ${rol === Store.ROL_CHOFER
                       ? `<div class="li-sub">${Shell.escape(Shell.etiquetaModalidad(a))}</div>` : ''}
+                    <div class="li-sub">${historialCuenta(a)}</div>
                     <div style="margin-top:6px">
                       ${suspendida ? Shell.badge('Suspendida', '#E53935', '⛔') : Shell.badge('Activa', '#2E7D32', '✅')}
                       ${a.porDefecto ? ' ' + Shell.badge('Clave por defecto', '#F9A825', '⚠️') : ''}

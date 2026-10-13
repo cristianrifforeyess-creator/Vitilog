@@ -46,13 +46,17 @@ create table if not exists cuentas (
   empresa_nombre text default '',      -- solo si conduce para una empresa
   disponible  boolean not null default true,   -- el transportista puede apagarse
   activa      boolean not null default true,
-  creada      timestamptz not null default now()
+  creada      timestamptz not null default now(),
+  -- Registro de uso: queda guardado cada vez que la cuenta entra.
+  ultimo_acceso timestamptz,
+  accesos       integer not null default 0
 );
 
--- Para bases creadas antes de que existiera la modalidad del transportista.
--- Si las columnas ya están, estas dos líneas no hacen nada.
+-- Para bases creadas antes de estas columnas. Si ya están, no hacen nada.
 alter table cuentas add column if not exists modalidad text default 'independiente';
 alter table cuentas add column if not exists empresa_nombre text default '';
+alter table cuentas add column if not exists ultimo_acceso timestamptz;
+alter table cuentas add column if not exists accesos integer not null default 0;
 
 -- ---------------------------------------------------------------------
 -- Cargas de sarmientos publicadas por los viñateros

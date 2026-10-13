@@ -121,6 +121,8 @@ const Store = {
       empresa_nombre: f.empresa_nombre || '',
       disponible: f.disponible !== false,
       activa: f.activa !== false, creada: f.creada,
+      ultimo_acceso: f.ultimo_acceso || null,
+      accesos: Number(f.accesos) || 0,
     };
   },
   _cargaDesdeNube(f) {
@@ -237,6 +239,8 @@ const Store = {
       empresa_nombre: a.empresa_nombre || '',
       disponible: a.disponible !== false,
       activa: a.activa !== false,
+      ultimo_acceso: a.ultimo_acceso || null,
+      accesos: Number(a.accesos) || 0,
     };
   },
 
