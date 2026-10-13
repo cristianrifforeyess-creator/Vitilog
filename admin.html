@@ -141,6 +141,8 @@
                   <div class="li-body">
                     <div class="li-title">${Shell.escape(a.nombre)} ${esYo ? '<span class="li-sub">(tu cuenta)</span>' : ''}</div>
                     <div class="li-sub">${Shell.escape(a.email)} · ${Store.nombreRol(rol)}${a.comuna ? ' · ' + Shell.escape(a.comuna) : ''}</div>
+                    ${rol === Store.ROL_CHOFER
+                      ? `<div class="li-sub">${Shell.escape(Shell.etiquetaModalidad(a))}</div>` : ''}
                     <div style="margin-top:6px">
                       ${suspendida ? Shell.badge('Suspendida', '#E53935', '⛔') : Shell.badge('Activa', '#2E7D32', '✅')}
                       ${a.porDefecto ? ' ' + Shell.badge('Clave por defecto', '#F9A825', '⚠️') : ''}

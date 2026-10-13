@@ -90,7 +90,7 @@
           notas: $('notas').value.trim(),
           ownerEmail: Store.currentEmail(),
         }).then(() => {
-          // Se informa a cuántos choferes quedó visible la carga.
+          // Se informa a cuántos transportistas quedó visible la carga.
           const choferes = Store.choferesDisponibles();
           const coord = Shell.coordComuna(comuna);
           const cerca = coord ? choferes.filter(ch => {
@@ -109,11 +109,11 @@
             </div>
             <div class="card pad" style="background:var(--surface-alt);margin:16px 0">
               ${choferes.length === 0
-                ? `<b>Aún no hay choferes registrados.</b>
+                ? `<b>Aún no hay transportistas registrados.</b>
                    <div class="li-sub" style="margin-top:4px">
                      Tu carga queda publicada y aparecerá apenas alguno se registre.
                    </div>`
-                : `<b>Visible para ${choferes.length} chofer(es)</b>
+                : `<b>Visible para ${choferes.length} transportista(s)</b>
                    <div class="li-sub" style="margin-top:4px">
                      ${cerca > 0
                        ? cerca + ' tiene(n) su base a menos de 80 km de ' + Shell.escape(comuna) + '.'

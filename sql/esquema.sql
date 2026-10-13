@@ -23,7 +23,7 @@
 create extension if not exists pgcrypto;
 
 -- ---------------------------------------------------------------------
--- Cuentas: viñateros, empresas/transportistas y administración
+-- Cuentas: viñateros, transportistas, plantas receptoras y administración
 -- ---------------------------------------------------------------------
 create table if not exists cuentas (
   email       text primary key,
@@ -35,14 +35,24 @@ create table if not exists cuentas (
   comuna      text,
   telefono    text default '',
   hectareas   numeric default 0,       -- solo viñateros
-  tipo        text,                    -- solo empresas: Biomasa/Compostaje/Transporte
-  encargado   text default '',         -- solo empresas
-  patente     text,                    -- solo choferes
-  capacidad   numeric default 0,       -- solo choferes, en m3
-  disponible  boolean not null default true,   -- el chofer puede apagarse
+  tipo        text,                    -- solo plantas: Biomasa/Compostaje
+  encargado   text default '',         -- solo plantas
+  patente     text,                    -- solo transportistas
+  capacidad   numeric default 0,       -- solo transportistas, en m3
+  -- Cómo trabaja el transportista. Se elige DENTRO de su perfil, no al
+  -- registrarse: las herramientas son las mismas en los dos casos.
+  modalidad   text default 'independiente'
+              check (modalidad in ('independiente', 'empresa')),
+  empresa_nombre text default '',      -- solo si conduce para una empresa
+  disponible  boolean not null default true,   -- el transportista puede apagarse
   activa      boolean not null default true,
   creada      timestamptz not null default now()
 );
+
+-- Para bases creadas antes de que existiera la modalidad del transportista.
+-- Si las columnas ya están, estas dos líneas no hacen nada.
+alter table cuentas add column if not exists modalidad text default 'independiente';
+alter table cuentas add column if not exists empresa_nombre text default '';
 
 -- ---------------------------------------------------------------------
 -- Cargas de sarmientos publicadas por los viñateros

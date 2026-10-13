@@ -25,6 +25,19 @@
           <div class="field" id="f-vinatero"><label>Hectáreas de viñedo</label><input class="input" id="hectareas" type="number"></div>
           <div class="field" id="f-empresa" style="display:none"><label>Rubro de la empresa</label><select id="tipo"></select></div>
           <div class="field" id="f-encargado" style="display:none"><label>Persona de contacto</label><input class="input" id="encargado"></div>
+          <!-- Cómo trabaja el transportista. Vive acá dentro del perfil, no en
+               el registro: las dos modalidades usan las mismas herramientas,
+               solo cambia cómo te presentas ante el viñatero. -->
+          <div class="field" id="f-modalidad" style="display:none">
+            <label id="l-modalidad">Cómo trabajas</label>
+            <div class="rol-opciones" id="modalidades" role="radiogroup"
+                 aria-labelledby="l-modalidad" style="margin-bottom:8px"></div>
+            <div class="section-sub">Solo cambia cómo apareces ante el viñatero. Las herramientas son las mismas.</div>
+          </div>
+          <div class="field" id="f-empresa-nombre" style="display:none">
+            <label>Empresa para la que conduces</label>
+            <input class="input" id="empresa-nombre" placeholder="Ej: Transportes Maule Ltda.">
+          </div>
           <div class="field" id="f-patente" style="display:none"><label>Patente del camión</label><input class="input" id="patente" style="text-transform:uppercase"></div>
           <div class="field" id="f-capacidad" style="display:none"><label>Capacidad de carga (m³)</label><input class="input" id="capacidad" type="number" min="1"></div>
           <div class="card pad" id="f-disponible" style="display:none;margin-bottom:14px">
@@ -121,6 +134,8 @@
       const u = Store.currentUser();
       const esEmpresa = Store.rolDe(u) === Store.ROL_EMPRESA;
       const esChofer = Store.rolDe(u) === Store.ROL_CHOFER;
+      // Modalidad elegida en pantalla; se guarda al presionar "Guardar cambios".
+      let modalidad = u.modalidad || 'independiente';
 
       $('nombre').value = u.nombre;
       $('email').value = u.email;
@@ -141,13 +156,15 @@
       $('f-encargado').style.display = esEmpresa ? 'block' : 'none';
       $('l-alerta').textContent = esEmpresa ? 'Avisos de nuevas cargas' : 'Alertas de recolección';
 
-      // Campos del chofer
-      ['f-patente', 'f-capacidad', 'f-disponible'].forEach(i =>
+      // Campos del transportista
+      ['f-modalidad', 'f-patente', 'f-capacidad', 'f-disponible'].forEach(i =>
         $(i).style.display = esChofer ? 'block' : 'none');
       if (esChofer) {
         $('f-vinatero').style.display = 'none';
         $('patente').value = u.patente || '';
         $('capacidad').value = u.capacidad || '';
+        pintarModalidades();
+        $('empresa-nombre').value = u.empresa_nombre || '';
         $('disponible').checked = u.disponible !== false;
         $('disp-sub').textContent = u.disponible !== false
           ? 'Las cargas nuevas te llegarán' : 'No recibirás avisos de cargas';
@@ -157,6 +174,21 @@
             ? 'Las cargas nuevas te llegarán' : 'No recibirás avisos de cargas';
           Shell.toast($('disponible').checked ? 'Disponible' : 'No disponible');
         };
+      }
+
+      /* Dibuja las dos modalidades como tarjetas, igual que en el acceso. */
+      function pintarModalidades() {
+        $('modalidades').innerHTML = DATA.modalidadesChofer.map(m => `
+          <button type="button" class="rol-opcion ${m.id === modalidad ? 'activa' : ''}"
+                  data-m="${m.id}" role="radio" aria-checked="${m.id === modalidad}">
+            <span class="ic" aria-hidden="true">${m.ic}</span>
+            <span class="texto"><b>${m.label}</b><span>${m.desc}</span></span>
+            <span class="marca" aria-hidden="true">${m.id === modalidad ? '●' : '○'}</span>
+          </button>`).join('');
+        $('modalidades').querySelectorAll('.rol-opcion').forEach(b => {
+          b.onclick = () => { modalidad = b.dataset.m; pintarModalidades(); };
+        });
+        $('f-empresa-nombre').style.display = modalidad === 'empresa' ? 'block' : 'none';
       }
 
       if (esEmpresa) {
@@ -270,6 +302,9 @@
         } else if (esChofer) {
           cambios.patente = $('patente').value.trim().toUpperCase();
           cambios.capacidad = parseFloat($('capacidad').value) || 0;
+          cambios.modalidad = modalidad;
+          cambios.empresa_nombre = modalidad === 'empresa'
+            ? $('empresa-nombre').value.trim() : '';
         } else {
           cambios.hectareas = parseFloat(($('hectareas').value || '0').replace(',', '.')) || 0;
         }

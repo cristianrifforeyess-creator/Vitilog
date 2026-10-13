@@ -372,6 +372,18 @@ const Shell = {
 
   /* -------- Empresas ubicadas en el mapa -------- */
 
+  /* Cómo se presenta un transportista: por su cuenta o conduciendo para una
+     empresa. Es el mismo perfil con las mismas herramientas; esto solo sirve
+     para que el viñatero sepa con quién está tratando. */
+  etiquetaModalidad(cuenta) {
+    if (!cuenta) return '';
+    if (cuenta.modalidad === 'empresa') {
+      const nombre = (cuenta.empresa_nombre || '').trim();
+      return nombre ? 'Conduce para ' + nombre : 'Parte de una empresa de transporte';
+    }
+    return 'Transportista independiente';
+  },
+
   /* Empresas que se registraron en este navegador, ubicadas por la comuna que
      eligieron. Se excluye la cuenta con la sesión abierta: esa ya aparece
      marcada aparte como "Tu base". */
@@ -738,7 +750,9 @@ const Shell = {
   _renderNav(active, rol) {
     const nav = this.navFor(rol);
     const etiquetaRol = rol === Store.ROL_ADMIN ? '🛠️ Administración VITILOG'
-      : rol === Store.ROL_EMPRESA ? '🏭 Cuenta de empresa' : '🍇 Cuenta de viñatero';
+      : rol === Store.ROL_EMPRESA ? '🏭 Cuenta de planta receptora'
+      : rol === Store.ROL_CHOFER ? '🚚 Cuenta de transportista'
+      : '🍇 Cuenta de viñatero';
     const links = nav.map(n => `
       <a class="nav-link ${n.key === active ? 'active' : ''}" href="${n.href}">
         <span class="ic">${n.ic}</span> ${n.label}

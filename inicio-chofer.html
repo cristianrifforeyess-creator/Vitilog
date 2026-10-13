@@ -43,8 +43,12 @@
         const cargas = Store.cargasDisponibles(base);
         const hechos = Store.misServicios().filter(e => e.estado === 'entregado');
 
+        /* Versión corta de la modalidad para el encabezado. Se cambia en
+           Ajustes, dentro del propio perfil. */
+        const quien = (u.modalidad === 'empresa' && (u.empresa_nombre || '').trim())
+          ? u.empresa_nombre.trim() : 'Independiente';
         $('tb-sub').textContent = base
-          ? `Base en ${base.comuna}${u.patente ? ' · ' + u.patente : ''}`
+          ? `${quien} · Base en ${base.comuna}${u.patente ? ' · ' + u.patente : ''}`
           : 'Elige tu comuna en Ajustes';
 
         c.innerHTML = `

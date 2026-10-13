@@ -48,6 +48,10 @@
 
       const yo = Store.currentEmail();
       const soyVinatero = envio.vinateroEmail === yo;
+      /* Si el viaje lo tomó un transportista registrado, se indica si trabaja
+         por su cuenta o para una empresa. */
+      const modalidadChofer = envio.choferEmail
+        ? Shell.etiquetaModalidad(Store.accountByEmail(envio.choferEmail)) : '';
       let estadoPrevio = envio.estado;
       let reloj = null;
 
@@ -63,7 +67,7 @@
         }).join('')}</div>`;
       }
 
-      /* Estado de la señal del chofer. Importa distinguir "el camión va por
+      /* Estado de la señal del transportista. Importa distinguir "el camión va por
          aquí de verdad" de "esto es una estimación por tiempo". */
       function telemetriaHtml(seg) {
         if (envio.estado === 'entregado') return '';
@@ -94,7 +98,7 @@
             <span style="font-size:18px">📈</span>
             <span style="flex:1;min-width:180px;font-size:13.5px">
               <b>Posición estimada por tiempo.</b>
-              El chofer aún no ha encendido la transmisión de su ubicación.
+              El transportista aún no ha encendido la transmisión de su ubicación.
             </span>
           </div>
         </div>`;
@@ -235,14 +239,15 @@
             <div class="map-sim map-propio map-ruta" id="mapa-ruta" style="margin-top:12px"></div>
           </div>
 
-          <!-- Chofer -->
+          <!-- Transportista -->
           <div class="section">
-            <div class="section-title">Transporte</div>
+            <div class="section-title">Transportista</div>
             <div class="card list-item" style="margin-top:12px">
               <div class="li-ic" style="background:rgba(239,108,0,.14);color:var(--in-progress)">🚚</div>
               <div class="li-body">
                 <div class="li-title">${Shell.escape(envio.chofer)}</div>
                 <div class="li-sub">${envio.patente ? 'Patente ' + Shell.escape(envio.patente) + ' · ' : ''}${Shell.escape(envio.choferTelefono)}</div>
+                ${modalidadChofer ? `<div class="li-sub">${Shell.escape(modalidadChofer)}</div>` : ''}
               </div>
               <a class="btn ghost" style="padding:10px 14px;font-size:13.5px"
                  href="tel:${envio.choferTelefono.replace(/\s/g, '')}">📞 Llamar</a>
@@ -342,7 +347,7 @@
 
       /* ---------------- Actualización automática ---------------- */
       async function tic() {
-        // Primero se trae la última posición que publicó el chofer.
+        // Primero se trae la última posición que publicó el transportista.
         const actual = await Store.refrescarEnvio(envio.id);
         if (actual) envio = actual;
 

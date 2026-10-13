@@ -70,8 +70,18 @@ const DATA = {
     { ic: '💰', color: '#F9A825', titulo: 'Flete compartido', detalle: 'Agrupa Curicó y Molina y ahorra 30% del viaje' },
   ],
 
-  /* Rubros disponibles al crear una cuenta de empresa. */
-  tiposEmpresa: ['Biomasa', 'Compostaje', 'Transporte'],
+  /* Rubros de una empresa receptora. El transporte no está acá: quien
+     traslada la carga se registra como chofer, que es su propio perfil. */
+  tiposEmpresa: ['Biomasa', 'Compostaje'],
+
+  /* Cómo trabaja un chofer. Se elige dentro de su perfil, no al registrarse:
+     la herramienta es la misma, cambia solo cómo se presenta. */
+  modalidadesChofer: [
+    { id: 'independiente', label: 'Independiente', ic: '🧑‍🌾',
+      desc: 'Trabajo por mi cuenta con mi propio camión' },
+    { id: 'empresa', label: 'Parte de una empresa', ic: '🏢',
+      desc: 'Conduzco para una empresa de transporte' },
+  ],
 
   /* Estados por los que pasa un envío, en orden. El seguimiento avanza por
      esta lista; cada estado define su color y qué se puede hacer en él. */
@@ -83,7 +93,7 @@ const DATA = {
     { id: 'llegando', label: 'Llegando', ic: '📍', color: '#F9A825',
       desc: 'Está a menos de 15 km del destino' },
     { id: 'en_destino', label: 'En destino', ic: '🏭', color: '#6A1B9A',
-      desc: 'Llegó a la planta. Ya puedes contactar al chofer' },
+      desc: 'Llegó a la planta. Ya puedes contactar al transportista' },
     { id: 'entregado', label: 'Entregado', ic: '✅', color: '#2E7D32',
       desc: 'Pesaje confirmado y servicio cerrado' },
   ],

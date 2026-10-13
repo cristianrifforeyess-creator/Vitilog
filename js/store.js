@@ -64,6 +64,7 @@ const Store = {
           Nube.listar('envios'),
           Nube.listar('mensajes'),
         ]);
+        this._recordarColumnas(cuentas);
         this._cache.cuentas = (cuentas || []).map(this._cuentaDesdeNube);
         this._cache.cargas = (cargas || []).map(this._cargaDesdeNube);
         this._cache.puntos = (puntos || []).map(this._puntoDesdeNube);
@@ -114,6 +115,11 @@ const Store = {
       comuna: f.comuna || '', telefono: f.telefono || '',
       hectareas: Number(f.hectareas) || 0,
       tipo: f.tipo || undefined, encargado: f.encargado || '',
+      patente: f.patente || '',
+      capacidad: Number(f.capacidad) || 0,
+      modalidad: f.modalidad === 'empresa' ? 'empresa' : 'independiente',
+      empresa_nombre: f.empresa_nombre || '',
+      disponible: f.disponible !== false,
       activa: f.activa !== false, creada: f.creada,
     };
   },
@@ -197,6 +203,27 @@ const Store = {
     };
   },
 
+  /* La tabla remota puede ser más antigua que este código: si todavía no
+     tiene la columna "modalidad", enviarla haría fallar el guardado entero.
+     Por eso se anota qué columnas trae de verdad y se recorta el envío. */
+  _columnasCuenta: null,
+  _recordarColumnas(filas) {
+    if (Array.isArray(filas) && filas.length) {
+      this._columnasCuenta = Object.keys(filas[0]);
+    }
+  },
+  _soloColumnasConocidas(fila) {
+    if (!this._columnasCuenta) return fila;
+    const limpia = {};
+    for (const k of Object.keys(fila)) {
+      if (this._columnasCuenta.includes(k)) limpia[k] = fila[k];
+    }
+    return limpia;
+  },
+
+  /* Qué columnas de la cuenta viajan a la base compartida. Si un campo no
+     está acá, se queda solo en el dispositivo: por eso van también los datos
+     del transportista (camión, modalidad y disponibilidad). */
   _cuentaHaciaNube(a) {
     return {
       email: a.email, rol: this.rolDe(a), nombre: a.nombre,
@@ -204,6 +231,11 @@ const Store = {
       comuna: a.comuna || '', telefono: a.telefono || '',
       hectareas: Number(a.hectareas) || 0,
       tipo: a.tipo || null, encargado: a.encargado || '',
+      patente: a.patente || null,
+      capacidad: Number(a.capacidad) || 0,
+      modalidad: a.modalidad === 'empresa' ? 'empresa' : 'independiente',
+      empresa_nombre: a.empresa_nombre || '',
+      disponible: a.disponible !== false,
       activa: a.activa !== false,
     };
   },
@@ -246,8 +278,11 @@ const Store = {
     const lista = this._cache.cuentas;
     const i = lista.findIndex(a => (a.email || '').toLowerCase() === acc.email.toLowerCase());
     if (i >= 0) lista[i] = acc; else lista.push(acc);
-    if (this.enNube()) await Nube.guardar('cuentas', this._cuentaHaciaNube(acc));
-    else this._write(this.K_ACCOUNTS, lista);
+    if (this.enNube()) {
+      await Nube.guardar('cuentas', this._soloColumnasConocidas(this._cuentaHaciaNube(acc)));
+    } else {
+      this._write(this.K_ACCOUNTS, lista);
+    }
   },
 
   async borrarCuenta(email) {
@@ -277,8 +312,8 @@ const Store = {
   esChofer() { return this.rolActual() === this.ROL_CHOFER; },
   esAdmin() { return this.rolActual() === this.ROL_ADMIN; },
   nombreRol(rol) {
-    if (rol === this.ROL_EMPRESA) return 'Empresa receptora';
-    if (rol === this.ROL_CHOFER) return 'Chofer / Transportista';
+    if (rol === this.ROL_EMPRESA) return 'Planta receptora';
+    if (rol === this.ROL_CHOFER) return 'Transportista';
     if (rol === this.ROL_ADMIN) return 'Administración';
     return 'Viñatero';
   },
@@ -329,19 +364,24 @@ const Store = {
     return null;
   },
 
-  /* Cuenta de chofer: trabaja por su cuenta y acepta servicios publicados. */
+  /* Cuenta de transportista: acepta los servicios que publican los viñateros.
+     Sea independiente o de empresa, es este mismo perfil. */
   async registerChofer({ nombre, email, password, comuna, telefono, patente, capacidad }) {
     email = (email || '').trim();
     if (this.accountByEmail(email)) return 'Ya existe una cuenta con ese correo';
     const { hash, sal } = await this._cifrar(password);
     await this.upsertAccount({
       rol: this.ROL_CHOFER,
-      nombre: (nombre || '').trim() || 'Chofer',
+      nombre: (nombre || '').trim() || 'Transportista',
       email, clave_hash: hash, clave_sal: sal,
       comuna: (comuna || '').trim() || 'Región del Maule',
       telefono: (telefono || '').trim(),
       patente: (patente || '').trim().toUpperCase(),
       capacidad: Number(capacidad) || 0,
+      /* Parte como independiente. Si conduce para una empresa, lo cambia
+         después en Configuración: así el registro queda corto. */
+      modalidad: 'independiente',
+      empresa_nombre: '',
       disponible: true, activa: true,
     });
     this.setSession(email);

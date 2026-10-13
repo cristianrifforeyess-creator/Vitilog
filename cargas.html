@@ -125,7 +125,7 @@
         box.classList.remove('stagger'); void box.offsetWidth; box.classList.add('stagger');
       }
 
-      /* Programa el retiro de una carga: pide el chofer y crea el envío,
+      /* Programa el retiro de una carga: pide el transportista y crea el envío,
          que desde ese momento el viñatero puede seguir en el mapa. */
       function programarRetiro(carga) {
         const u = Store.currentUser();
@@ -147,7 +147,7 @@
             <input class="input" id="r-chofer" placeholder="Nombre del chofer">
           </div>
           <div class="field">
-            <label for="r-tel">Teléfono del chofer</label>
+            <label for="r-tel">Teléfono del transportista</label>
             <input class="input" id="r-tel" type="tel" inputmode="tel" placeholder="+56 9 ...">
           </div>
           <div class="field">
@@ -171,8 +171,8 @@
           const chofer = $('r-chofer').value.trim();
           const tel = $('r-tel').value.trim();
           const min = parseInt($('r-min').value, 10);
-          if (!chofer) return ($('r-err').textContent = 'Escribe el nombre del chofer.');
-          if (!tel) return ($('r-err').textContent = 'Escribe el teléfono del chofer.');
+          if (!chofer) return ($('r-err').textContent = 'Escribe el nombre del transportista.');
+          if (!tel) return ($('r-err').textContent = 'Escribe el teléfono del transportista.');
           if (!min || min < 1) return ($('r-err').textContent = 'Ingresa un tiempo válido.');
 
           const destino = base && base.lat ? base : origen;
