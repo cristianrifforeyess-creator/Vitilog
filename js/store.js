@@ -23,6 +23,7 @@ const Store = {
 
   ROL_VINATERO: 'vinatero',
   ROL_EMPRESA: 'empresa',
+  ROL_CHOFER: 'chofer',
   ROL_ADMIN: 'admin',
 
   /* Datos en memoria. Los llena sincronizar() al abrir cada página. */
@@ -148,12 +149,15 @@ const Store = {
     return {
       id: f.id, cargaId: f.carga_id,
       vinateroEmail: f.vinatero_email, empresaEmail: f.empresa_email,
+      choferEmail: f.chofer_email,
       chofer: f.chofer, choferTelefono: f.chofer_telefono, patente: f.patente,
+      posicionAt: f.posicion_at,
       origenComuna: f.origen_comuna, origenLat: Number(f.origen_lat), origenLng: Number(f.origen_lng),
       destinoId: f.destino_id, destinoNombre: f.destino_nombre,
       destinoLat: Number(f.destino_lat), destinoLng: Number(f.destino_lng),
       estado: f.estado, salida: f.salida, minutosTotal: Number(f.minutos_total) || 0,
       progreso: Number(f.progreso) || 0,
+      precision: f.precision_m != null ? Number(f.precision_m) : null,
       vehLat: f.veh_lat != null ? Number(f.veh_lat) : null,
       vehLng: f.veh_lng != null ? Number(f.veh_lng) : null,
       volumenDeclarado: Number(f.volumen_declarado) || 0,
@@ -166,12 +170,15 @@ const Store = {
     return {
       id: e.id, carga_id: e.cargaId || null,
       vinatero_email: e.vinateroEmail, empresa_email: e.empresaEmail || null,
+      chofer_email: e.choferEmail || null,
       chofer: e.chofer, chofer_telefono: e.choferTelefono, patente: e.patente || null,
+      posicion_at: e.posicionAt || null,
       origen_comuna: e.origenComuna, origen_lat: e.origenLat, origen_lng: e.origenLng,
       destino_id: e.destinoId, destino_nombre: e.destinoNombre,
       destino_lat: e.destinoLat, destino_lng: e.destinoLng,
       estado: e.estado, salida: e.salida, minutos_total: e.minutosTotal,
       progreso: e.progreso, veh_lat: e.vehLat, veh_lng: e.vehLng,
+      precision_m: e.precision ?? null,
       volumen_declarado: e.volumenDeclarado,
       volumen_recibido: e.volumenRecibido, peso_recibido: e.pesoRecibido,
       observaciones: e.observaciones || '',
@@ -258,6 +265,7 @@ const Store = {
   rolDe(acc) {
     if (!acc) return this.ROL_VINATERO;
     if (acc.rol === this.ROL_EMPRESA) return this.ROL_EMPRESA;
+    if (acc.rol === this.ROL_CHOFER) return this.ROL_CHOFER;
     if (acc.rol === this.ROL_ADMIN) return this.ROL_ADMIN;
     return this.ROL_VINATERO;
   },
@@ -266,9 +274,11 @@ const Store = {
     return u ? this.rolDe(u) : null;
   },
   esEmpresa() { return this.rolActual() === this.ROL_EMPRESA; },
+  esChofer() { return this.rolActual() === this.ROL_CHOFER; },
   esAdmin() { return this.rolActual() === this.ROL_ADMIN; },
   nombreRol(rol) {
-    if (rol === this.ROL_EMPRESA) return 'Empresa / Transportista';
+    if (rol === this.ROL_EMPRESA) return 'Empresa receptora';
+    if (rol === this.ROL_CHOFER) return 'Chofer / Transportista';
     if (rol === this.ROL_ADMIN) return 'Administración';
     return 'Viñatero';
   },
@@ -319,10 +329,29 @@ const Store = {
     return null;
   },
 
+  /* Cuenta de chofer: trabaja por su cuenta y acepta servicios publicados. */
+  async registerChofer({ nombre, email, password, comuna, telefono, patente, capacidad }) {
+    email = (email || '').trim();
+    if (this.accountByEmail(email)) return 'Ya existe una cuenta con ese correo';
+    const { hash, sal } = await this._cifrar(password);
+    await this.upsertAccount({
+      rol: this.ROL_CHOFER,
+      nombre: (nombre || '').trim() || 'Chofer',
+      email, clave_hash: hash, clave_sal: sal,
+      comuna: (comuna || '').trim() || 'Región del Maule',
+      telefono: (telefono || '').trim(),
+      patente: (patente || '').trim().toUpperCase(),
+      capacidad: Number(capacidad) || 0,
+      disponible: true, activa: true,
+    });
+    this.setSession(email);
+    return null;
+  },
+
   register(datos) {
-    return datos.rol === this.ROL_EMPRESA
-      ? this.registerEmpresa(datos)
-      : this.registerVinatero(datos);
+    if (datos.rol === this.ROL_EMPRESA) return this.registerEmpresa(datos);
+    if (datos.rol === this.ROL_CHOFER) return this.registerChofer(datos);
+    return this.registerVinatero(datos);
   },
 
   async login({ email, password, rol }) {
@@ -417,6 +446,54 @@ const Store = {
   },
 
   /* =====================================================================
+     Vínculo entre la carga publicada y el chofer que la toma
+     ===================================================================== */
+
+  /* Choferes registrados y disponibles para tomar servicios. */
+  choferesDisponibles() {
+    return this._cache.cuentas.filter(a =>
+      this.rolDe(a) === this.ROL_CHOFER && a.activa !== false && a.disponible !== false);
+  },
+
+  /* Cargas que todavía nadie se comprometió a retirar. Es lo que ve el
+     chofer en su panel, ordenado por cercanía a su base. */
+  cargasDisponibles(desde) {
+    const comprometidas = new Set(
+      this._cache.envios.filter(e => e.cargaId).map(e => e.cargaId));
+
+    return this._cache.cargas
+      .filter(c => !comprometidas.has(c.id) && c.estado !== 'retirada')
+      .map(c => {
+        const dueno = this.accountByEmail(c.ownerEmail);
+        const coord = typeof Shell !== 'undefined' ? Shell.coordComuna(c.comuna) : null;
+        return {
+          ...c,
+          productor: dueno ? dueno.nombre : 'Productor VITILOG',
+          telefono: dueno ? dueno.telefono : '',
+          email: c.ownerEmail,
+          lat: coord ? coord.lat : null,
+          lng: coord ? coord.lng : null,
+          km: (coord && desde && typeof Shell !== 'undefined')
+            ? Shell.distanciaKm(desde, coord) : null,
+        };
+      })
+      .sort((a, b) => (a.km ?? 1e9) - (b.km ?? 1e9));
+  },
+
+  /* Los servicios de un chofer. */
+  misServicios() {
+    const correo = this.currentEmail();
+    return this._cache.envios
+      .filter(e => e.choferEmail === correo)
+      .sort((a, b) => (b.salida || '').localeCompare(a.salida || ''));
+  },
+
+  /* El viaje que el chofer tiene abierto ahora mismo, si lo hay. */
+  servicioActivo() {
+    return this.misServicios().find(e => e.estado !== 'entregado') || null;
+  },
+
+  /* =====================================================================
      Envíos: el seguimiento de un camión desde la viña hasta la planta
      ===================================================================== */
   envios() { return this._cache.envios; },
@@ -457,6 +534,31 @@ const Store = {
     if (this.enNube()) await Nube.guardar('envios', this._envioHaciaNube(envio));
     else this._write(this.K_ENVIOS, this._cache.envios);
     return envio;
+  },
+
+  /* Trae de la base solo este envío, para ver la última posición que
+     reportó el chofer sin recargar todo lo demás. */
+  async refrescarEnvio(id) {
+    if (!this.enNube()) return this.envioPorId(id);
+    try {
+      const filas = await Nube.listar('envios', 'id=eq.' + encodeURIComponent(id));
+      if (filas && filas[0]) {
+        const fresco = this._envioDesdeNube(filas[0]);
+        const i = this._cache.envios.findIndex(e => e.id === id);
+        if (i >= 0) this._cache.envios[i] = fresco; else this._cache.envios.push(fresco);
+      }
+    } catch (e) { /* sin conexión: se queda con lo que tenía */ }
+    return this.envioPorId(id);
+  },
+
+  /* El chofer publica su posición. Se guarda la hora para poder decir
+     hace cuánto se actualizó y detectar si la señal se perdió. */
+  async reportarPosicionEnvio(id, { lat, lng, precision }) {
+    return this.actualizarEnvio(id, {
+      vehLat: lat, vehLng: lng,
+      precision: precision ?? null,
+      posicionAt: new Date().toISOString(),
+    });
   },
 
   async borrarEnvio(id) {

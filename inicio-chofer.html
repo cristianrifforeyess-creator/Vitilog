@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VITILOG · Servicios</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main">
+      <div class="topbar">
+        <div class="tb-logo">🚚</div>
+        <div><h1>Servicios disponibles</h1><p id="tb-sub">Región del Maule</p></div>
+        <div class="tb-actions">
+          <button title="Buscar servicios nuevos" id="btn-refrescar" aria-label="Actualizar">🔄</button>
+          <button title="Ajustes" onclick="location.href='configuracion.html'" aria-label="Ajustes">⚙️</button>
+        </div>
+      </div>
+      <div class="content stagger" id="content"></div>
+    </main>
+  </div>
+  <nav class="bottom-nav" id="bottomnav"></nav>
+
+  <script src="js/config.js"></script>
+  <script src="js/nube.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/shell.js"></script>
+  <script>
+    Shell.init('inicio', { rol: Store.ROL_CHOFER }).then(listo => { if (!listo) return;
+      const $ = id => document.getElementById(id);
+      const c = $('content');
+      const u = Store.currentUser();
+      const base = Shell.ubicacionCuenta();
+
+      let vistos = new Set();     // para avisar solo de las cargas nuevas
+      let reloj = null;
+
+      function render() {
+        const activo = Store.servicioActivo();
+        const cargas = Store.cargasDisponibles(base);
+        const hechos = Store.misServicios().filter(e => e.estado === 'entregado');
+
+        $('tb-sub').textContent = base
+          ? `Base en ${base.comuna}${u.patente ? ' · ' + u.patente : ''}`
+          : 'Elige tu comuna en Ajustes';
+
+        c.innerHTML = `
+          ${activo ? tarjetaActivo(activo) : ''}
+
+          <div class="section" ${activo ? '' : 'style="margin-top:4px"'}>
+            <div class="section-title">Cargas esperando retiro</div>
+            <div class="section-sub">
+              ${cargas.length === 0 ? 'Ninguna por ahora' :
+                `${cargas.length} disponible(s)${base ? ', de la más cercana a la más lejana' : ''}`}
+            </div>
+          </div>
+
+          ${cargas.length === 0
+            ? `<div class="empty">
+                 <div class="ic">📋</div>
+                 <p>No hay cargas publicadas en este momento.</p>
+                 <p style="font-size:13px">Cuando un viñatero publique una, aparecerá acá y te avisaremos.</p>
+               </div>`
+            : `<div class="grid" style="margin-top:12px">${cargas.map(tarjetaCarga).join('')}</div>`}
+
+          ${hechos.length ? `
+            <div class="section">
+              <div class="section-title">Servicios completados</div>
+              <div class="section-sub">${hechos.length} entrega(s)</div>
+            </div>
+            <div class="grid" style="margin-top:12px">
+              ${hechos.map(e => `
+                <div class="card list-item" style="cursor:pointer" data-ver="${e.id}">
+                  <div class="li-ic" style="background:rgba(46,125,50,.13);color:var(--primary)">✅</div>
+                  <div class="li-body">
+                    <div class="li-title">${Shell.escape(e.origenComuna)} → ${Shell.escape(e.destinoNombre)}</div>
+                    <div class="li-sub">${e.volumenRecibido ?? e.volumenDeclarado} m³ entregados</div>
+                  </div>
+                  <div class="li-chev">›</div>
+                </div>`).join('')}
+            </div>` : ''}`;
+
+        conectar(cargas);
+      }
+
+      /* Viaje en curso: ocupa el primer lugar, es lo único que importa. */
+      function tarjetaActivo(envio) {
+        const seg = Shell.calcularSeguimiento(envio);
+        const est = estadoEnvio(seg.estado);
+        return `
+          <div class="card pad" style="border:2px solid ${est.color}">
+            <div class="envio-cabecera">
+              <div class="li-ic" style="background:${est.color}22;color:${est.color};width:46px;height:46px;font-size:23px">${est.ic}</div>
+              <div class="titulo">
+                Viaje en curso
+                <div class="li-sub" style="font-weight:400">
+                  ${Shell.escape(envio.origenComuna)} → ${Shell.escape(envio.destinoNombre)}
+                </div>
+              </div>
+              ${Shell.badge(est.label, est.color)}
+            </div>
+            <div class="progress" style="margin-top:12px">
+              <div style="width:${Math.round(seg.progreso*100)}%;background:${est.color}"></div>
+            </div>
+            <button class="btn block" style="margin-top:14px" onclick="location.href='viaje.html'">
+              🚚 Abrir mi viaje
+            </button>
+          </div>`;
+      }
+
+      /* Una carga que se puede aceptar. */
+      function tarjetaCarga(carga, i) {
+        const color = tipoColor(carga.destino);
+        return `
+          <div class="card route-card">
+            <div class="route-head">
+              <div class="li-ic" style="background:${color}22;color:${color}">${tipoIcono(carga.destino)}</div>
+              <b>${carga.volumen} m³ · ${Shell.escape(carga.comuna)}</b>
+              ${carga.km != null ? Shell.badge('a ' + carga.km + ' km', '#1976D2', '📍') : ''}
+            </div>
+            <div class="route-info">
+              <span class="info-line">🍇 Productor: <b>${Shell.escape(carga.productor)}</b></span>
+              <span class="info-line">♻️ Destino: <b>${Shell.escape(carga.destino)}</b></span>
+              <span class="info-line">📅 Disponible: <b>${Shell.escape(carga.fecha || 'Por confirmar')}</b></span>
+            </div>
+            ${carga.notas ? `<p class="section-sub" style="margin-top:10px">📝 ${Shell.escape(carga.notas)}</p>` : ''}
+            <div class="route-foot" style="gap:8px">
+              <span class="date"></span>
+              <button class="btn ghost" style="padding:10px 14px;font-size:13.5px" data-llamar="${i}">📞 Productor</button>
+              <button class="btn" style="padding:10px 14px;font-size:13.5px" data-aceptar="${i}">✋ Aceptar servicio</button>
+            </div>
+          </div>`;
+      }
+
+      function conectar(cargas) {
+        c.querySelectorAll('[data-llamar]').forEach(b => {
+          b.onclick = () => {
+            const g = cargas[+b.dataset.llamar];
+            Shell.contactar(g.productor, `${g.comuna} · ${g.volumen} m³`,
+              { tel: g.telefono, email: g.email, ic: '🍇' });
+          };
+        });
+        c.querySelectorAll('[data-aceptar]').forEach(b => {
+          b.onclick = () => aceptar(cargas[+b.dataset.aceptar]);
+        });
+        c.querySelectorAll('[data-ver]').forEach(el => {
+          el.onclick = () => location.href = 'seguimiento.html?id=' + encodeURIComponent(el.dataset.ver);
+        });
+      }
+
+      /* Aceptar: se elige la planta de destino y se crea el viaje. */
+      function aceptar(carga) {
+        if (Store.servicioActivo()) {
+          Shell.toast('Ya tienes un viaje en curso. Ciérralo antes de tomar otro.');
+          return;
+        }
+        if (!carga.lat) { Shell.toast('Esa comuna no tiene coordenadas'); return; }
+
+        // Plantas que reciben ese tipo de residuo, de la más cercana a la carga.
+        const plantas = Shell.empresasParaBuscador()
+          .filter(p => p.activo && (carga.destino === 'Indistinto' || p.tipo === carga.destino))
+          .map(p => ({ ...p, kmDesdeCarga: Shell.distanciaKm(carga, p) }))
+          .sort((a, b) => a.kmDesdeCarga - b.kmDesdeCarga);
+
+        if (plantas.length === 0) { Shell.toast('No hay plantas con cupos para ese destino'); return; }
+
+        Shell.openModal(`
+          <div class="handle"></div>
+          <b style="font-size:18px">Aceptar servicio</b>
+          <p class="section-sub" style="margin-top:4px">
+            ${carga.volumen} m³ de ${Shell.escape(carga.productor)} en ${Shell.escape(carga.comuna)}
+          </p>
+          <div class="field" style="margin-top:16px">
+            <label for="a-planta">¿Dónde la vas a entregar?</label>
+            <select id="a-planta">
+              ${plantas.map(p => `<option value="${p.id}">${Shell.escape(p.nombre)} · ${p.comuna} · ${p.kmDesdeCarga} km</option>`).join('')}
+            </select>
+          </div>
+          <div class="field">
+            <label for="a-min">Tiempo estimado del viaje (minutos)</label>
+            <input class="input" id="a-min" type="number" min="1" inputmode="numeric"
+                   value="${Math.max(6, Math.round(plantas[0].kmDesdeCarga * 1.4))}">
+            <div class="section-sub" style="margin-top:6px">
+              Se usa como referencia mientras el GPS no esté transmitiendo.
+            </div>
+          </div>
+          <div class="err" id="a-err"></div>
+          <div class="field-row">
+            <button class="btn ghost" style="flex:1" onclick="Shell.closeModal()">Cancelar</button>
+            <button class="btn" style="flex:1" id="a-ok">✋ Tomar el servicio</button>
+          </div>`);
+
+        // Al cambiar de planta se recalcula el tiempo sugerido.
+        $('a-planta').onchange = () => {
+          const p = plantas.find(x => x.id === $('a-planta').value);
+          if (p) $('a-min').value = Math.max(6, Math.round(p.kmDesdeCarga * 1.4));
+        };
+
+        $('a-ok').onclick = async () => {
+          const planta = plantas.find(x => x.id === $('a-planta').value);
+          const min = parseInt($('a-min').value, 10);
+          if (!planta) return ($('a-err').textContent = 'Elige la planta de destino.');
+          if (!min || min < 1) return ($('a-err').textContent = 'Ingresa un tiempo válido.');
+
+          const envio = await Store.addEnvio({
+            id: 'env-' + Date.now(),
+            cargaId: carga.id || null,
+            vinateroEmail: carga.email || null,
+            empresaEmail: null,
+            choferEmail: Store.currentEmail(),
+            chofer: u.nombre,
+            choferTelefono: u.telefono || '',
+            patente: u.patente || '',
+            origenComuna: carga.comuna, origenLat: carga.lat, origenLng: carga.lng,
+            destinoId: planta.id, destinoNombre: planta.nombre,
+            destinoLat: planta.lat, destinoLng: planta.lng,
+            estado: 'programado',
+            salida: null,                       // arranca cuando pulse "Iniciar"
+            minutosTotal: min,
+            progreso: 0, vehLat: null, vehLng: null, posicionAt: null,
+            volumenDeclarado: carga.volumen,
+            volumenRecibido: null, pesoRecibido: null, observaciones: '',
+            creado: new Date().toISOString(),
+          });
+
+          Shell.closeModal();
+          Shell.notificar('Servicio aceptado', `${carga.comuna} → ${planta.nombre}`);
+          location.href = 'viaje.html';
+        };
+      }
+
+      /* Revisa si llegaron cargas nuevas y avisa una sola vez por cada una. */
+      async function buscarNuevas({ avisar = true } = {}) {
+        if (Store.enNube()) await Store.sincronizar({ forzar: true });
+        const cargas = Store.cargasDisponibles(base);
+
+        if (avisar) {
+          const nuevas = cargas.filter(g => !vistos.has(g.id));
+          if (nuevas.length === 1) {
+            const g = nuevas[0];
+            Shell.notificar('🌾 Nueva carga disponible',
+              `${g.volumen} m³ en ${g.comuna}${g.km != null ? ' · a ' + g.km + ' km' : ''}`);
+          } else if (nuevas.length > 1) {
+            Shell.notificar('🌾 Nuevas cargas disponibles', `${nuevas.length} publicaciones nuevas`);
+          }
+        }
+        cargas.forEach(g => vistos.add(g.id));
+        render();
+      }
+
+      $('btn-refrescar').onclick = async () => {
+        await buscarNuevas({ avisar: false });
+        Shell.toast('Lista actualizada');
+      };
+
+      Shell.pedirPermisoNotificaciones();
+
+      // Primera pasada sin avisar: todo lo que ya existe no es "nuevo".
+      Store.cargasDisponibles(base).forEach(g => vistos.add(g.id));
+      render();
+
+      reloj = setInterval(buscarNuevas, 20000);
+      window.addEventListener('beforeunload', () => clearInterval(reloj));
+    });
+  </script>
+</body>
+</html>

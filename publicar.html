@@ -90,7 +90,38 @@
           notas: $('notas').value.trim(),
           ownerEmail: Store.currentEmail(),
         }).then(() => {
-          location.href = 'inicio.html';
+          // Se informa a cuántos choferes quedó visible la carga.
+          const choferes = Store.choferesDisponibles();
+          const coord = Shell.coordComuna(comuna);
+          const cerca = coord ? choferes.filter(ch => {
+            const b = Shell.coordComuna(ch.comuna);
+            return b && Shell.distanciaKm(b, coord) <= 80;
+          }).length : 0;
+
+          Shell.openModal(`
+            <div class="handle"></div>
+            <div style="text-align:center;padding:6px 0 2px">
+              <div style="font-size:42px">🌾</div>
+              <b style="font-size:19px;display:block;margin-top:8px">Carga publicada</b>
+              <p class="section-sub" style="margin-top:6px">
+                ${volumen} m³ en ${Shell.escape(comuna)}, disponibles desde el ${d}/${m}/${y}
+              </p>
+            </div>
+            <div class="card pad" style="background:var(--surface-alt);margin:16px 0">
+              ${choferes.length === 0
+                ? `<b>Aún no hay choferes registrados.</b>
+                   <div class="li-sub" style="margin-top:4px">
+                     Tu carga queda publicada y aparecerá apenas alguno se registre.
+                   </div>`
+                : `<b>Visible para ${choferes.length} chofer(es)</b>
+                   <div class="li-sub" style="margin-top:4px">
+                     ${cerca > 0
+                       ? cerca + ' tiene(n) su base a menos de 80 km de ' + Shell.escape(comuna) + '.'
+                       : 'Ninguno tiene base cerca, pero igual pueden tomarla.'}
+                   </div>`}
+            </div>
+            <button class="btn block" onclick="location.href='rutas.html'">Ver el estado de mis cargas</button>
+            <button class="btn ghost block" style="margin-top:10px" onclick="location.href='inicio.html'">Volver al inicio</button>`);
         }).catch(e => {
           $('err').textContent = 'No se pudo publicar: ' + e.message;
         });

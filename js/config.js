@@ -74,6 +74,20 @@ const MODO_MAPA = 'propio';
    funcione sin servidor propio. Sirve para el trabajo y para demostrar;
    no la uses con datos reales de personas. */
 
+/* Estos dos valores se dejan VACÍOS a propósito.
+
+   La clave "anon" se escribe desde la propia aplicación:
+     entra como administración -> Configuración -> Base compartida.
+   Queda guardada en el dispositivo, no en el código.
+
+   Por qué no va aquí: este archivo viaja al repositorio público, y hay
+   programas que rastrean GitHub buscando claves de Supabase. Como las
+   políticas del esquema son permisivas, quien tuviera la clave podría leer
+   y borrar toda la base. Guardándola en el dispositivo, eso no ocurre.
+
+   Si algún día se migra a Supabase Auth con políticas por usuario, la clave
+   sí podría ir escrita aquí sin riesgo. */
+
 const SUPABASE_URL = '';
 const SUPABASE_ANON_KEY = '';
 

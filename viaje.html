@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VITILOG · Mi viaje</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main">
+      <div class="topbar">
+        <div class="tb-logo">🚚</div>
+        <div><h1>Mi viaje</h1><p id="tb-sub">—</p></div>
+      </div>
+      <div class="content" id="content"></div>
+    </main>
+  </div>
+  <nav class="bottom-nav" id="bottomnav"></nav>
+
+  <script src="js/config.js"></script>
+  <script src="js/nube.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/shell.js"></script>
+  <script>
+    Shell.init('viaje', { rol: Store.ROL_CHOFER }).then(listo => { if (!listo) return;
+      const $ = id => document.getElementById(id);
+      const c = $('content');
+      let envio = Store.servicioActivo();
+      let reloj = null;
+      let ultimoAviso = null;
+
+      if (!envio) {
+        c.innerHTML = `
+          <div class="empty">
+            <div class="ic">🚚</div>
+            <p>No tienes ningún viaje en curso.</p>
+            <button class="btn" style="margin-top:14px" onclick="location.href='inicio-chofer.html'">
+              Ver servicios disponibles
+            </button>
+          </div>`;
+        return;
+      }
+
+      /* ---------------- Pantalla ---------------- */
+      function render() {
+        const seg = Shell.calcularSeguimiento(envio);
+        const est = estadoEnvio(seg.estado);
+        const arrancado = !!envio.salida;
+        const transmitiendo = Shell.transmitiendo();
+        const frescura = Shell.frescura(envio);
+        const perdida = Shell.senalPerdida(envio);
+
+        $('tb-sub').textContent = `${envio.origenComuna} → ${envio.destinoNombre}`;
+
+        c.innerHTML = `
+          <!-- Estado del GPS: es lo más importante para el chofer -->
+          <div class="card pad" style="border:2px solid ${transmitiendo ? 'var(--primary)' : 'var(--border)'}">
+            <div class="envio-cabecera">
+              <div class="li-ic" style="width:46px;height:46px;font-size:23px;
+                   background:${transmitiendo ? 'rgba(46,125,50,.14)' : 'var(--surface-alt)'};
+                   color:${transmitiendo ? 'var(--primary)' : 'var(--text-secondary)'}">
+                ${transmitiendo ? '🛰️' : '📴'}
+              </div>
+              <div class="titulo">
+                ${transmitiendo ? 'Transmitiendo ubicación' : 'Ubicación apagada'}
+                <div class="li-sub" style="font-weight:400">
+                  ${transmitiendo
+                    ? (frescura ? 'Última señal ' + frescura : 'Buscando señal…')
+                    : 'El viñatero no puede verte en el mapa'}
+                </div>
+              </div>
+            </div>
+            ${perdida && transmitiendo ? `
+              <div class="aviso-error visible" style="margin-top:12px">
+                <span aria-hidden="true">⚠️</span>
+                <span>Hace más de 2 minutos que no llega señal. Revisa la cobertura.</span>
+              </div>` : ''}
+            <button class="btn block" style="margin-top:14px;background:${transmitiendo ? 'var(--danger)' : 'var(--primary)'}"
+                    id="btn-gps">
+              ${transmitiendo ? '⏹ Detener transmisión' : '🛰️ Comenzar a transmitir'}
+            </button>
+            <p class="section-sub" style="margin-top:9px;text-align:center">
+              Se envía la posición cada 15 segundos o cada 120 metros, lo que ocurra después.
+              Así se gasta menos batería y menos datos.
+            </p>
+          </div>
+
+          <!-- Avance del viaje -->
+          <div class="card pad" style="margin-top:14px">
+            <div class="envio-cabecera">
+              <div class="li-ic" style="background:${est.color}22;color:${est.color}">${est.ic}</div>
+              <div class="titulo">${est.label}
+                <div class="li-sub" style="font-weight:400">${est.desc}</div>
+              </div>
+              ${Shell.badge(seg.fuente === 'gps' ? 'Por GPS' : 'Estimada',
+                            seg.fuente === 'gps' ? '#2E7D32' : '#5F6B60',
+                            seg.fuente === 'gps' ? '🛰️' : '📈')}
+            </div>
+            <div class="progress" style="margin-top:14px">
+              <div style="width:${Math.round(seg.progreso*100)}%;background:${est.color}"></div>
+            </div>
+            <div class="grid cols-3" style="margin-top:16px">
+              <div>
+                <div class="dato-grande">${seg.kmRestantes} km</div>
+                <div class="dato-rotulo">Faltan</div>
+              </div>
+              <div>
+                <div class="dato-grande">${envio.volumenDeclarado} m³</div>
+                <div class="dato-rotulo">Carga declarada</div>
+              </div>
+              <div>
+                <div class="dato-grande" style="color:${est.color}">${seg.eta || '—'}</div>
+                <div class="dato-rotulo">Llegada estimada</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mapa -->
+          <div class="section">
+            <div class="section-title">Recorrido</div>
+            <div class="map-sim map-propio map-ruta" id="mapa-ruta" style="margin-top:12px"></div>
+          </div>
+
+          <!-- Acción principal según el momento del viaje -->
+          <div class="section">
+            ${!arrancado ? `
+              <button class="btn block" id="btn-salir" style="min-height:56px;font-size:17px">
+                ▶ Iniciar viaje
+              </button>
+              <p class="section-sub" style="margin-top:9px;text-align:center">
+                Al iniciar, el viñatero empieza a verte en su mapa.
+              </p>`
+            : seg.estado === 'en_destino' ? `
+              <button class="btn block" id="btn-llegue" style="min-height:56px;font-size:17px;background:var(--primary)">
+                📍 Avisar que llegué
+              </button>`
+            : `<button class="btn ghost block" id="btn-llegue">📍 Ya llegué a destino</button>`}
+          </div>
+
+          <!-- Contacto y chat -->
+          <div class="section">
+            <div class="section-title">Productor</div>
+            <div class="card list-item" style="margin-top:12px">
+              <div class="li-ic" style="background:rgba(46,125,50,.12);color:var(--primary)">🍇</div>
+              <div class="li-body">
+                <div class="li-title">${Shell.escape(nombreProductor())}</div>
+                <div class="li-sub">${Shell.escape(envio.origenComuna)}</div>
+              </div>
+              <button class="btn ghost" style="padding:10px 14px;font-size:13.5px" id="btn-contacto">💬 Contactar</button>
+            </div>
+            <button class="btn ghost block" style="margin-top:10px"
+                    onclick="location.href='seguimiento.html?id=${encodeURIComponent(envio.id)}'">
+              💬 Abrir chat y cierre de entrega
+            </button>
+          </div>`;
+
+        pintarMapa(seg);
+        conectar(seg);
+      }
+
+      function nombreProductor() {
+        const v = Store.accountByEmail(envio.vinateroEmail);
+        return v ? v.nombre : 'Productor VITILOG';
+      }
+
+      function pintarMapa(seg) {
+        const mapa = $('mapa-ruta');
+        Shell.pintarMapas();
+        Shell.dibujarMarcadores(mapa, [], {});
+        Shell.encuadrarRuta(mapa.querySelector('.map-geo'), envio, seg);
+        Shell.dibujarRuta(mapa, envio, seg);
+      }
+
+      function conectar(seg) {
+        $('btn-gps').onclick = () => Shell.transmitiendo() ? apagarGps() : encenderGps();
+
+        const salir = $('btn-salir');
+        if (salir) salir.onclick = async () => {
+          envio = await Store.actualizarEnvio(envio.id, {
+            estado: 'en_camino', salida: new Date().toISOString(),
+          });
+          Shell.notificar('Viaje iniciado', `${envio.origenComuna} → ${envio.destinoNombre}`);
+          encenderGps();          // transmitir es el comportamiento esperado
+          render();
+        };
+
+        const llegue = $('btn-llegue');
+        if (llegue) llegue.onclick = async () => {
+          envio = await Store.actualizarEnvio(envio.id, { estado: 'en_destino', progreso: 1 });
+          apagarGps();
+          Shell.notificar('Llegada registrada', 'El productor ya puede confirmar la entrega');
+          location.href = 'seguimiento.html?id=' + encodeURIComponent(envio.id);
+        };
+
+        $('btn-contacto').onclick = () => {
+          const v = Store.accountByEmail(envio.vinateroEmail);
+          Shell.contactar(nombreProductor(), envio.origenComuna,
+            { tel: v ? v.telefono : '', email: envio.vinateroEmail, ic: '🍇' });
+        };
+      }
+
+      /* ---------------- GPS ---------------- */
+      function encenderGps() {
+        if (!Shell.puedePedirGPS()) {
+          Shell.toast(Shell.motivoGPS(new Error('sin-origen-seguro')));
+          return;
+        }
+        const ok = Shell.iniciarTransmision(envio.id, {
+          alActualizar: async () => {
+            envio = Store.envioPorId(envio.id) || envio;
+            render();
+          },
+          alFallar: err => {
+            const msg = Shell.motivoGPS(err);
+            if (msg !== ultimoAviso) { Shell.toast(msg); ultimoAviso = msg; }
+          },
+        });
+        if (ok) { Shell.toast('Transmitiendo tu ubicación'); render(); }
+      }
+
+      function apagarGps() {
+        Shell.detenerTransmision();
+        Shell.toast('Transmisión detenida');
+        render();
+      }
+
+      /* Refresco suave: recalcula estado y frescura de la señal. */
+      async function tic() {
+        const fresco = Store.envioPorId(envio.id);
+        if (fresco) envio = fresco;
+        const { seguimiento } = await Shell.sincronizarEnvio(envio);
+        envio = Store.envioPorId(envio.id) || envio;
+        render();
+        if (seguimiento.estado === 'entregado') {
+          apagarGps();
+          clearInterval(reloj);
+        }
+      }
+
+      Shell.pedirPermisoNotificaciones();
+      render();
+      reloj = setInterval(tic, 10000);
+      window.addEventListener('beforeunload', () => {
+        Shell.detenerTransmision();
+        clearInterval(reloj);
+      });
+    });
+  </script>
+</body>
+</html>

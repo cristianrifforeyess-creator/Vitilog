@@ -18,6 +18,15 @@ const NAV_EMPRESA = [
   { key: 'config', label: 'Ajustes', ic: '⚙️', href: 'configuracion.html' },
 ];
 
+/* Menú del chofer. Su trabajo es tomar servicios y conducir, así que el
+   menú es corto a propósito: todo lo demás distrae al volante. */
+const NAV_CHOFER = [
+  { key: 'inicio', label: 'Servicios', ic: '📋', href: 'inicio-chofer.html' },
+  { key: 'viaje', label: 'Mi viaje', ic: '🚚', href: 'viaje.html' },
+  { key: 'mapa', label: 'Mapa', ic: '🗺️', href: 'mapa.html' },
+  { key: 'config', label: 'Ajustes', ic: '⚙️', href: 'configuracion.html' },
+];
+
 /* Menú de la administración de VITILOG. */
 const NAV_ADMIN = [
   { key: 'admin', label: 'Panel', ic: '🛠️', href: 'admin.html' },
@@ -85,10 +94,12 @@ const Shell = {
   /* Menú y página de inicio que corresponden a cada rol. */
   navFor(rol) {
     if (rol === Store.ROL_ADMIN) return NAV_ADMIN;
+    if (rol === Store.ROL_CHOFER) return NAV_CHOFER;
     return rol === Store.ROL_EMPRESA ? NAV_EMPRESA : NAV_VINATERO;
   },
   homeFor(rol) {
     if (rol === Store.ROL_ADMIN) return 'admin.html';
+    if (rol === Store.ROL_CHOFER) return 'inicio-chofer.html';
     return rol === Store.ROL_EMPRESA ? 'inicio-empresa.html' : 'inicio.html';
   },
 
@@ -442,8 +453,12 @@ const Shell = {
     const origen = { lat: envio.origenLat, lng: envio.origenLng };
     const destino = { lat: envio.destinoLat, lng: envio.destinoLng };
 
-    // Si hay posición reportada por GPS, manda sobre la simulación.
-    const hayGps = typeof envio.vehLat === 'number' && typeof envio.vehLng === 'number';
+    // Si hay posición reportada por GPS, manda sobre la simulación. Pero si
+    // dejó de llegar hace rato, se vuelve a la estimación: mostrar una
+    // posición vieja como si fuera actual sería peor que estimarla.
+    const hayGps = typeof envio.vehLat === 'number'
+      && typeof envio.vehLng === 'number'
+      && !this.senalPerdida(envio);
     const progreso = envio.estado === 'entregado' ? 1 : this.progresoPorTiempo(envio);
     const posicion = hayGps ? { lat: envio.vehLat, lng: envio.vehLng }
                             : this.interpolar(origen, destino, progreso);
@@ -480,10 +495,95 @@ const Shell = {
     return { seguimiento: s, cambio: anterior !== s.estado ? anterior : null };
   },
 
-  /* El chofer publica su ubicación real en el envío. */
+  /* El chofer publica su ubicación real en el envío, una sola vez. */
   async reportarPosicion(envioId) {
     const gps = await this.pedirGPS();
-    return Store.actualizarEnvio(envioId, { vehLat: gps.lat, vehLng: gps.lng });
+    return Store.reportarPosicionEnvio(envioId, gps);
+  },
+
+  /* =====================================================================
+     Transmisión continua de posición (lado del chofer)
+     =====================================================================
+     watchPosition avisa cada vez que el GPS detecta movimiento, lo que en
+     carretera puede ser varias veces por segundo. Escribir todo eso en la
+     base gastaría datos y batería sin aportar precisión, así que se guarda
+     solo cuando pasó bastante tiempo O el camión se movió lo suficiente. */
+  _emisor: null,
+
+  iniciarTransmision(envioId, {
+    cadaSegundos = 15,      // nunca se escribe más seguido que esto
+    cadaMetros = 120,       // ni si el camión casi no se movió
+    alActualizar = null,    // aviso para refrescar la pantalla
+    alFallar = null,
+  } = {}) {
+    if (!navigator.geolocation) {
+      if (alFallar) alFallar(new Error('sin-soporte'));
+      return false;
+    }
+    this.detenerTransmision();
+
+    let ultimaEscritura = 0;
+    let ultimaPos = null;
+
+    const vigia = navigator.geolocation.watchPosition(
+      async pos => {
+        const actual = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          precision: Math.round(pos.coords.accuracy),
+        };
+        const ahora = Date.now();
+        const segundos = (ahora - ultimaEscritura) / 1000;
+        const metros = ultimaPos ? this.distanciaKm(ultimaPos, actual) * 1000 : Infinity;
+
+        // Primera lectura siempre se guarda; después, solo si toca.
+        if (ultimaEscritura && segundos < cadaSegundos && metros < cadaMetros) return;
+
+        ultimaEscritura = ahora;
+        ultimaPos = actual;
+        try {
+          await Store.reportarPosicionEnvio(envioId, actual);
+          if (alActualizar) alActualizar(actual, { segundos, metros });
+        } catch (e) {
+          if (alFallar) alFallar(e);
+        }
+      },
+      err => {
+        if (alFallar) {
+          alFallar(new Error(err.code === 1 ? 'permiso-denegado'
+            : err.code === 3 ? 'tiempo-agotado' : 'sin-senal'));
+        }
+      },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 }
+    );
+
+    this._emisor = { vigia, envioId };
+    return true;
+  },
+
+  detenerTransmision() {
+    if (this._emisor) {
+      navigator.geolocation.clearWatch(this._emisor.vigia);
+      this._emisor = null;
+    }
+  },
+
+  transmitiendo() { return this._emisor !== null; },
+
+  /* Hace cuánto llegó la última posición, en texto legible. */
+  frescura(envio) {
+    if (!envio || !envio.posicionAt) return null;
+    const seg = Math.round((Date.now() - new Date(envio.posicionAt).getTime()) / 1000);
+    if (seg < 60) return 'hace ' + seg + ' s';
+    const min = Math.round(seg / 60);
+    if (min < 60) return 'hace ' + min + ' min';
+    return 'hace ' + Math.round(min / 60) + ' h';
+  },
+
+  /* Una señal se considera perdida si no llega nada en dos minutos. */
+  senalPerdida(envio) {
+    if (!envio || !envio.posicionAt) return false;
+    return (Date.now() - new Date(envio.posicionAt).getTime()) > 120000;
   },
 
   /* Acerca el mapa hasta encuadrar el recorrido completo.

@@ -237,3 +237,48 @@ en la lista de entregas cerradas.
 
 Las notificaciones y el GPS necesitan https:// o http://localhost. Abierto
 como archivo local, el aviso en pantalla sigue funcionando.
+
+Perfil de chofer y telemetría
+-----------------------------
+Hay un cuarto tipo de cuenta, "chofer", que trabaja por su cuenta y es
+independiente de las empresas receptoras. Se registra desde el login igual
+que los demás, indicando teléfono, patente y capacidad del camión.
+
+El circuito completo es:
+
+  1. El viñatero publica una carga (publicar.html). Al terminar se le informa
+     a cuántos choferes quedó visible y cuántos tienen base cerca.
+  2. El chofer la ve en inicio-chofer.html, ordenada por distancia a su base.
+     Si aparecen cargas nuevas mientras tiene la página abierta, recibe una
+     notificación.
+  3. El chofer la acepta eligiendo a qué planta la llevará. Eso crea el envío
+     y la carga deja de ofrecerse a los demás choferes.
+  4. En viaje.html pulsa "Iniciar viaje" y comienza a transmitir su GPS.
+  5. El viñatero ve la posición real en seguimiento.html, con la antigüedad
+     de la señal y la precisión en metros.
+  6. Al llegar se abre el chat, se registra el pesaje y se cierra el servicio.
+
+Consumo de la transmisión
+-------------------------
+watchPosition avisa cada vez que el GPS detecta movimiento, lo que en
+carretera puede ser varias veces por segundo. Escribir todo eso gastaría
+batería y datos sin ganar precisión, así que solo se guarda cuando pasaron
+15 segundos O el camión se movió 120 metros, lo que ocurra después. Ambos
+valores se ajustan en Shell.iniciarTransmision().
+
+El mapa no consume ninguna API: está dibujado en SVG dentro del propio
+sitio, así que acercarlo o redibujarlo no genera peticiones ni costo.
+
+Si la señal se corta
+--------------------
+Cuando pasan más de 2 minutos sin posición nueva, la señal se da por perdida:
+la pantalla vuelve a la posición estimada por tiempo y lo dice explícitamente.
+Mostrar una posición vieja como si fuera actual sería peor que estimarla.
+
+IMPORTANTE: entre dos dispositivos
+----------------------------------
+La transmisión del chofer solo llega al viñatero si está activada la base
+compartida (Supabase). En modo local cada navegador guarda sus propios datos,
+así que el GPS del celular del chofer nunca cruzaría al equipo del viñatero.
+Para una demostración en un solo equipo funciona; para uso real hay que
+configurar Supabase como explica la sección "Base de datos compartida".

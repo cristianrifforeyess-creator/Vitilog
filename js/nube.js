@@ -5,18 +5,57 @@
    Se activa cuando js/config.js tiene la URL y la clave del proyecto.
    Si no, el sitio funciona igual con la base local (localStorage). */
 const Nube = {
-  /* ¿Está configurada la base compartida? */
-  activa() {
-    return typeof SUPABASE_URL === 'string' && SUPABASE_URL.trim() !== ''
-        && typeof SUPABASE_ANON_KEY === 'string' && SUPABASE_ANON_KEY.trim() !== '';
+  /* -------- De dónde salen la dirección y la clave --------
+     Primero se mira lo guardado en el dispositivo (lo que se escribe desde
+     Configuración). Si no hay nada, se usa lo que diga js/config.js.
+     Así la clave no necesita viajar al repositorio. */
+  K_URL: 'vitilog_nube_url',
+  K_KEY: 'vitilog_nube_key',
+
+  _guardado(clave) {
+    try { return (localStorage.getItem(clave) || '').trim(); }
+    catch (e) { return ''; }
   },
 
-  _base() { return SUPABASE_URL.replace(/\/+$/, '') + '/rest/v1/'; },
+  url() {
+    return this._guardado(this.K_URL)
+      || (typeof SUPABASE_URL === 'string' ? SUPABASE_URL.trim() : '');
+  },
+  clave() {
+    return this._guardado(this.K_KEY)
+      || (typeof SUPABASE_ANON_KEY === 'string' ? SUPABASE_ANON_KEY.trim() : '');
+  },
+
+  /* Guarda o borra la configuración de este dispositivo. */
+  configurar(url, clave) {
+    try {
+      if (url && clave) {
+        localStorage.setItem(this.K_URL, url.trim());
+        localStorage.setItem(this.K_KEY, clave.trim());
+      } else {
+        localStorage.removeItem(this.K_URL);
+        localStorage.removeItem(this.K_KEY);
+      }
+      return true;
+    } catch (e) { return false; }
+  },
+
+  /* ¿Está configurada la base compartida? */
+  activa() {
+    return this.url() !== '' && this.clave() !== '';
+  },
+
+  /* Tolera que la URL venga con o sin "/rest/v1" al final: en el panel de
+     Supabase se copia de las dos formas según dónde se mire. */
+  _base() {
+    return this.url().replace(/\/+$/, '').replace(/\/rest\/v1$/, '') + '/rest/v1/';
+  },
 
   _cabeceras(extra = {}) {
+    const k = this.clave();
     return {
-      'apikey': SUPABASE_ANON_KEY,
-      'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+      'apikey': k,
+      'Authorization': 'Bearer ' + k,
       'Content-Type': 'application/json',
       ...extra,
     };

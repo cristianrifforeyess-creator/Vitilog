@@ -25,6 +25,18 @@
           <div class="field" id="f-vinatero"><label>Hectáreas de viñedo</label><input class="input" id="hectareas" type="number"></div>
           <div class="field" id="f-empresa" style="display:none"><label>Rubro de la empresa</label><select id="tipo"></select></div>
           <div class="field" id="f-encargado" style="display:none"><label>Persona de contacto</label><input class="input" id="encargado"></div>
+          <div class="field" id="f-patente" style="display:none"><label>Patente del camión</label><input class="input" id="patente" style="text-transform:uppercase"></div>
+          <div class="field" id="f-capacidad" style="display:none"><label>Capacidad de carga (m³)</label><input class="input" id="capacidad" type="number" min="1"></div>
+          <div class="card pad" id="f-disponible" style="display:none;margin-bottom:14px">
+            <div class="list-item" style="padding:0">
+              <div class="li-ic">🟢</div>
+              <div class="li-body">
+                <div class="li-title">Disponible para tomar servicios</div>
+                <div class="li-sub" id="disp-sub">Apágalo si no estás trabajando</div>
+              </div>
+              <input type="checkbox" id="disponible" class="toggle">
+            </div>
+          </div>
         </div>
         <div class="err" id="err"></div>
         <button class="btn block" onclick="guardar()">💾 Guardar cambios</button>
@@ -40,6 +52,39 @@
         </div>
         <div class="err" id="err-clave"></div>
         <button class="btn block" onclick="cambiarClave()">🔑 Cambiar contraseña</button>
+
+        <!-- Solo para la administración -->
+        <div id="bloque-nube" style="display:none">
+          <div class="section-title" style="color:var(--primary);margin-top:28px">Base compartida</div>
+          <div class="card pad" style="margin-top:12px">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+              <div class="li-ic" id="nube-ic">💾</div>
+              <div class="li-body" style="min-width:180px">
+                <div class="li-title" id="nube-estado">Modo local</div>
+                <div class="li-sub" id="nube-detalle">Cada dispositivo guarda sus propios datos</div>
+              </div>
+            </div>
+            <div class="field" style="margin-top:16px">
+              <label for="nube-url">Project URL de Supabase</label>
+              <input class="input" id="nube-url" placeholder="https://xxxxx.supabase.co"
+                     autocomplete="off" spellcheck="false">
+            </div>
+            <div class="field">
+              <label for="nube-key">Clave anon public</label>
+              <input class="input" id="nube-key" type="password" placeholder="eyJ..."
+                     autocomplete="off" spellcheck="false">
+            </div>
+            <div class="err" id="nube-err"></div>
+            <div class="field-row">
+              <button class="btn ghost" style="flex:1" id="nube-borrar">Desconectar</button>
+              <button class="btn" style="flex:1" id="nube-guardar">☁️ Conectar</button>
+            </div>
+            <p class="section-sub" style="margin-top:10px">
+              Se guarda en <b>este dispositivo</b>, no en el código del sitio. Hay que
+              escribirla en cada equipo donde quieras datos compartidos.
+            </p>
+          </div>
+        </div>
 
         <div class="section-title" style="color:var(--primary);margin-top:28px">Apariencia</div>
         <div class="card" style="margin-top:12px">
@@ -75,6 +120,7 @@
       const $ = id => document.getElementById(id);
       const u = Store.currentUser();
       const esEmpresa = Store.rolDe(u) === Store.ROL_EMPRESA;
+      const esChofer = Store.rolDe(u) === Store.ROL_CHOFER;
 
       $('nombre').value = u.nombre;
       $('email').value = u.email;
@@ -95,11 +141,29 @@
       $('f-encargado').style.display = esEmpresa ? 'block' : 'none';
       $('l-alerta').textContent = esEmpresa ? 'Avisos de nuevas cargas' : 'Alertas de recolección';
 
+      // Campos del chofer
+      ['f-patente', 'f-capacidad', 'f-disponible'].forEach(i =>
+        $(i).style.display = esChofer ? 'block' : 'none');
+      if (esChofer) {
+        $('f-vinatero').style.display = 'none';
+        $('patente').value = u.patente || '';
+        $('capacidad').value = u.capacidad || '';
+        $('disponible').checked = u.disponible !== false;
+        $('disp-sub').textContent = u.disponible !== false
+          ? 'Las cargas nuevas te llegarán' : 'No recibirás avisos de cargas';
+        $('disponible').onchange = async () => {
+          await Store.updateAccount({ disponible: $('disponible').checked });
+          $('disp-sub').textContent = $('disponible').checked
+            ? 'Las cargas nuevas te llegarán' : 'No recibirás avisos de cargas';
+          Shell.toast($('disponible').checked ? 'Disponible' : 'No disponible');
+        };
+      }
+
       if (esEmpresa) {
         $('tipo').innerHTML = DATA.tiposEmpresa.map(t =>
           `<option ${t === u.tipo ? 'selected' : ''}>${t}</option>`).join('');
         $('encargado').value = u.encargado || '';
-      } else {
+      } else if (!esChofer) {
         $('hectareas').value = u.hectareas ? u.hectareas : '';
       }
 
@@ -129,6 +193,52 @@
         Shell.toast('Contraseña actualizada');
       };
 
+      /* -------- Base compartida (solo administración) -------- */
+      if (Store.rolDe(u) === Store.ROL_ADMIN) {
+        $('bloque-nube').style.display = 'block';
+        $('nube-url').value = Nube._guardado(Nube.K_URL);
+        $('nube-key').value = Nube._guardado(Nube.K_KEY);
+        pintarEstadoNube();
+
+        $('nube-guardar').onclick = async () => {
+          const url = $('nube-url').value.trim();
+          const key = $('nube-key').value.trim();
+          const err = $('nube-err');
+          err.textContent = '';
+          if (!url || !key) return (err.textContent = 'Completa la dirección y la clave.');
+          if (!url.startsWith('https://')) return (err.textContent = 'La dirección debe empezar con https://');
+
+          Nube.configurar(url, key);
+          const problema = await Nube.revisar();
+          if (problema) {
+            Nube.configurar('', '');            // no se deja una conexión rota
+            return (err.textContent = problema);
+          }
+          Store._listo = false;
+          await Store.sincronizar({ forzar: true });
+          pintarEstadoNube();
+          Shell.toast('Conectado a la base compartida');
+        };
+
+        $('nube-borrar').onclick = async () => {
+          Nube.configurar('', '');
+          Store._listo = false;
+          await Store.sincronizar({ forzar: true });
+          $('nube-url').value = ''; $('nube-key').value = '';
+          pintarEstadoNube();
+          Shell.toast('Vuelta al modo local');
+        };
+      }
+
+      function pintarEstadoNube() {
+        const enNube = Store.enNube();
+        $('nube-ic').textContent = enNube ? '☁️' : '💾';
+        $('nube-estado').textContent = enNube ? 'Conectado a la nube' : 'Modo local';
+        $('nube-detalle').textContent = enNube
+          ? 'Los datos se comparten entre todos los dispositivos'
+          : 'Cada dispositivo guarda sus propios datos';
+      }
+
       // Estado del switch de tema
       function syncTheme() {
         const dark = Store.isDark();
@@ -157,6 +267,9 @@
         if (esEmpresa) {
           cambios.tipo = $('tipo').value;
           cambios.encargado = $('encargado').value.trim();
+        } else if (esChofer) {
+          cambios.patente = $('patente').value.trim().toUpperCase();
+          cambios.capacidad = parseFloat($('capacidad').value) || 0;
         } else {
           cambios.hectareas = parseFloat(($('hectareas').value || '0').replace(',', '.')) || 0;
         }

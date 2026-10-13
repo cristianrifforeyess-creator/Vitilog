@@ -28,7 +28,7 @@ create extension if not exists pgcrypto;
 create table if not exists cuentas (
   email       text primary key,
   rol         text not null default 'vinatero'
-              check (rol in ('vinatero', 'empresa', 'admin')),
+              check (rol in ('vinatero', 'empresa', 'chofer', 'admin')),
   nombre      text not null,
   clave_hash  text not null,
   clave_sal   text not null,
@@ -37,6 +37,9 @@ create table if not exists cuentas (
   hectareas   numeric default 0,       -- solo viñateros
   tipo        text,                    -- solo empresas: Biomasa/Compostaje/Transporte
   encargado   text default '',         -- solo empresas
+  patente     text,                    -- solo choferes
+  capacidad   numeric default 0,       -- solo choferes, en m3
+  disponible  boolean not null default true,   -- el chofer puede apagarse
   activa      boolean not null default true,
   creada      timestamptz not null default now()
 );
@@ -85,6 +88,7 @@ create table if not exists envios (
   carga_id          text references cargas(id) on delete set null,
   vinatero_email    text references cuentas(email) on delete set null,
   empresa_email     text references cuentas(email) on delete set null,
+  chofer_email      text references cuentas(email) on delete set null,
 
   chofer            text not null,
   chofer_telefono   text not null,
@@ -106,8 +110,11 @@ create table if not exists envios (
   progreso          numeric not null default 0 check (progreso between 0 and 1),
 
   -- Última posición reportada por el GPS del chofer, si la hubo.
+  -- posicion_at permite saber hace cuánto llegó y si se perdió la señal.
   veh_lat           double precision,
   veh_lng           double precision,
+  precision_m       numeric,          -- precision del GPS en metros
+  posicion_at       timestamptz,
 
   volumen_declarado numeric not null default 0,
   volumen_recibido  numeric,
@@ -158,7 +165,9 @@ create policy proto_mensajes on mensajes for all using (true) with check (true);
 -- ---------------------------------------------------------------------
 -- Cuenta de administración
 -- ---------------------------------------------------------------------
--- CAMBIA 'CAMBIA-ESTA-CLAVE' por la contraseña que quieras usar.
+-- La contraseña inicial es 'admin1234', la misma del modo local.
+-- CÁMBIALA apenas entres: Configuración -> Contraseña, dentro de la propia
+-- aplicación. No hace falta tocar este archivo.
 -- El hash se calcula igual que en el navegador: sha256(sal || clave).
 insert into cuentas (email, rol, nombre, clave_sal, clave_hash, comuna)
 values (
@@ -166,7 +175,7 @@ values (
   'admin',
   'Administración VITILOG',
   'vitilog-admin',
-  encode(digest('vitilog-admin' || 'CAMBIA-ESTA-CLAVE', 'sha256'), 'hex'),
+  encode(digest('vitilog-admin' || 'admin1234', 'sha256'), 'hex'),
   'Talca'
 )
 on conflict (email) do nothing;

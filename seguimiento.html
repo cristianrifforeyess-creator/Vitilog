@@ -63,6 +63,43 @@
         }).join('')}</div>`;
       }
 
+      /* Estado de la señal del chofer. Importa distinguir "el camión va por
+         aquí de verdad" de "esto es una estimación por tiempo". */
+      function telemetriaHtml(seg) {
+        if (envio.estado === 'entregado') return '';
+        const frescura = Shell.frescura(envio);
+        const perdida = Shell.senalPerdida(envio);
+
+        if (seg.fuente === 'gps') {
+          return `<div class="card pad" style="margin-top:12px;background:rgba(46,125,50,.08);border:0">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <span style="font-size:18px">🛰️</span>
+              <span style="flex:1;min-width:180px;font-size:13.5px">
+                <b>Posición real del camión</b> · señal ${frescura}
+                ${envio.precision ? ` · precisión ±${envio.precision} m` : ''}
+              </span>
+            </div>
+          </div>`;
+        }
+
+        if (perdida) {
+          return `<div class="aviso-error visible" style="margin-top:12px">
+            <span aria-hidden="true">📡</span>
+            <span>Se perdió la señal del camión (última ${frescura}). Mientras tanto la posición es estimada.</span>
+          </div>`;
+        }
+
+        return `<div class="card pad" style="margin-top:12px;background:var(--surface-alt);border:0">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <span style="font-size:18px">📈</span>
+            <span style="flex:1;min-width:180px;font-size:13.5px">
+              <b>Posición estimada por tiempo.</b>
+              El chofer aún no ha encendido la transmisión de su ubicación.
+            </span>
+          </div>
+        </div>`;
+      }
+
       function chatHtml(seg) {
         const abierto = pasoEstado(seg.estado) >= pasoEstado('en_destino');
         if (!abierto) {
@@ -162,10 +199,12 @@
                 ${est.label}
                 <div class="li-sub" style="font-weight:400">${est.desc}</div>
               </div>
-              ${Shell.badge(seg.fuente === 'gps' ? 'Posición GPS' : 'Posición estimada',
+              ${Shell.badge(seg.fuente === 'gps' ? 'GPS en vivo' : 'Posición estimada',
                             seg.fuente === 'gps' ? '#2E7D32' : '#5F6B60',
                             seg.fuente === 'gps' ? '🛰️' : '📈')}
             </div>
+
+            ${telemetriaHtml(seg)}
 
             ${pasosHtml(seg.estado)}
 
@@ -303,7 +342,8 @@
 
       /* ---------------- Actualización automática ---------------- */
       async function tic() {
-        const actual = Store.envioPorId(envio.id);
+        // Primero se trae la última posición que publicó el chofer.
+        const actual = await Store.refrescarEnvio(envio.id);
         if (actual) envio = actual;
 
         const { seguimiento, cambio } = await Shell.sincronizarEnvio(envio);
