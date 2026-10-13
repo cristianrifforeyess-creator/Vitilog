@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VITILOG · Buscar Empresas</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main">
+      <div class="topbar">
+        <button class="tb-logo" style="border:none;color:#fff" onclick="history.back()">←</button>
+        <div><h1>Buscar Empresas</h1><p>Biomasa o compostaje</p></div>
+      </div>
+      <div class="content">
+        <input class="input" id="q" placeholder="🔍  Buscar por nombre o comuna…" oninput="render()">
+        <div class="chip-select" id="filtros" style="margin-top:12px"></div>
+        <div id="results" class="stagger" style="margin-top:16px"></div>
+      </div>
+    </main>
+  </div>
+  <nav class="bottom-nav" id="bottomnav"></nav>
+
+  <script src="js/config.js"></script>
+  <script src="js/nube.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/shell.js"></script>
+  <script>
+    Shell.init('inicio', { rol: Store.ROL_VINATERO }).then(listo => { if (!listo) return;
+      let filtro = 'Todas';
+      const filtros = ['Todas', 'Biomasa', 'Compostaje'];
+      document.getElementById('filtros').innerHTML = filtros.map(f =>
+        `<button class="chip ${f === filtro ? 'active' : ''}" data-f="${f}" onclick="setF('${f}')">${f}</button>`).join('');
+
+      window.setF = f => {
+        filtro = f;
+        document.querySelectorAll('#filtros .chip').forEach(c => c.classList.toggle('active', c.dataset.f === f));
+        render();
+      };
+
+      window.render = () => {
+        const q = document.getElementById('q').value.trim().toLowerCase();
+        // Misma fuente que el mapa, ya ordenada por cercanía al usuario.
+        const list = Shell.empresasParaBuscador().filter(e => {
+          const okText = !q || e.nombre.toLowerCase().includes(q) || e.comuna.toLowerCase().includes(q);
+          const okF = filtro === 'Todas' || e.tipo === filtro;
+          return okText && okF;
+        });
+        const box = document.getElementById('results');
+        if (list.length === 0) {
+          box.innerHTML = `<div class="empty"><div class="ic">🔍</div><p>No se encontraron empresas</p></div>`;
+          return;
+        }
+        box.innerHTML = `<div class="section-sub" style="margin-bottom:8px">${list.length} resultado(s)</div>` +
+          `<div class="grid">` + list.map(e => {
+            const color = tipoColor(e.tipo, e.activo);
+            const ic = e.tipo === 'Biomasa' ? '🔥' : '♻️';
+            const estado = e.activo ? Shell.badge('Disponible', '#2E7D32', '✅') : Shell.badge('Sin cupos', '#E53935', '⛔');
+            const sello = e.registrada ? ' ' + Shell.badge('Registrada', '#1976D2', '🔖') : '';
+            return `
+              <div class="card list-item">
+                <div class="li-ic" style="background:${color}22;color:${color}">${ic}</div>
+                <div class="li-body">
+                  <div class="li-title">${Shell.escape(e.nombre)}</div>
+                  <div class="li-sub">${e.tipo} · ${e.comuna}${e.km != null ? ' · a ' + e.km + ' km' : ''}</div>
+                  <div style="margin-top:6px">${estado}${sello}</div>
+                </div>
+                <button class="btn ghost" style="padding:8px 12px;font-size:13px" ${e.activo ? '' : 'disabled'}
+                  data-id="${e.id}">💬 Contactar</button>
+              </div>`;
+          }).join('') + `</div>`;
+
+        // Contacto: datos reales si la empresa está registrada en VITILOG.
+        box.querySelectorAll('button[data-id]').forEach(b => {
+          b.onclick = () => {
+            const e = list.find(x => x.id === b.dataset.id);
+            Shell.contactar(e.nombre, `${e.tipo} · ${e.comuna}`,
+              e.registrada ? { tel: e.telefono, email: e.email } : {});
+          };
+        });
+        box.classList.remove('stagger'); void box.offsetWidth; box.classList.add('stagger');
+      };
+      render();
+    });
+  </script>
+</body>
+</html>

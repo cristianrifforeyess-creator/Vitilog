@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VITILOG · Configuración</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main">
+      <div class="topbar">
+        <button class="tb-logo" style="border:none;color:#fff" onclick="history.back()">←</button>
+        <div><h1>Configuración</h1><p>Región del Maule</p></div>
+      </div>
+      <div class="content" style="max-width:640px">
+        <div class="section-title" style="color:var(--primary);margin-top:4px">Cuenta</div>
+        <div style="margin-top:12px">
+          <div class="field"><label id="l-nombre">Nombre</label><input class="input" id="nombre"></div>
+          <div class="field"><label>Correo electrónico</label><input class="input" id="email" type="email"></div>
+          <div class="field"><label id="l-comuna">Comuna</label><select id="comuna"></select></div>
+          <div class="field"><label>Teléfono</label><input class="input" id="telefono"></div>
+          <!-- Último campo: depende del tipo de cuenta -->
+          <div class="field" id="f-vinatero"><label>Hectáreas de viñedo</label><input class="input" id="hectareas" type="number"></div>
+          <div class="field" id="f-empresa" style="display:none"><label>Rubro de la empresa</label><select id="tipo"></select></div>
+          <div class="field" id="f-encargado" style="display:none"><label>Persona de contacto</label><input class="input" id="encargado"></div>
+        </div>
+        <div class="err" id="err"></div>
+        <button class="btn block" onclick="guardar()">💾 Guardar cambios</button>
+
+        <div class="section-title" style="color:var(--primary);margin-top:28px">Contraseña</div>
+        <div class="card pad" id="aviso-clave" style="display:none;margin-top:12px;background:rgba(249,168,37,.12);border-color:var(--warning)">
+          ⚠️ Estás usando la contraseña por defecto. Cámbiala antes de compartir el sitio.
+        </div>
+        <div style="margin-top:12px">
+          <div class="field"><label>Contraseña actual</label><input class="input" id="clave-actual" type="password" placeholder="••••••"></div>
+          <div class="field"><label>Nueva contraseña</label><input class="input" id="clave-nueva" type="password" placeholder="Mínimo 4 caracteres"></div>
+          <div class="field"><label>Repite la nueva</label><input class="input" id="clave-repite" type="password" placeholder="••••••"></div>
+        </div>
+        <div class="err" id="err-clave"></div>
+        <button class="btn block" onclick="cambiarClave()">🔑 Cambiar contraseña</button>
+
+        <div class="section-title" style="color:var(--primary);margin-top:28px">Apariencia</div>
+        <div class="card" style="margin-top:12px">
+          <div class="list-item">
+            <div class="li-ic" id="theme-ic">☀️</div>
+            <div class="li-body"><div class="li-title">Modo oscuro</div><div class="li-sub" id="theme-sub">Desactivado</div></div>
+            <input type="checkbox" id="dark" class="toggle" onchange="toggleDark(this.checked)">
+          </div>
+        </div>
+
+        <div class="section-title" style="color:var(--primary);margin-top:28px">Notificaciones</div>
+        <div class="card" style="margin-top:12px">
+          <div class="list-item"><div class="li-ic">🔔</div><div class="li-body"><div class="li-title" id="l-alerta">Alertas de recolección</div></div><input type="checkbox" checked></div>
+          <div style="height:1px;background:var(--border)"></div>
+          <div class="list-item"><div class="li-ic">✉️</div><div class="li-body"><div class="li-title">Novedades por correo</div></div><input type="checkbox"></div>
+        </div>
+
+        <div class="section-title" style="color:var(--primary);margin-top:28px">Sesión</div>
+        <button class="btn outline block" style="margin-top:12px" onclick="Shell.logout()">🚪 Cerrar sesión</button>
+      </div>
+    </main>
+  </div>
+  <nav class="bottom-nav" id="bottomnav"></nav>
+
+  <script src="js/config.js"></script>
+  <script src="js/nube.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/shell.js"></script>
+  <script>
+    // La clave activa del menú cambia según el rol (empresa lo tiene como "Ajustes").
+    Shell.init('config').then(listo => { if (!listo) return;
+      const $ = id => document.getElementById(id);
+      const u = Store.currentUser();
+      const esEmpresa = Store.rolDe(u) === Store.ROL_EMPRESA;
+
+      $('nombre').value = u.nombre;
+      $('email').value = u.email;
+      $('telefono').value = u.telefono || '';
+
+      // Comunas que el mapa sabe ubicar. Si la cuenta tiene una comuna antigua
+      // que no está en la lista, se agrega para no perder el dato.
+      const comunas = DATA.comunas.map(c => c.nombre);
+      if (u.comuna && !comunas.includes(u.comuna)) comunas.unshift(u.comuna);
+      $('comuna').innerHTML = comunas.map(c =>
+        `<option ${c === u.comuna ? 'selected' : ''}>${c}</option>`).join('');
+
+      // Campos propios de cada tipo de cuenta
+      $('l-nombre').textContent = esEmpresa ? 'Nombre de la empresa' : 'Nombre';
+      $('l-comuna').textContent = esEmpresa ? 'Comuna de la planta o base' : 'Comuna';
+      $('f-vinatero').style.display = esEmpresa ? 'none' : 'block';
+      $('f-empresa').style.display = esEmpresa ? 'block' : 'none';
+      $('f-encargado').style.display = esEmpresa ? 'block' : 'none';
+      $('l-alerta').textContent = esEmpresa ? 'Avisos de nuevas cargas' : 'Alertas de recolección';
+
+      if (esEmpresa) {
+        $('tipo').innerHTML = DATA.tiposEmpresa.map(t =>
+          `<option ${t === u.tipo ? 'selected' : ''}>${t}</option>`).join('');
+        $('encargado').value = u.encargado || '';
+      } else {
+        $('hectareas').value = u.hectareas ? u.hectareas : '';
+      }
+
+      // Aviso solo si la cuenta sigue con la contraseña sembrada por defecto.
+      if (u.porDefecto) $('aviso-clave').style.display = 'block';
+
+      window.cambiarClave = async () => {
+        const err = $('err-clave');
+        const actual = $('clave-actual').value;
+        const nueva = $('clave-nueva').value;
+        const repite = $('clave-repite').value;
+        err.textContent = '';
+
+        const cuenta = Store.currentUser();
+        if (!await Store._claveCoincide(cuenta, actual)) {
+          return (err.textContent = 'La contraseña actual no es correcta');
+        }
+        if (nueva.length < 4) return (err.textContent = 'La nueva debe tener al menos 4 caracteres');
+        if (nueva !== repite) return (err.textContent = 'Las dos contraseñas nuevas no coinciden');
+        if (nueva === actual) return (err.textContent = 'La nueva contraseña debe ser distinta de la actual');
+
+        const problema = await Store.cambiarClave(Store.currentEmail(), nueva);
+        if (problema) return (err.textContent = problema);
+
+        ['clave-actual', 'clave-nueva', 'clave-repite'].forEach(i => ($(i).value = ''));
+        $('aviso-clave').style.display = 'none';
+        Shell.toast('Contraseña actualizada');
+      };
+
+      // Estado del switch de tema
+      function syncTheme() {
+        const dark = Store.isDark();
+        $('dark').checked = dark;
+        $('theme-ic').textContent = dark ? '🌙' : '☀️';
+        $('theme-sub').textContent = dark ? 'Activado' : 'Desactivado';
+      }
+      syncTheme();
+
+      window.toggleDark = (v) => { Store.setDark(v); Shell.applyTheme(); syncTheme(); };
+
+      window.guardar = () => {
+        const email = $('email').value.trim();
+        if (email && (!email.includes('@') || !email.includes('.'))) return ($('err').textContent = 'Correo no válido');
+        // Evita chocar con otra cuenta existente
+        const otra = Store.accountByEmail(email);
+        if (otra && otra.email.toLowerCase() !== u.email.toLowerCase())
+          return ($('err').textContent = 'Ya existe otra cuenta con ese correo');
+        $('err').textContent = '';
+        const cambios = {
+          nombre: $('nombre').value.trim() || u.nombre,
+          email: email || u.email,
+          comuna: $('comuna').value.trim() || u.comuna,
+          telefono: $('telefono').value.trim(),
+        };
+        if (esEmpresa) {
+          cambios.tipo = $('tipo').value;
+          cambios.encargado = $('encargado').value.trim();
+        } else {
+          cambios.hectareas = parseFloat(($('hectareas').value || '0').replace(',', '.')) || 0;
+        }
+        Store.updateAccount(cambios).then(() => Shell.toast("Cambios guardados"));
+
+      };
+    });
+  </script>
+
+  <style>
+    input[type="checkbox"]:not(.toggle) { accent-color: var(--primary); width: 20px; height: 20px; flex: 0 0 auto; }
+    input.toggle { appearance: none; -webkit-appearance: none; width: 46px; height: 26px; border-radius: 20px; background: var(--border); position: relative; cursor: pointer; transition: background .2s; flex: 0 0 auto; }
+    input.toggle::before { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform .2s; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+    input.toggle:checked { background: var(--primary); }
+    input.toggle:checked::before { transform: translateX(20px); }
+  </style>
+</body>
+</html>

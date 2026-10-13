@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VITILOG · Inicio</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main">
+      <div class="topbar">
+        <div class="tb-logo">🌿</div>
+        <div><h1>AgroConecta</h1><p>Región del Maule</p></div>
+        <div class="tb-actions">
+          <button title="Notificaciones" id="btn-notif">🔔</button>
+          <button title="Mi perfil" onclick="location.href='perfil.html'">👤</button>
+        </div>
+      </div>
+      <div class="content stagger" id="content"></div>
+    </main>
+  </div>
+  <nav class="bottom-nav" id="bottomnav"></nav>
+
+  <script src="js/config.js"></script>
+  <script src="js/nube.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/shell.js"></script>
+  <script>
+    Shell.init('inicio', { rol: Store.ROL_VINATERO }).then(listo => { if (!listo) return;
+      const user = Store.currentUser();
+      const c = document.getElementById('content');
+
+      const statsHtml = DATA.statsInicio.map(s => `
+        <div class="card stat-card">
+          <div class="chip-ic" style="background:${s.color}22;color:${s.color}">${s.ic}</div>
+          <div class="val">${s.val}</div>
+          <div class="lbl">${s.lbl}</div>
+          <div class="sub">${s.sub}</div>
+        </div>`).join('');
+
+      const alertasHtml = DATA.alertas.map((a, i) => `
+        <div class="card list-item" onclick="Shell.toast('${Shell.escape(a.titulo)}')">
+          <div class="li-ic" style="background:${a.color}22">${a.ic}</div>
+          <div class="li-body"><div class="li-title">${a.titulo}</div><div class="li-sub">${a.detalle}</div></div>
+          <div class="li-chev">›</div>
+        </div>`).join('');
+
+      // Zona de recolección: la comuna que el usuario eligió al registrarse.
+      const ubi = Shell.ubicacionCuenta();
+      const zona = ubi ? ubi.comuna : 'Región del Maule';
+
+      const mis = Store.misCargas();
+      const pubsHtml = mis.length === 0 ? '' : `
+        <div class="section">
+          <div class="section-title">Tus publicaciones</div>
+          <div class="section-sub">${mis.length} carga(s) esperando recolección</div>
+          <div class="grid" style="margin-top:12px">
+            ${mis.map(m => `
+              <div class="card pad">
+                <div style="display:flex;align-items:center;gap:12px">
+                  <div class="li-ic" style="background:rgba(46,125,50,.12);color:var(--primary)">🌾</div>
+                  <b style="flex:1">${m.volumen} m³ · ${m.comuna}</b>
+                  ${Shell.badge('Publicada', '#2E7D32', '✅')}
+                </div>
+                <div class="route-info" style="margin-top:12px">
+                  <span class="info-line">♻️ Destino: <b>${m.destino}</b></span>
+                  <span class="info-line">📅 Disponible: <b>${m.fecha}</b></span>
+                </div>
+                <div style="text-align:right;margin-top:6px">
+                  <button class="link-btn" style="color:var(--danger)" onclick="borrarCarga('${m.id}')">🗑 Retirar</button>
+                </div>
+              </div>`).join('')}
+          </div>
+        </div>`;
+
+      c.innerHTML = `
+        <div>
+          <div class="greet">Hola, ${Shell.escape(user.nombre)} 👋</div>
+          <div class="greet-sub">Optimiza la recolección de sarmientos en la Región del Maule</div>
+        </div>
+
+        <div class="grid cols-2" style="margin-top:20px">
+          <button class="action-btn" style="background:var(--primary)" onclick="location.href='publicar.html'">
+            <span class="ic">➕</span><b>Publicar Sarmientos</b><span>Nueva carga</span>
+          </button>
+          <button class="action-btn" style="background:var(--leaf)" onclick="location.href='empresas.html'">
+            <span class="ic">🔍</span><b>Buscar Empresas</b><span>Biomasa o compostaje</span>
+          </button>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Zona de Recolección</div>
+          <div class="section-sub">Sarmientos acumulados cerca de ti</div>
+          <div class="map-sim map-mini" id="mini-mapa" style="height:180px;margin-top:12px;cursor:pointer" onclick="location.href='mapa.html'">
+            <div class="map-chip">🗺️ Zona de Recolección · ${Shell.escape(zona)}</div>
+            <div style="position:absolute;right:12px;top:12px;background:var(--primary);color:#fff;padding:7px 12px;border-radius:20px;font-size:12px;font-weight:600">⤢ Ver mapa completo</div>
+          </div>
+        </div>
+
+        ${pubsHtml}
+
+        <div class="section">
+          <div class="section-title">Resumen de tu próxima ruta</div>
+          <div class="grid cols-4" style="margin-top:12px">${statsHtml}</div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Alertas Recientes</div>
+          <div class="grid" style="margin-top:12px">${alertasHtml}</div>
+        </div>`;
+
+      // Vista previa del mapa: recortada alrededor del usuario, con las
+      // plantas y centros que le quedan cerca.
+      const mini = document.getElementById('mini-mapa');
+      Shell.pintarMapas();
+      if (ubi) {
+        // Versión sintetizada: solo tu ubicación y las 3 plantas más cercanas,
+        // sin etiquetas. El mapa completo está en mapa.html.
+        const cercanas = Shell.empresasParaBuscador().slice(0, 3);
+        Shell.dibujarMarcadores(mini, cercanas, { usuario: ubi, escala: 0.5, etiquetas: false });
+        Shell.encuadrarMapa(mini.querySelector('.map-geo'), ubi, 1.2);
+      }
+
+      document.getElementById('btn-notif').onclick = () => {
+        Shell.openModal(`
+          <div class="handle"></div>
+          <b style="font-size:18px">Notificaciones</b>
+          <div style="margin-top:12px">
+          ${DATA.alertas.map(a => `
+            <div class="list-item" style="padding:10px 0">
+              <div class="li-ic" style="background:${a.color}22">${a.ic}</div>
+              <div class="li-body"><div class="li-title">${a.titulo}</div><div class="li-sub">${a.detalle}</div></div>
+            </div>`).join('')}
+          </div>
+          <button class="btn ghost block" style="margin-top:8px" onclick="Shell.closeModal()">Cerrar</button>`);
+      };
+
+      window.borrarCarga = (id) => { Store.removeCarga(id).then(() => location.reload()); };
+    });
+  </script>
+</body>
+</html>

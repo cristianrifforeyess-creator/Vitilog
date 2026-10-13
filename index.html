@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>VITILOG</title>
+</head>
+<body>
+  <p>Cargando <a href="login.html">VITILOG</a>…</p>
+
+  <script src="js/config.js"></script>
+  <script src="js/nube.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/store.js"></script>
+  <script>
+    // Se cargan los datos y recién ahí se decide a dónde entrar.
+    Store.sincronizar().then(() => {
+      const u = Store.currentUser();
+      if (!u) return location.replace('login.html');
+      const rol = Store.rolDe(u);
+      location.replace(
+        rol === Store.ROL_ADMIN ? 'admin.html'
+        : rol === Store.ROL_EMPRESA ? 'inicio-empresa.html'
+        : 'inicio.html');
+    }).catch(() => location.replace('login.html'));
+  </script>
+  <noscript><meta http-equiv="refresh" content="0; url=login.html"></noscript>
+</body>
+</html>

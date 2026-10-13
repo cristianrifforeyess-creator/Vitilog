@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VITILOG · Acceso</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="auth">
+    <!-- Panel de bienvenida -->
+    <div class="auth-brand">
+      <div class="brand" style="padding:0">
+        <div class="logo" style="width:46px;height:46px;background:rgba(255,255,255,.18)">🌿</div>
+        <b style="color:#fff">VITILOG</b>
+      </div>
+      <h2 id="brand-title">Logística inteligente de sarmientos para la Región del Maule.</h2>
+      <p id="brand-text">Conecta a productores de uva con empresas de biomasa y compostaje. Optimiza rutas, reduce costos de flete y evita la quema agrícola.</p>
+      <div class="auth-pills" id="brand-pills"></div>
+    </div>
+
+    <div class="auth-form-wrap">
+      <div class="card auth-card">
+
+        <h1 id="title" style="font-size:25px;font-weight:800;margin-bottom:4px">Bienvenido</h1>
+        <p class="muted" id="subtitle">Elige cómo quieres entrar</p>
+
+        <!-- Paso 1: tipo de cuenta -->
+        <div class="rol-opciones" id="roles" role="radiogroup" aria-label="Tipo de cuenta">
+          <button type="button" class="rol-opcion activa" data-rol="vinatero" role="radio" aria-checked="true">
+            <span class="ic" aria-hidden="true">🍇</span>
+            <span class="texto"><b>Soy viñatero</b><span>Quiero publicar mis sarmientos</span></span>
+            <span class="marca" aria-hidden="true">●</span>
+          </button>
+          <button type="button" class="rol-opcion" data-rol="empresa" role="radio" aria-checked="false">
+            <span class="ic" aria-hidden="true">🏭</span>
+            <span class="texto"><b>Soy empresa o transportista</b><span>Busco sarmientos para retirar</span></span>
+            <span class="marca" aria-hidden="true">○</span>
+          </button>
+          <button type="button" class="rol-opcion" data-rol="admin" role="radio" aria-checked="false">
+            <span class="ic" aria-hidden="true">🛠️</span>
+            <span class="texto"><b>Administración</b><span>Acceso interno de VITILOG</span></span>
+            <span class="marca" aria-hidden="true">○</span>
+          </button>
+        </div>
+
+        <!-- Paso 2: datos -->
+        <form id="formulario" novalidate>
+          <div class="field" id="f-nombre" style="display:none">
+            <label for="nombre" id="l-nombre">Nombre</label>
+            <input class="input" id="nombre" name="nombre" placeholder="Tu nombre"
+                   autocomplete="name" enterkeyhint="next">
+          </div>
+
+          <div class="field" id="f-tipo" style="display:none">
+            <label id="l-tipo">Rubro de la empresa</label>
+            <div class="chip-select" id="tipos" role="radiogroup" aria-labelledby="l-tipo"></div>
+          </div>
+
+          <div class="field" id="f-encargado" style="display:none">
+            <label for="encargado">Persona de contacto</label>
+            <input class="input" id="encargado" name="encargado" placeholder="Nombre del encargado"
+                   autocomplete="name">
+          </div>
+
+          <div class="field" id="f-comuna" style="display:none">
+            <label for="comuna" id="l-comuna">Comuna</label>
+            <select id="comuna" name="comuna"><option value="">Selecciona tu comuna</option></select>
+            <div class="section-sub" style="margin-top:6px">📍 Se usa para ubicarte en el mapa y calcular distancias.</div>
+          </div>
+
+          <div class="field">
+            <label for="email">Correo electrónico</label>
+            <input class="input" id="email" name="email" type="email" placeholder="correo@ejemplo.cl"
+                   autocomplete="email" inputmode="email" enterkeyhint="next" spellcheck="false">
+          </div>
+
+          <div class="field">
+            <label for="password">Contraseña</label>
+            <div class="campo-clave">
+              <input class="input" id="password" name="password" type="password" placeholder="Mínimo 4 caracteres"
+                     autocomplete="current-password" enterkeyhint="go">
+              <button type="button" class="ver-clave" id="ver-clave"
+                      aria-label="Mostrar contraseña" title="Mostrar contraseña">👁️</button>
+            </div>
+          </div>
+
+          <label class="recordar" id="caja-recordar">
+            <input type="checkbox" id="recordar">
+            <span>Recordar mi correo en este dispositivo</span>
+          </label>
+
+          <div class="aviso-error" id="err" role="alert" aria-live="assertive">
+            <span aria-hidden="true">⚠️</span><span id="err-texto"></span>
+          </div>
+
+          <button class="btn block" id="submit" type="submit">Entrar</button>
+        </form>
+
+        <div class="auth-switch">
+          <span id="switch-text">¿No tienes cuenta?</span>
+          <button type="button" id="switch-btn">Regístrate</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/nube.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/shell.js"></script>
+  <script>
+    Shell.applyTheme();
+    const $ = id => document.getElementById(id);
+
+    const K_RECORDAR = 'vitilog_correo_recordado';
+    let rol = Store.ROL_VINATERO;
+    let isLogin = true;
+    let tipoEmpresa = 'Biomasa';
+
+    /* Textos del panel de bienvenida según el tipo de cuenta. */
+    const COPY = {
+      [Store.ROL_VINATERO]: {
+        titulo: 'Logística inteligente de sarmientos para la Región del Maule.',
+        texto: 'Publica tus sarmientos y conecta con empresas de biomasa y compostaje. Sigue el camión en el mapa hasta que llegue a destino.',
+        pills: ['Rutas óptimas', 'Seguimiento en vivo', 'Contacto directo'],
+        subLogin: 'Entra para gestionar tus recolecciones',
+        subRegistro: 'Crea tu cuenta de productor vitivinícola',
+      },
+      [Store.ROL_EMPRESA]: {
+        titulo: 'Encuentra sarmientos disponibles en la Región del Maule.',
+        texto: 'Revisa las cargas que publican los viñateros, fíltralas por comuna y volumen, y coordina el retiro directamente con el productor.',
+        pills: ['Cargas actualizadas', 'Filtros por zona', 'Contacto directo'],
+        subLogin: 'Entra para ver las cargas disponibles',
+        subRegistro: 'Crea tu cuenta de empresa o transporte',
+      },
+      [Store.ROL_ADMIN]: {
+        titulo: 'Administración de la plataforma VITILOG.',
+        texto: 'Gestiona las cuentas, revisa las cargas publicadas y mantiene el catálogo de plantas y centros de acopio.',
+        pills: ['Cuentas', 'Cargas', 'Plantas y acopios'],
+        subLogin: 'Acceso interno del equipo VITILOG',
+        subRegistro: '',
+      },
+    };
+
+    /* -------- Mensajes de error -------- */
+    function mostrarError(texto, campo) {
+      $('err-texto').textContent = texto;
+      $('err').classList.add('visible');
+      if (campo) { const c = $(campo); c.focus(); c.setAttribute('aria-invalid', 'true'); }
+    }
+    function limpiarError() {
+      $('err').classList.remove('visible');
+      ['nombre', 'comuna', 'email', 'password'].forEach(i => $(i).removeAttribute('aria-invalid'));
+    }
+
+    /* -------- Armado de la pantalla -------- */
+    $('comuna').innerHTML += DATA.comunas.map(c => `<option>${c.nombre}</option>`).join('');
+
+    function renderTipos() {
+      $('tipos').innerHTML = DATA.tiposEmpresa.map(t => `
+        <button type="button" class="chip ${t === tipoEmpresa ? 'active' : ''}"
+                data-t="${t}" role="radio" aria-checked="${t === tipoEmpresa}">
+          ${tipoIcono(t)} ${t}
+        </button>`).join('');
+      $('tipos').querySelectorAll('.chip').forEach(b => {
+        b.onclick = () => { tipoEmpresa = b.dataset.t; renderTipos(); };
+      });
+    }
+
+    function render() {
+      const esEmpresa = rol === Store.ROL_EMPRESA;
+      const esAdmin = rol === Store.ROL_ADMIN;
+      if (esAdmin) isLogin = true;          // la administración no se registra
+      const copy = COPY[rol];
+
+      $('brand-title').textContent = copy.titulo;
+      $('brand-text').textContent = copy.texto;
+      $('brand-pills').innerHTML = copy.pills.map(p => `<span class="auth-pill">✔ ${p}</span>`).join('');
+
+      $('roles').querySelectorAll('.rol-opcion').forEach(b => {
+        const activa = b.dataset.rol === rol;
+        b.classList.toggle('activa', activa);
+        b.setAttribute('aria-checked', activa);
+        b.querySelector('.marca').textContent = activa ? '●' : '○';
+      });
+
+      $('title').textContent = isLogin ? 'Bienvenido' : 'Crear cuenta';
+      $('subtitle').textContent = isLogin ? copy.subLogin : copy.subRegistro;
+      $('submit').textContent = isLogin ? 'Entrar' : 'Crear mi cuenta';
+      $('switch-text').textContent = isLogin ? '¿No tienes cuenta?' : '¿Ya tienes cuenta?';
+      $('switch-btn').textContent = isLogin ? 'Regístrate' : 'Inicia sesión';
+
+      $('f-nombre').style.display = isLogin ? 'none' : 'block';
+      $('f-comuna').style.display = isLogin ? 'none' : 'block';
+      $('f-tipo').style.display = (!isLogin && esEmpresa) ? 'block' : 'none';
+      $('f-encargado').style.display = (!isLogin && esEmpresa) ? 'block' : 'none';
+      $('caja-recordar').style.display = isLogin ? 'flex' : 'none';
+
+      $('l-nombre').textContent = esEmpresa ? 'Nombre de la empresa' : 'Nombre';
+      $('nombre').placeholder = esEmpresa ? 'Ej: BioEnergía Maule' : 'Tu nombre';
+      $('l-comuna').textContent = esEmpresa ? 'Comuna de la planta o base' : 'Comuna';
+      $('comuna').options[0].textContent = esEmpresa ? 'Selecciona la comuna de tu base' : 'Selecciona tu comuna';
+      $('email').placeholder = esAdmin ? 'admin@vitilog.cl'
+        : esEmpresa ? 'contacto@empresa.cl' : 'correo@ejemplo.cl';
+      $('password').setAttribute('autocomplete', isLogin ? 'current-password' : 'new-password');
+
+      document.querySelector('.auth-switch').style.display = esAdmin ? 'none' : 'block';
+
+      renderTipos();
+      limpiarError();
+    }
+
+    /* -------- Interacciones -------- */
+    $('roles').querySelectorAll('.rol-opcion').forEach(b => {
+      b.onclick = () => { rol = b.dataset.rol; render(); };
+    });
+
+    $('switch-btn').onclick = () => { isLogin = !isLogin; render(); };
+
+    $('ver-clave').onclick = () => {
+      const c = $('password');
+      const oculta = c.type === 'password';
+      c.type = oculta ? 'text' : 'password';
+      $('ver-clave').textContent = oculta ? '🙈' : '👁️';
+      $('ver-clave').setAttribute('aria-label', oculta ? 'Ocultar contraseña' : 'Mostrar contraseña');
+      c.focus();
+    };
+
+    ['email', 'password', 'nombre'].forEach(i => $(i).addEventListener('input', limpiarError));
+    $('comuna').addEventListener('change', limpiarError);
+
+    /* -------- Envío del formulario -------- */
+    $('formulario').addEventListener('submit', async e => {
+      e.preventDefault();
+      limpiarError();
+
+      const email = $('email').value.trim();
+      const password = $('password').value;
+
+      if (!email) return mostrarError('Escribe tu correo electrónico.', 'email');
+      if (!email.includes('@') || !email.includes('.')) {
+        return mostrarError('Ese correo no parece válido. Revisa que tenga @ y un punto.', 'email');
+      }
+      if (!password) return mostrarError('Escribe tu contraseña.', 'password');
+      if (password.length < 4) {
+        return mostrarError('La contraseña debe tener al menos 4 caracteres.', 'password');
+      }
+
+      const boton = $('submit');
+      boton.disabled = true;
+      const textoOriginal = boton.textContent;
+      boton.textContent = isLogin ? 'Entrando…' : 'Creando cuenta…';
+
+      let error;
+      try {
+        await Store.sincronizar();
+        if (isLogin) {
+          error = await Store.login({ email, password, rol });
+        } else {
+          const nombre = $('nombre').value.trim();
+          if (!nombre) {
+            error = rol === Store.ROL_EMPRESA ? 'Escribe el nombre de la empresa.' : 'Escribe tu nombre.';
+            boton.disabled = false; boton.textContent = textoOriginal;
+            return mostrarError(error, 'nombre');
+          }
+          if (!$('comuna').value) {
+            error = rol === Store.ROL_EMPRESA ? 'Elige la comuna de tu base.' : 'Elige tu comuna.';
+            boton.disabled = false; boton.textContent = textoOriginal;
+            return mostrarError(error, 'comuna');
+          }
+          error = await Store.register({
+            rol, nombre, email, password,
+            comuna: $('comuna').value,
+            tipo: tipoEmpresa,
+            encargado: $('encargado').value,
+          });
+        }
+      } catch (err) {
+        error = 'No se pudo completar la operación: ' + err.message;
+      } finally {
+        boton.disabled = false;
+        boton.textContent = textoOriginal;
+      }
+
+      if (error) return mostrarError(error, 'email');
+
+      // Recordar el correo si lo pidió
+      try {
+        if (isLogin && $('recordar').checked) localStorage.setItem(K_RECORDAR, email);
+        else if (isLogin) localStorage.removeItem(K_RECORDAR);
+      } catch (e) { /* almacenamiento bloqueado */ }
+
+      location.href = Shell.homeFor(rol);
+    });
+
+    /* -------- Arranque -------- */
+    Store.sincronizar().then(problema => {
+      if (problema) mostrarError(problema);
+      if (Store.currentEmail() && Store.currentUser()) {
+        location.href = Shell.homeFor(Store.rolActual());
+        return;
+      }
+      // Correo recordado: se rellena y el foco va directo a la contraseña.
+      try {
+        const guardado = localStorage.getItem(K_RECORDAR);
+        if (guardado) {
+          $('email').value = guardado;
+          $('recordar').checked = true;
+          const cuenta = Store.accountByEmail(guardado);
+          if (cuenta) { rol = Store.rolDe(cuenta); render(); }
+          $('password').focus();
+        }
+      } catch (e) { /* almacenamiento bloqueado */ }
+    });
+
+    render();
+  </script>
+</body>
+</html>

@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VITILOG · Seguimiento</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main">
+      <div class="topbar">
+        <button class="tb-logo" style="border:none;color:#fff" onclick="history.back()" aria-label="Volver">←</button>
+        <div><h1>Seguimiento del retiro</h1><p id="tb-sub">Región del Maule</p></div>
+        <div class="tb-actions">
+          <button title="Actualizar ahora" id="btn-refrescar" aria-label="Actualizar">🔄</button>
+        </div>
+      </div>
+      <div class="content" id="content"></div>
+    </main>
+  </div>
+  <nav class="bottom-nav" id="bottomnav"></nav>
+
+  <script src="js/config.js"></script>
+  <script src="js/nube.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/shell.js"></script>
+  <script>
+    Shell.init('rutas').then(listo => { if (!listo) return;
+      const $ = id => document.getElementById(id);
+      const c = $('content');
+
+      // El envío a seguir viene en la dirección: seguimiento.html?id=...
+      const idEnvio = new URLSearchParams(location.search).get('id');
+      let envio = idEnvio ? Store.envioPorId(idEnvio) : null;
+
+      if (!envio) {
+        c.innerHTML = `
+          <div class="empty">
+            <div class="ic">🚚</div>
+            <p>No encontramos ese retiro.</p>
+            <button class="btn" style="margin-top:14px" onclick="location.href='rutas.html'">Ver mis rutas</button>
+          </div>`;
+        return;
+      }
+
+      const yo = Store.currentEmail();
+      const soyVinatero = envio.vinateroEmail === yo;
+      let estadoPrevio = envio.estado;
+      let reloj = null;
+
+      /* ---------------- Dibujo de la pantalla ---------------- */
+      function pasosHtml(estadoActual) {
+        const actual = pasoEstado(estadoActual);
+        return `<div class="pasos">${DATA.estadosEnvio.map((e, i) => {
+          const clase = i < actual ? 'hecho' : i === actual ? 'actual' : '';
+          return `<div class="paso ${clase}">
+                    <div class="bolita" aria-hidden="true">${i < actual ? '✓' : e.ic}</div>
+                    <div class="rotulo">${e.label}</div>
+                  </div>`;
+        }).join('')}</div>`;
+      }
+
+      function chatHtml(seg) {
+        const abierto = pasoEstado(seg.estado) >= pasoEstado('en_destino');
+        if (!abierto) {
+          return `<div class="chat-bloqueado">
+            🔒 El chat se abre cuando el camión llegue a destino.<br>
+            <span style="font-size:12.5px">Así la conversación queda junto a la confirmación de la entrega.</span>
+          </div>`;
+        }
+        const mensajes = Store.mensajes(envio.id);
+        const burbujas = mensajes.length === 0
+          ? `<div class="chat-bloqueado" style="background:none;padding:14px">
+               Aún no hay mensajes. Escribe el primero para coordinar la recepción.
+             </div>`
+          : mensajes.map(m => {
+              const mio = m.autorEmail === yo;
+              const hora = new Date(m.creado).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
+              return `<div class="burbuja ${mio ? 'mia' : 'suya'}">
+                        ${mio ? '' : `<span class="autor">${Shell.escape(m.autorNombre)}</span>`}
+                        ${Shell.escape(m.texto)}
+                        <span class="hora">${hora}</span>
+                      </div>`;
+            }).join('');
+
+        return `
+          <div class="chat-caja" id="chat-caja">${burbujas}</div>
+          <form class="chat-escribir" id="chat-form">
+            <input class="input" id="chat-texto" placeholder="Escribe un mensaje…"
+                   autocomplete="off" maxlength="400" aria-label="Mensaje">
+            <button class="btn" type="submit" style="padding:0 18px" aria-label="Enviar">➤</button>
+          </form>`;
+      }
+
+      function entregaHtml(seg) {
+        if (seg.estado === 'entregado') {
+          return `
+            <div class="card pad" style="background:var(--surface-alt);margin-top:12px">
+              <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+                <span style="font-size:24px">✅</span>
+                <div style="flex:1;min-width:170px">
+                  <b>Servicio cerrado</b>
+                  <div class="li-sub">Entrega confirmada por ambas partes</div>
+                </div>
+              </div>
+              <div class="route-info" style="margin-top:12px">
+                <span class="info-line">📦 Declarado: <b>${envio.volumenDeclarado} m³</b></span>
+                ${envio.volumenRecibido != null ? `<span class="info-line">📥 Recibido: <b>${envio.volumenRecibido} m³</b></span>` : ''}
+                ${envio.pesoRecibido != null ? `<span class="info-line">⚖️ Peso: <b>${envio.pesoRecibido} kg</b></span>` : ''}
+              </div>
+              ${envio.observaciones ? `<p class="section-sub" style="margin-top:10px">📝 ${Shell.escape(envio.observaciones)}</p>` : ''}
+            </div>`;
+        }
+
+        if (seg.estado !== 'en_destino') {
+          return `<div class="chat-bloqueado" style="margin-top:12px">
+                    El pesaje se registra cuando el camión llegue a la planta.
+                  </div>`;
+        }
+
+        return `
+          <div class="card pad" style="margin-top:12px">
+            <div class="field">
+              <label for="vol-recibido">Volumen recibido (m³)</label>
+              <input class="input" id="vol-recibido" type="number" min="0" step="0.1"
+                     inputmode="decimal" placeholder="Declarado: ${envio.volumenDeclarado} m³"
+                     value="${envio.volumenRecibido ?? ''}">
+            </div>
+            <div class="field">
+              <label for="peso-recibido">Peso en balanza (kg)</label>
+              <input class="input" id="peso-recibido" type="number" min="0" step="1"
+                     inputmode="numeric" placeholder="Ej: 4200" value="${envio.pesoRecibido ?? ''}">
+            </div>
+            <div class="field">
+              <label for="observaciones">Observaciones (opcional)</label>
+              <textarea id="observaciones" rows="2" placeholder="Humedad, presencia de otros restos, etc.">${Shell.escape(envio.observaciones || '')}</textarea>
+            </div>
+            <div class="err" id="err-entrega"></div>
+            <button class="btn block" id="btn-cerrar">✅ Confirmar entrega y cerrar</button>
+            <p class="section-sub" style="margin-top:9px;text-align:center">
+              Al confirmar, el retiro queda cerrado y pasa al historial.
+            </p>
+          </div>`;
+      }
+
+      function render() {
+        const seg = Shell.calcularSeguimiento(envio);
+        const est = estadoEnvio(seg.estado);
+        const avance = Math.round(seg.progreso * 100);
+
+        $('tb-sub').textContent = `${envio.origenComuna} → ${envio.destinoNombre}`;
+
+        c.innerHTML = `
+          <!-- Estado principal -->
+          <div class="card pad">
+            <div class="envio-cabecera">
+              <div class="li-ic" style="background:${est.color}22;color:${est.color};width:48px;height:48px;font-size:24px">${est.ic}</div>
+              <div class="titulo">
+                ${est.label}
+                <div class="li-sub" style="font-weight:400">${est.desc}</div>
+              </div>
+              ${Shell.badge(seg.fuente === 'gps' ? 'Posición GPS' : 'Posición estimada',
+                            seg.fuente === 'gps' ? '#2E7D32' : '#5F6B60',
+                            seg.fuente === 'gps' ? '🛰️' : '📈')}
+            </div>
+
+            ${pasosHtml(seg.estado)}
+
+            <div class="progress" style="margin-top:14px">
+              <div style="width:${avance}%;background:${est.color}"></div>
+            </div>
+
+            <div class="grid cols-3" style="margin-top:16px">
+              <div>
+                <div class="dato-grande" style="color:${est.color}">${seg.estado === 'entregado' ? '—' : (seg.eta || 'Llegó')}</div>
+                <div class="dato-rotulo">Llegada estimada</div>
+              </div>
+              <div>
+                <div class="dato-grande">${seg.kmRestantes} km</div>
+                <div class="dato-rotulo">Faltan por recorrer</div>
+              </div>
+              <div>
+                <div class="dato-grande">${avance}%</div>
+                <div class="dato-rotulo">Del trayecto</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mapa del recorrido -->
+          <div class="section">
+            <div class="section-title">Recorrido</div>
+            <div class="section-sub">${envio.origenComuna} → ${Shell.escape(envio.destinoNombre)} · ${seg.kmTotal} km en total</div>
+            <div class="map-sim map-propio map-ruta" id="mapa-ruta" style="margin-top:12px"></div>
+          </div>
+
+          <!-- Chofer -->
+          <div class="section">
+            <div class="section-title">Transporte</div>
+            <div class="card list-item" style="margin-top:12px">
+              <div class="li-ic" style="background:rgba(239,108,0,.14);color:var(--in-progress)">🚚</div>
+              <div class="li-body">
+                <div class="li-title">${Shell.escape(envio.chofer)}</div>
+                <div class="li-sub">${envio.patente ? 'Patente ' + Shell.escape(envio.patente) + ' · ' : ''}${Shell.escape(envio.choferTelefono)}</div>
+              </div>
+              <a class="btn ghost" style="padding:10px 14px;font-size:13.5px"
+                 href="tel:${envio.choferTelefono.replace(/\s/g, '')}">📞 Llamar</a>
+            </div>
+            ${!soyVinatero ? `
+              <button class="btn ghost block" style="margin-top:10px" id="btn-gps">
+                🛰️ Reportar mi ubicación como posición del camión
+              </button>` : ''}
+          </div>
+
+          <!-- Chat -->
+          <div class="section">
+            <div class="section-title">Comunicación con el transporte</div>
+            <div class="section-sub">Para confirmar la entrega y validar el pesaje</div>
+            <div class="card pad" style="margin-top:12px">${chatHtml(seg)}</div>
+          </div>
+
+          <!-- Cierre del servicio -->
+          <div class="section">
+            <div class="section-title">Cierre del servicio</div>
+            <div class="section-sub">Pesaje y confirmación final</div>
+            ${entregaHtml(seg)}
+          </div>`;
+
+        pintarMapa(seg);
+        conectarEventos(seg);
+      }
+
+      function pintarMapa(seg) {
+        const mapa = $('mapa-ruta');
+        Shell.pintarMapas();
+        Shell.dibujarMarcadores(mapa, [], {});                 // limpia la capa
+        Shell.encuadrarRuta(mapa.querySelector('.map-geo'), envio, seg);
+        Shell.dibujarRuta(mapa, envio, seg);
+      }
+
+      function conectarEventos(seg) {
+        const form = $('chat-form');
+        if (form) {
+          form.addEventListener('submit', async e => {
+            e.preventDefault();
+            const campo = $('chat-texto');
+            const texto = campo.value.trim();
+            if (!texto) return;
+            campo.value = '';
+            await Store.addMensaje({ envioId: envio.id, texto });
+            render();
+            const caja = $('chat-caja');
+            if (caja) caja.scrollTop = caja.scrollHeight;
+            $('chat-texto').focus();
+          });
+          const caja = $('chat-caja');
+          if (caja) caja.scrollTop = caja.scrollHeight;
+        }
+
+        const cerrar = $('btn-cerrar');
+        if (cerrar) {
+          cerrar.onclick = async () => {
+            const vol = parseFloat(($('vol-recibido').value || '').replace(',', '.'));
+            const peso = parseFloat(($('peso-recibido').value || '').replace(',', '.'));
+            const err = $('err-entrega');
+            err.textContent = '';
+            if (!vol || vol <= 0) return (err.textContent = 'Ingresa el volumen recibido.');
+            if (vol > envio.volumenDeclarado * 2) {
+              return (err.textContent = 'Ese volumen es mucho mayor al declarado. Revísalo.');
+            }
+            cerrar.disabled = true;
+            envio = await Store.actualizarEnvio(envio.id, {
+              estado: 'entregado', progreso: 1,
+              volumenRecibido: vol,
+              pesoRecibido: isNaN(peso) ? null : peso,
+              observaciones: $('observaciones').value.trim(),
+            });
+            Shell.notificar('Entrega confirmada', `${vol} m³ recibidos en ${envio.destinoNombre}`);
+            detenerReloj();
+            render();
+          };
+        }
+
+        const gps = $('btn-gps');
+        if (gps) {
+          gps.onclick = async () => {
+            gps.disabled = true;
+            gps.textContent = '🛰️ Obteniendo ubicación…';
+            try {
+              envio = await Shell.reportarPosicion(envio.id);
+              Shell.toast('Posición actualizada');
+              render();
+            } catch (e) {
+              Shell.toast(Shell.motivoGPS(e));
+              gps.disabled = false;
+              gps.textContent = '🛰️ Reportar mi ubicación como posición del camión';
+            }
+          };
+        }
+      }
+
+      /* ---------------- Actualización automática ---------------- */
+      async function tic() {
+        const actual = Store.envioPorId(envio.id);
+        if (actual) envio = actual;
+
+        const { seguimiento, cambio } = await Shell.sincronizarEnvio(envio);
+        envio = Store.envioPorId(envio.id) || envio;
+
+        // Al llegar a destino se avisa una sola vez y se abre el chat.
+        if (cambio && seguimiento.estado === 'en_destino') {
+          Shell.notificar(
+            '🏭 El camión llegó a destino',
+            `${envio.origenComuna} → ${envio.destinoNombre}. Ya puedes confirmar la entrega.`);
+        } else if (cambio && seguimiento.estado === 'llegando') {
+          Shell.notificar('📍 El camión está llegando', `Faltan ${seguimiento.kmRestantes} km`);
+        }
+
+        if (Store.enNube()) await Store.refrescarMensajes(envio.id);
+
+        estadoPrevio = seguimiento.estado;
+        render();
+        if (seguimiento.estado === 'entregado') detenerReloj();
+      }
+
+      function detenerReloj() { if (reloj) { clearInterval(reloj); reloj = null; } }
+
+      $('btn-refrescar').onclick = () => { tic(); Shell.toast('Actualizado'); };
+
+      // Permiso de notificaciones: se pide una sola vez, al entrar aquí.
+      Shell.pedirPermisoNotificaciones();
+
+      render();
+      if (envio.estado !== 'entregado') reloj = setInterval(tic, 5000);
+      window.addEventListener('beforeunload', detenerReloj);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VITILOG · Cómo funciona el código</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:wght@500;700&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<style>
+:root{
+  --papel:#F7F8F5; --superficie:#FFFFFF;
+  --tinta:#1A2318; --suave:#5C6659;
+  --vid:#2F6B3A; --vid-clara:#E4EDE3;
+  --vino:#6B2D4A; --borde:#DDE2D8;
+  --cod-fondo:#1E2620; --cod-texto:#DCE5D8;
+  --com:#8B9686; --key:#E3A0BE; --str:#9CCB8E; --fun:#8FC7DE;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --papel:#12160F; --superficie:#1A1F17;
+    --tinta:#E8EDE4; --suave:#9AA595;
+    --vid:#84BC6E; --vid-clara:#20301E;
+    --vino:#D089A8; --borde:#2C3428; --cod-fondo:#0C1009;
+  }
+}
+:root[data-theme="dark"]{
+  --papel:#12160F; --superficie:#1A1F17;
+  --tinta:#E8EDE4; --suave:#9AA595;
+  --vid:#84BC6E; --vid-clara:#20301E;
+  --vino:#D089A8; --borde:#2C3428; --cod-fondo:#0C1009;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--papel);color:var(--tinta);
+  font-family:'Source Sans 3',system-ui,sans-serif;
+  font-size:clamp(1rem,.94rem + .3vw,1.09rem);line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+.caja{max-width:760px;margin:0 auto;padding:0 22px}
+
+header{border-bottom:1px solid var(--borde);padding:54px 0 32px;margin-bottom:8px}
+.sello{
+  display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.7rem;
+  font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--vid);
+  background:var(--vid-clara);padding:6px 12px;border-radius:3px;margin-bottom:16px;
+}
+h1{
+  font-family:'Bitter',Georgia,serif;font-weight:700;
+  font-size:clamp(1.9rem,1.3rem + 2.6vw,2.9rem);line-height:1.06;
+  letter-spacing:-.02em;margin-bottom:11px;text-wrap:balance;
+}
+header p{color:var(--suave);font-size:1.1rem}
+
+main{padding:26px 0 80px}
+section{margin-bottom:46px;scroll-margin-top:20px}
+
+.rol{
+  display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;
+  margin-bottom:4px;
+}
+.rol .archivo{
+  font-family:'JetBrains Mono',monospace;font-size:.82rem;font-weight:700;
+  color:var(--vid);background:var(--vid-clara);padding:3px 9px;border-radius:3px;
+}
+.rol .apodo{
+  font-family:'Bitter',Georgia,serif;font-size:1.55rem;font-weight:700;
+  letter-spacing:-.01em;
+}
+h2{font-family:'Bitter',Georgia,serif;font-weight:700;font-size:1.55rem;
+  letter-spacing:-.01em;margin-bottom:8px;text-wrap:balance}
+h3{font-family:'Bitter',Georgia,serif;font-weight:500;font-size:1.08rem;margin:22px 0 7px}
+p{margin-bottom:12px}
+ul,ol{margin:0 0 14px 20px}
+li{margin-bottom:5px}
+em{color:var(--vino);font-style:normal;font-weight:600}
+
+code{
+  font-family:'JetBrains Mono',ui-monospace,monospace;font-size:.85em;
+  background:var(--vid-clara);color:var(--vid);padding:1px 5px;border-radius:3px;
+}
+pre{
+  background:var(--cod-fondo);color:var(--cod-texto);
+  font-family:'JetBrains Mono',ui-monospace,monospace;
+  font-size:.81rem;line-height:1.6;padding:15px 17px;border-radius:6px;
+  overflow-x:auto;margin:12px 0 14px;
+}
+pre code{background:none;color:inherit;padding:0;font-size:1em}
+.c1{color:var(--com)} .c2{color:var(--key)} .c3{color:var(--str)} .c4{color:var(--fun)}
+
+.clave{
+  background:var(--superficie);border:1px solid var(--borde);
+  border-left:3px solid var(--vino);
+  padding:13px 16px;border-radius:0 5px 5px 0;margin:14px 0;font-size:.96rem;
+}
+.clave b{color:var(--vino);display:block;margin-bottom:2px;
+  font-family:'JetBrains Mono',monospace;font-size:.7rem;
+  letter-spacing:.12em;text-transform:uppercase}
+.clave p{margin:0}
+
+.esquema{
+  background:var(--superficie);border:1px solid var(--borde);border-radius:8px;
+  padding:20px 18px;margin:18px 0;overflow-x:auto;
+}
+.esquema pre{background:none;color:var(--tinta);padding:0;margin:0;font-size:.8rem}
+
+.tabla-caja{overflow-x:auto;margin:14px 0}
+table{border-collapse:collapse;width:100%;font-size:.92rem;min-width:430px}
+th{text-align:left;font-size:.67rem;font-weight:700;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--suave);padding:0 13px 8px 0;
+  border-bottom:1px solid var(--borde)}
+td{padding:9px 13px 9px 0;border-bottom:1px solid var(--borde);vertical-align:top}
+td:first-child{white-space:nowrap}
+tbody tr:last-child td{border-bottom:0}
+
+nav.saltos{
+  display:flex;flex-wrap:wrap;gap:7px;margin:22px 0 6px;
+}
+nav.saltos a{
+  font-family:'JetBrains Mono',monospace;font-size:.76rem;
+  color:var(--suave);text-decoration:none;border:1px solid var(--borde);
+  padding:5px 10px;border-radius:20px;transition:all .15s;
+}
+nav.saltos a:hover,nav.saltos a:focus-visible{
+  color:var(--vid);border-color:var(--vid);background:var(--vid-clara);
+}
+
+footer{border-top:1px solid var(--borde);padding:22px 0 50px;
+  font-size:.86rem;color:var(--suave)}
+a{color:var(--vid)}
+:focus-visible{outline:2px solid var(--vid);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="caja">
+    <span class="sello">Guía de estudio</span>
+    <h1>Cómo funciona el código de VITILOG</h1>
+    <p>Cada archivo explicado en una idea. Primero el conjunto, después las piezas.</p>
+    <nav class="saltos">
+      <a href="#conjunto">El conjunto</a>
+      <a href="#config">config.js</a>
+      <a href="#nube">nube.js</a>
+      <a href="#data">data.js</a>
+      <a href="#store">store.js</a>
+      <a href="#shell">shell.js</a>
+      <a href="#paginas">Las páginas</a>
+      <a href="#css">styles.css</a>
+      <a href="#sql">esquema.sql</a>
+      <a href="#resumen">Resumen</a>
+    </nav>
+  </div>
+</header>
+
+<main class="caja">
+
+  <section id="conjunto">
+    <h2>El conjunto, en un minuto</h2>
+    <p>VITILOG es una aplicación web hecha con <em>HTML, CSS y JavaScript puro</em>, más <em>SQL</em> para la base de datos. No usa ninguna librería externa.</p>
+    <p>Son <strong>13 páginas HTML</strong> que comparten <strong>5 archivos JavaScript</strong> y <strong>1 archivo CSS</strong>. Cada página es una pantalla distinta, pero todas cargan los mismos cinco archivos y se apoyan en ellos.</p>
+
+    <div class="esquema">
+<pre>          ┌──────────────────────────────┐
+          │   Cualquier página HTML      │
+          │   (inicio, mapa, admin...)   │
+          └──────────────┬───────────────┘
+                         │ usa
+        ┌────────────────┴────────────────┐
+        ▼                                 ▼
+  ┌───────────┐                    ┌────────────┐
+  │ shell.js  │  ← el esqueleto    │ styles.css │
+  │ menú,mapa │                    │  el diseño │
+  └─────┬─────┘                    └────────────┘
+        │ pide datos a
+        ▼
+  ┌───────────┐
+  │ store.js  │  ← la memoria
+  │  guarda   │
+  └─────┬─────┘
+        │ decide dónde guardar
+        ├────────────────┬──────────────────┐
+        ▼                ▼                  ▼
+  localStorage      nube.js  ────→  Supabase (SQL)
+  (el navegador)   el mensajero      la base compartida
+
+  config.js  →  decide TODO lo anterior (modo local o nube)
+  data.js    →  los datos fijos: comunas, plantas, coordenadas</pre>
+    </div>
+
+    <div class="clave">
+      <b>La idea que hay que entender</b>
+      <p>Cada archivo tiene <strong>un solo trabajo</strong>. <code>store.js</code> guarda datos pero no sabe dibujar; <code>shell.js</code> dibuja pero no sabe guardar. Eso se llama <em>separación de responsabilidades</em>, y es lo que permite cambiar una parte sin romper el resto.</p>
+    </div>
+  </section>
+
+  <section id="config">
+    <div class="rol"><span class="archivo">js/config.js</span><span class="apodo">El interruptor</span></div>
+    <p>84 líneas, todas constantes. No hace nada por sí mismo: solo guarda valores que cambian el comportamiento del sitio.</p>
+
+    <pre><code><span class="c2">const</span> MODO_DATOS  = <span class="c3">'auto'</span>;    <span class="c1">// dónde guardar: navegador o nube</span>
+<span class="c2">const</span> MODO_MAPA   = <span class="c3">'propio'</span>;  <span class="c1">// qué mapa dibujar</span>
+<span class="c2">const</span> SUPABASE_URL = <span class="c3">''</span>;      <span class="c1">// si está vacío → modo local</span></code></pre>
+
+    <p>Si mañana quieres conectar la base compartida, solo escribes la dirección aquí. No se toca ningún otro archivo.</p>
+
+    <div class="clave">
+      <b>Lo esencial</b>
+      <p>Toda la configuración vive en un solo lugar. Nada de valores sueltos repartidos por el código.</p>
+    </div>
+  </section>
+
+  <section id="nube">
+    <div class="rol"><span class="archivo">js/nube.js</span><span class="apodo">El mensajero</span></div>
+    <p>84 líneas. Su único trabajo es <strong>hablar con la base de datos por internet</strong>. Usa <code>fetch</code>, que viene incluido en el navegador — por eso no hace falta ninguna librería.</p>
+
+    <p>Ofrece cuatro operaciones, que son las cuatro cosas que se pueden hacer con datos:</p>
+
+    <pre><code>Nube.<span class="c4">listar</span>(<span class="c3">'cargas'</span>)              <span class="c1">// leer</span>
+Nube.<span class="c4">guardar</span>(<span class="c3">'cargas'</span>, fila)       <span class="c1">// crear o actualizar</span>
+Nube.<span class="c4">actualizar</span>(<span class="c3">'cargas'</span>, ...)     <span class="c1">// modificar</span>
+Nube.<span class="c4">borrar</span>(<span class="c3">'cargas'</span>, filtro)     <span class="c1">// eliminar</span></code></pre>
+
+    <p>Eso se llama <em>CRUD</em>: Crear, Leer, Actualizar y Borrar. Y como se comunica por direcciones web con métodos estándar, se dice que consume una <em>API REST</em>.</p>
+
+    <div class="clave">
+      <b>Lo esencial</b>
+      <p>No sabe qué es una “carga” ni una “cuenta”. Solo sabe enviar y recibir. Si mañana cambiaras Supabase por otra base, este es el único archivo que tocarías.</p>
+    </div>
+  </section>
+
+  <section id="data">
+    <div class="rol"><span class="archivo">js/data.js</span><span class="apodo">La libreta</span></div>
+    <p>156 líneas. Guarda toda la información fija del proyecto dentro de un objeto llamado <code>DATA</code>: las 11 comunas, las 10 plantas, las rutas de ejemplo y el marco del mapa.</p>
+
+    <pre><code><span class="c2">const</span> DATA = {
+  comunas: [ { nombre: <span class="c3">'Curicó'</span>, lat: <span class="c2">-34.98</span>, lng: <span class="c2">-71.24</span> }, ... ],
+  puntos:  [ { nombre: <span class="c3">'EnerVid SpA'</span>, tipo: <span class="c3">'Biomasa'</span>, ... }, ... ],
+  ...
+};</code></pre>
+
+    <p>Además tiene una función importante, <code>proyectar()</code>, que convierte coordenadas del mundo real en una posición dentro del mapa dibujado:</p>
+
+    <pre><code><span class="c2">function</span> <span class="c4">proyectar</span>(lat, lng) {
+  <span class="c1">// regla de tres: de grados geográficos a puntos del dibujo</span>
+  <span class="c2">return</span> { x: ..., y: ... };
+}</code></pre>
+
+    <div class="clave">
+      <b>Lo esencial</b>
+      <p>Las plantas solo guardan latitud y longitud. Su posición en pantalla <strong>se calcula</strong>, no se escribe a mano. Por eso, al agregar una planta nueva, aparece sola en su lugar correcto.</p>
+    </div>
+  </section>
+
+  <section id="store">
+    <div class="rol"><span class="archivo">js/store.js</span><span class="apodo">La memoria</span></div>
+    <p>368 líneas. Es <strong>la base de datos de la aplicación</strong>. Guarda las cuentas, las cargas publicadas y las plantas, y maneja el inicio de sesión.</p>
+
+    <h3>Su idea central: la caché</h3>
+    <p>Al abrir cualquier página, lee todos los datos <strong>una sola vez</strong> y los deja en memoria. Desde ahí responde al instante, sin volver a pedir nada.</p>
+
+    <pre><code>_cache: { cuentas: [], cargas: [], puntos: [] }</code></pre>
+
+    <h3>Guarda en dos lugares posibles</h3>
+    <p>Este patrón se repite en cada función que guarda algo:</p>
+
+    <pre><code><span class="c1">// 1. actualiza la memoria</span>
+lista.<span class="c4">push</span>(cuenta);
+
+<span class="c1">// 2. decide dónde dejarlo de verdad</span>
+<span class="c2">if</span> (<span class="c2">this</span>.<span class="c4">enNube</span>()) <span class="c2">await</span> Nube.<span class="c4">guardar</span>(<span class="c3">'cuentas'</span>, cuenta);
+<span class="c2">else</span> <span class="c2">this</span>.<span class="c4">_write</span>(<span class="c2">this</span>.K_ACCOUNTS, lista);</code></pre>
+
+    <h3>Las contraseñas no se guardan</h3>
+    <p>Se guarda su <em>huella</em>: un código de 64 caracteres calculado con <strong>SHA-256</strong>, imposible de revertir. Al iniciar sesión se calcula la huella de lo que la persona escribió y se compara.</p>
+
+    <pre><code><span class="c2">const</span> buf = <span class="c2">await</span> crypto.subtle.<span class="c4">digest</span>(<span class="c3">'SHA-256'</span>, sal + clave);</code></pre>
+
+    <p>La <em>sal</em> es un texto aleatorio distinto por cuenta que se suma antes de cifrar. Sirve para que dos personas con la misma contraseña tengan huellas distintas.</p>
+
+    <div class="clave">
+      <b>Lo esencial</b>
+      <p>El resto del sitio pide datos a <code>Store</code> sin saber ni preguntar dónde están. Esa indiferencia es lo que permite cambiar de navegador a nube sin tocar las 13 páginas.</p>
+    </div>
+  </section>
+
+  <section id="shell">
+    <div class="rol"><span class="archivo">js/shell.js</span><span class="apodo">El esqueleto</span></div>
+    <p>552 líneas, el archivo más grande. Contiene <strong>todo lo que se repetiría en las 13 páginas</strong>, escrito una sola vez: el menú, el mapa, las ventanas emergentes y los cálculos de distancia.</p>
+
+    <h3>Lo más importante: init()</h3>
+    <p>Toda página protegida empieza con esta línea, que hace cuatro cosas de una vez:</p>
+
+    <pre><code>Shell.<span class="c4">init</span>(<span class="c3">'cargas'</span>, { rol: Store.ROL_EMPRESA }).<span class="c4">then</span>(listo =&gt; {
+  <span class="c2">if</span> (!listo) <span class="c2">return</span>;
+  <span class="c1">// ... aquí recién empieza el contenido de la página</span>
+});</code></pre>
+
+    <ol>
+      <li>Carga los datos y <strong>espera</strong> a que estén listos</li>
+      <li>Si no hay sesión iniciada, devuelve al login</li>
+      <li>Si la cuenta es de otro rol, la manda a <em>su</em> página</li>
+      <li>Dibuja el menú que corresponde a ese rol</li>
+    </ol>
+
+    <p>Así un viñatero no puede entrar a la página de las empresas aunque escriba la dirección a mano.</p>
+
+    <h3>El mapa</h3>
+    <p>Está dibujado en <strong>SVG</strong> (gráficos vectoriales) sobre coordenadas reales: la costa, las dos cordilleras y la Ruta 5 en su posición geográfica. Cada marcador se ubica llamando a <code>proyectar()</code>.</p>
+
+    <h3>Las distancias</h3>
+    <p>Se calculan con la <strong>fórmula de Haversine</strong>, que da la distancia real en kilómetros entre dos coordenadas sobre la superficie curva de la Tierra.</p>
+
+    <div class="clave">
+      <b>Lo esencial</b>
+      <p>Si el menú, el mapa o los avisos estuvieran copiados en cada página, cualquier cambio habría que hacerlo 13 veces. Al estar aquí, se hace una sola vez.</p>
+    </div>
+  </section>
+
+  <section id="paginas">
+    <div class="rol"><span class="archivo">13 archivos .html</span><span class="apodo">Las pantallas</span></div>
+    <p>Todas siguen exactamente la misma forma, así que entendiendo una entiendes las trece:</p>
+
+    <ol>
+      <li>El <strong>HTML</strong> define solo la estructura: los recuadros vacíos, los campos, los botones.</li>
+      <li>Se cargan los <strong>5 archivos JS</strong>, siempre en el mismo orden.</li>
+      <li>Un <strong>bloque de código propio</strong> llena esa estructura con datos reales.</li>
+    </ol>
+
+    <pre><code><span class="c1">&lt;!-- 1. la estructura, vacía --&gt;</span>
+&lt;select id=<span class="c3">"comuna"</span>&gt;&lt;/select&gt;
+&lt;button onclick=<span class="c3">"publicar()"</span>&gt;Publicar carga&lt;/button&gt;
+
+<span class="c1">&lt;!-- 2. los archivos compartidos --&gt;</span>
+&lt;script src=<span class="c3">"js/store.js"</span>&gt;&lt;/script&gt;
+&lt;script src=<span class="c3">"js/shell.js"</span>&gt;&lt;/script&gt;
+
+<span class="c1">&lt;!-- 3. el código de esta página --&gt;</span>
+&lt;script&gt;
+  Shell.<span class="c4">init</span>(...).<span class="c4">then</span>(listo =&gt; {
+    <span class="c1">// llenar el select con las comunas de DATA</span>
+    <span class="c1">// validar el formulario</span>
+    <span class="c1">// llamar a Store.addCarga()</span>
+  });
+&lt;/script&gt;</code></pre>
+
+    <div class="clave">
+      <b>Lo esencial</b>
+      <p>El HTML nunca trae datos escritos a mano. Siempre llega vacío y lo llena JavaScript. Por eso el mismo <code>inicio.html</code> se ve distinto para cada usuario.</p>
+    </div>
+  </section>
+
+  <section id="css">
+    <div class="rol"><span class="archivo">css/styles.css</span><span class="apodo">El diseño</span></div>
+    <p>431 líneas para las 13 páginas. Lo que lo hace manejable es que <strong>los colores están en variables</strong>, no escritos en cada regla.</p>
+
+    <pre><code><span class="c2">:root</span> { <span class="c1">--surface</span>: #FFFFFF; <span class="c1">--text-primary</span>: #1D2B1F; }
+
+<span class="c2">html</span>[data-theme=<span class="c3">"dark"</span>] { <span class="c1">--surface</span>: #1B221A; <span class="c1">--text-primary</span>: #ECF1EC; }
+
+<span class="c2">.card</span> { background: <span class="c4">var</span>(--surface); }   <span class="c1">/* usa la variable */</span></code></pre>
+
+    <p>Por eso el <strong>modo oscuro</strong> es una sola línea de JavaScript: al cambiar <code>data-theme</code>, se redefinen todas las variables de golpe y cada componente se actualiza solo.</p>
+
+    <p>Y con <code>@media</code> el diseño se adapta al celular: bajo 760 píxeles el menú lateral se esconde y aparece uno abajo, como en una app.</p>
+
+    <div class="clave">
+      <b>Lo esencial</b>
+      <p>Ningún componente conoce un color. Solo conoce el <em>nombre</em> de un color. Cambiar el tema es cambiar qué significan esos nombres.</p>
+    </div>
+  </section>
+
+  <section id="sql">
+    <div class="rol"><span class="archivo">sql/esquema.sql</span><span class="apodo">Las tablas</span></div>
+    <p>125 líneas. Es el único archivo que <strong>no corre en el navegador</strong>: se ejecuta una vez en el servidor de base de datos para crear las tres tablas.</p>
+
+    <pre><code><span class="c2">create table</span> cuentas (
+  email       <span class="c4">text primary key</span>,        <span class="c1">-- no se repite</span>
+  rol         <span class="c4">text check</span> (rol <span class="c2">in</span> (<span class="c3">'vinatero'</span>,<span class="c3">'empresa'</span>,<span class="c3">'admin'</span>)),
+  clave_hash  <span class="c4">text not null</span>,           <span class="c1">-- obligatorio</span>
+  activa      <span class="c4">boolean default true</span>
+);</code></pre>
+
+    <p>Las tres tablas son <code>cuentas</code>, <code>cargas</code> y <code>puntos</code>. Y están <em>relacionadas</em>: cada carga apunta a la cuenta que la publicó.</p>
+
+    <pre><code>owner_email <span class="c4">text references</span> cuentas(email) <span class="c2">on delete cascade</span></code></pre>
+
+    <p>Eso es una <em>llave foránea</em>: obliga a que toda carga pertenezca a una cuenta que existe. Y si se borra la cuenta, sus cargas se borran con ella.</p>
+
+    <div class="clave">
+      <b>Lo esencial</b>
+      <p>La base también valida. Aunque alguien se saltara el formulario, no podría guardar un volumen negativo ni un rol inventado.</p>
+    </div>
+  </section>
+
+  <section id="resumen">
+    <h2>Resumen para repasar</h2>
+
+    <div class="tabla-caja">
+      <table>
+        <thead><tr><th>Archivo</th><th>Apodo</th><th>Su único trabajo</th></tr></thead>
+        <tbody>
+          <tr><td><code>config.js</code></td><td>El interruptor</td><td>Guardar los valores que configuran todo</td></tr>
+          <tr><td><code>nube.js</code></td><td>El mensajero</td><td>Hablar con la base de datos por internet</td></tr>
+          <tr><td><code>data.js</code></td><td>La libreta</td><td>Los datos fijos y el cálculo geográfico</td></tr>
+          <tr><td><code>store.js</code></td><td>La memoria</td><td>Guardar y leer cuentas, cargas y plantas</td></tr>
+          <tr><td><code>shell.js</code></td><td>El esqueleto</td><td>Menú, mapa y todo lo compartido</td></tr>
+          <tr><td><code>styles.css</code></td><td>El diseño</td><td>Colores, tamaños y adaptación al celular</td></tr>
+          <tr><td><code>esquema.sql</code></td><td>Las tablas</td><td>Crear la estructura de la base de datos</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Las tres frases que valen por toda la guía</h3>
+    <ol>
+      <li><strong>Cada archivo tiene un solo trabajo.</strong> Por eso se puede cambiar uno sin romper los demás.</li>
+      <li><strong>El HTML llega vacío y JavaScript lo llena.</strong> Ningún dato está escrito a mano en la pantalla.</li>
+      <li><strong>Los datos se leen una vez y quedan en memoria.</strong> Por eso el sitio responde al instante.</li>
+    </ol>
+  </section>
+
+</main>
+
+<footer class="caja">
+  <p>VITILOG · 3.735 líneas · HTML, CSS, JavaScript y SQL, sin librerías externas.</p>
+</footer>
+
+</body>
+</html>

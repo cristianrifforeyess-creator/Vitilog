@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VITILOG · Rutas</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main">
+      <div class="topbar"><div class="tb-logo">🌿</div><div><h1>Rutas</h1><p>Región del Maule</p></div></div>
+      <div class="content">
+        <div class="tabs" role="tablist">
+          <button class="tab active" id="tab-segui" role="tab" onclick="setTab('segui')">Seguimiento</button>
+          <button class="tab" id="tab-disp" role="tab" onclick="setTab('disp')">Disponibles</button>
+          <button class="tab" id="tab-prog" role="tab" onclick="setTab('prog')">Programadas</button>
+        </div>
+        <div id="panel" class="stagger"></div>
+      </div>
+    </main>
+  </div>
+  <nav class="bottom-nav" id="bottomnav"></nav>
+
+  <script src="js/config.js"></script>
+  <script src="js/nube.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/shell.js"></script>
+  <script>
+    // Accesible para viñatero y empresa: los dos siguen el mismo retiro.
+    Shell.init('rutas').then(listo => { if (!listo) return;
+      const $ = id => document.getElementById(id);
+      let reloj = null;
+
+      // Las pestañas de ejemplo son del flujo del viñatero.
+      const soloSeguimiento = Store.rolActual() !== Store.ROL_VINATERO;
+      if (soloSeguimiento) {
+        $('tab-disp').style.display = 'none';
+        $('tab-prog').style.display = 'none';
+      }
+
+      /* ================= Seguimiento en vivo ================= */
+
+      function tarjetaEnvio(envio) {
+        const seg = Shell.calcularSeguimiento(envio);
+        const est = estadoEnvio(seg.estado);
+        const avance = Math.round(seg.progreso * 100);
+        const llegada = seg.estado === 'entregado' ? 'Entregado'
+                      : seg.eta ? 'Llega ~' + seg.eta : 'En destino';
+
+        return `
+          <div class="card route-card" style="cursor:pointer" data-ir="${envio.id}">
+            <div class="route-head">
+              <div class="li-ic" style="background:${est.color}22;color:${est.color}">${est.ic}</div>
+              <b>${Shell.escape(envio.origenComuna)} → ${Shell.escape(envio.destinoNombre)}</b>
+              ${Shell.badge(est.label, est.color)}
+            </div>
+            <div class="route-info">
+              <span class="info-line">📦 Volumen: <b>${envio.volumenDeclarado} m³</b></span>
+              <span class="info-line">🚚 Chofer: <b>${Shell.escape(envio.chofer)}</b></span>
+              <span class="info-line">🛣️ Faltan: <b>${seg.kmRestantes} km</b></span>
+            </div>
+            <div class="progress" style="margin-top:12px">
+              <div style="width:${avance}%;background:${est.color}"></div>
+            </div>
+            <div class="route-foot">
+              <span class="date">${seg.fuente === 'gps' ? '🛰️ Posición real' : '📈 Posición estimada'}</span>
+              <b style="color:${est.color}">⏲ ${llegada}</b>
+            </div>
+            <div style="text-align:right;margin-top:8px">
+              <button class="link-btn" data-ir="${envio.id}">Ver seguimiento ›</button>
+            </div>
+          </div>`;
+      }
+
+      function panelSeguimiento() {
+        const activos = Store.enviosActivos();
+        const cerrados = Store.misEnvios().filter(e => e.estado === 'entregado');
+
+        const html = activos.length === 0
+          ? `<div class="empty">
+               <div class="ic">🚚</div>
+               <p>No tienes retiros en curso.</p>
+               <p style="font-size:13px">Cuando una empresa programe el retiro de una de tus cargas, aparecerá acá y podrás seguir el camión en el mapa.</p>
+               <button class="btn" style="margin-top:16px" id="btn-demo">▶ Simular un retiro de prueba</button>
+             </div>`
+          : `<div class="section" style="margin-top:16px">
+               <div class="section-title">Retiros en curso</div>
+               <div class="section-sub">${activos.length} camión(es) en ruta · se actualiza solo</div>
+             </div>
+             <div class="grid" style="margin-top:12px">${activos.map(tarjetaEnvio).join('')}</div>`;
+
+        const cerradosHtml = cerrados.length === 0 ? '' : `
+          <div class="section">
+            <div class="section-title">Entregas cerradas</div>
+            <div class="section-sub">${cerrados.length} retiro(s) completado(s)</div>
+          </div>
+          <div class="grid" style="margin-top:12px">
+            ${cerrados.map(e => `
+              <div class="card list-item" style="cursor:pointer" data-ir="${e.id}">
+                <div class="li-ic" style="background:rgba(46,125,50,.13);color:var(--primary)">✅</div>
+                <div class="li-body">
+                  <div class="li-title">${Shell.escape(e.origenComuna)} → ${Shell.escape(e.destinoNombre)}</div>
+                  <div class="li-sub">${e.volumenRecibido ?? e.volumenDeclarado} m³ recibidos${e.pesoRecibido ? ' · ' + e.pesoRecibido + ' kg' : ''}</div>
+                </div>
+                <div class="li-chev">›</div>
+              </div>`).join('')}
+          </div>`;
+
+        $('panel').innerHTML = html + cerradosHtml;
+
+        $('panel').querySelectorAll('[data-ir]').forEach(el => {
+          el.addEventListener('click', ev => {
+            ev.stopPropagation();
+            location.href = 'seguimiento.html?id=' + encodeURIComponent(el.dataset.ir);
+          });
+        });
+
+        const demo = $('btn-demo');
+        if (demo) demo.onclick = crearEnvioDemo;
+      }
+
+      /* Crea un retiro de demostración desde la comuna del usuario hasta la
+         planta con cupos más cercana. Sirve para probar el seguimiento. */
+      async function crearEnvioDemo() {
+        const ubi = Shell.ubicacionCuenta();
+        if (!ubi) {
+          Shell.toast('Primero elige tu comuna en Configuración');
+          return;
+        }
+        const destino = Shell.empresasParaBuscador().find(p => p.activo);
+        if (!destino) { Shell.toast('No hay plantas con cupos disponibles'); return; }
+
+        const chofer = DATA.choferesDemo[Math.floor(Math.random() * DATA.choferesDemo.length)];
+        const km = Shell.distanciaKm(ubi, destino);
+        const minutos = Math.max(6, Math.round(km * 1.4));   // ~43 km/h en camino rural
+
+        const envio = await Store.addEnvio({
+          id: 'env-' + Date.now(),
+          cargaId: null,
+          vinateroEmail: Store.currentEmail(),
+          empresaEmail: null,
+          chofer: chofer.nombre, choferTelefono: chofer.telefono, patente: chofer.patente,
+          origenComuna: ubi.comuna, origenLat: ubi.lat, origenLng: ubi.lng,
+          destinoId: destino.id, destinoNombre: destino.nombre,
+          destinoLat: destino.lat, destinoLng: destino.lng,
+          estado: 'en_camino',
+          salida: new Date().toISOString(),
+          minutosTotal: minutos,
+          progreso: 0, vehLat: null, vehLng: null,
+          volumenDeclarado: 14,
+          volumenRecibido: null, pesoRecibido: null, observaciones: '',
+          creado: new Date().toISOString(),
+        });
+
+        Shell.toast(`Retiro creado: ${km} km, llega en ~${minutos} min`);
+        location.href = 'seguimiento.html?id=' + encodeURIComponent(envio.id);
+      }
+
+      /* ================= Pestañas antiguas ================= */
+
+      function badgeFor(r) {
+        if (r.estado === 'enCurso') return Shell.badge('En progreso', '#EF6C00', '🚚');
+        if (r.fecha) return Shell.badge('Programada', '#1976D2', '📅');
+        return Shell.badge(r.pendientes + ' pendientes', '#F9A825', '⏳');
+      }
+
+      function routeCard(r) {
+        const progreso = r.estado === 'enCurso' ? `
+          <div style="margin-top:14px">
+            <div class="info-line">🚚 Camión en camino · ${r.hechas} de ${r.totales} cargas</div>
+            <div class="progress"><div style="width:${(r.hechas / r.totales * 100)}%"></div></div>
+          </div>` : '';
+        const foot = r.eta
+          ? `<div class="route-foot"><span class="date"></span><b style="color:var(--in-progress)">⏲ Llegada ${r.eta}</b></div>`
+          : `<div class="route-foot">
+               <span class="date">${r.fecha ? '📅 ' + r.fecha + (r.hora ? ' · ' + r.hora : '') : ''}</span>
+             </div>`;
+        return `
+          <div class="card route-card">
+            <div class="route-head"><b>Ruta ${r.origen} – ${r.destino}</b>${badgeFor(r)}</div>
+            <div class="route-info">
+              <span class="info-line">🟢 Inicio: <b>${r.origen}</b></span>
+              <span class="info-line">📍 Destino: <b>${r.destino}</b></span>
+              <span class="info-line">📦 Volumen: <b>${r.volumen} m³</b></span>
+              <span class="info-line">⏱️ Tiempo: <b>${r.minutos} min</b></span>
+            </div>
+            ${progreso}${foot}
+          </div>`;
+      }
+
+      /* ================= Cambio de pestaña ================= */
+      function setTab(t) {
+        ['segui', 'disp', 'prog'].forEach(k =>
+          $('tab-' + k).classList.toggle('active', k === t));
+        detenerReloj();
+
+        if (t === 'segui') {
+          panelSeguimiento();
+          reloj = setInterval(panelSeguimiento, 5000);   // se refresca solo
+        } else if (t === 'disp') {
+          $('panel').innerHTML = `
+            <div class="section" style="margin-top:16px"><div class="section-title">En Curso</div><div class="section-sub">Recolección en progreso ahora</div></div>
+            <div style="margin-top:12px">${routeCard(DATA.enCurso)}</div>
+            <div class="section"><div class="section-title">Rutas Disponibles</div><div class="section-sub">Cargas listas para recolectar</div></div>
+            <div class="grid" style="margin-top:12px">${DATA.disponibles.map(routeCard).join('')}</div>`;
+        } else {
+          $('panel').innerHTML = `
+            <div class="section" style="margin-top:16px"><div class="section-title">Rutas Programadas</div><div class="section-sub">Recolecciones agendadas</div></div>
+            <div class="grid" style="margin-top:12px">${DATA.programadas.map(routeCard).join('')}</div>`;
+        }
+
+        const p = $('panel');
+        p.classList.remove('stagger'); void p.offsetWidth; p.classList.add('stagger');
+      }
+
+      function detenerReloj() { if (reloj) { clearInterval(reloj); reloj = null; } }
+      window.addEventListener('beforeunload', detenerReloj);
+
+      window.setTab = setTab;
+      setTab('segui');
+    });
+  </script>
+</body>
+</html>

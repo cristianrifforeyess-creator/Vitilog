@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VITILOG · Historial</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main">
+      <div class="topbar"><div class="tb-logo">🌿</div><div><h1>Historial</h1><p>Región del Maule</p></div></div>
+      <div class="content stagger" id="content"></div>
+    </main>
+  </div>
+  <nav class="bottom-nav" id="bottomnav"></nav>
+
+  <script src="js/config.js"></script>
+  <script src="js/nube.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/shell.js"></script>
+  <script>
+    Shell.init('historial', { rol: Store.ROL_VINATERO }).then(listo => { if (!listo) return;
+      const h = DATA.historial;
+      const volumen = h.reduce((s, r) => s + r.volumen, 0);
+
+      const cards = h.map(r => `
+        <div class="card route-card">
+          <div class="route-head"><b>Ruta ${r.origen} – ${r.destino}</b>${Shell.badge('Completada', '#2E7D32', '✅')}</div>
+          <div class="route-info">
+            <span class="info-line">🟢 Inicio: <b>${r.origen}</b></span>
+            <span class="info-line">📍 Destino: <b>${r.destino}</b></span>
+            <span class="info-line">📦 Volumen: <b>${r.volumen} m³</b></span>
+            <span class="info-line">⏱️ Tiempo: <b>${r.minutos} min</b></span>
+          </div>
+          <div class="route-foot"><span class="date">📅 ${r.fecha} · ${r.hora}</span>
+            <button class="link-btn" onclick='Shell.toast("Resumen ${r.origen}–${r.destino}")'>Ver resumen ›</button></div>
+        </div>`).join('');
+
+      document.getElementById('content').innerHTML = `
+        <div class="grid cols-2" style="margin-top:4px">
+          <div class="card pad" style="display:flex;align-items:center;gap:12px">
+            <div class="li-ic" style="background:rgba(46,125,50,.13);color:#2E7D32">✅</div>
+            <div><div style="font-size:18px;font-weight:800">${h.length}</div><div class="li-sub">Rutas completadas</div></div>
+          </div>
+          <div class="card pad" style="display:flex;align-items:center;gap:12px">
+            <div class="li-ic" style="background:rgba(67,160,71,.13);color:#43A047">📦</div>
+            <div><div style="font-size:18px;font-weight:800">${volumen} m³</div><div class="li-sub">Volumen recolectado</div></div>
+          </div>
+        </div>
+        <div class="section"><div class="section-title">Recolecciones anteriores</div><div class="section-sub">Trazabilidad de tus cargas</div></div>
+        <div class="grid" style="margin-top:12px">${cards}</div>`;
+    });
+  </script>
+</body>
+</html>

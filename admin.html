@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VITILOG · Administración</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main">
+      <div class="topbar">
+        <div class="tb-logo">🛠️</div>
+        <div><h1>Administración VITILOG</h1><p id="tb-origen">Región del Maule</p></div>
+        <div class="tb-actions">
+          <button title="Recargar datos" id="btn-recargar">🔄</button>
+          <button title="Ajustes" onclick="location.href='configuracion.html'">⚙️</button>
+        </div>
+      </div>
+      <div class="content" id="content"></div>
+    </main>
+  </div>
+  <nav class="bottom-nav" id="bottomnav"></nav>
+
+  <script src="js/config.js"></script>
+  <script src="js/nube.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/shell.js"></script>
+  <script>
+    Shell.init('admin', { rol: Store.ROL_ADMIN }).then(listo => { if (!listo) return;
+      const $ = id => document.getElementById(id);
+      const c = $('content');
+      let pestana = 'resumen';
+
+      /* -------- Datos -------- */
+      const cuentas = () => Store.accounts();
+      const porRol = r => cuentas().filter(a => Store.rolDe(a) === r);
+      const cargas = () => Store.cargas();
+      const puntos = () => Store.puntos();
+
+      function origenTexto() {
+        return Store.enNube()
+          ? '☁️ Base compartida · los datos se ven desde cualquier dispositivo'
+          : '💾 Base local · los datos solo existen en este navegador';
+      }
+
+      /* -------- Estructura -------- */
+      function render() {
+        c.innerHTML = `
+          <div class="card pad" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <div class="li-ic" style="background:${Store.enNube() ? 'rgba(25,118,210,.12);color:var(--info)' : 'rgba(249,168,37,.15);color:var(--warning)'}">
+              ${Store.enNube() ? '☁️' : '💾'}</div>
+            <div class="li-body" style="min-width:220px">
+              <div class="li-title">${origenTexto()}</div>
+              <div class="li-sub" id="aviso-origen">${Store.aviso() ? '⚠️ ' + Shell.escape(Store.aviso()) : 'Conexión correcta.'}</div>
+            </div>
+          </div>
+
+          <div class="tabs" style="margin-top:18px">
+            <button class="tab ${pestana === 'resumen' ? 'active' : ''}" data-t="resumen">Resumen</button>
+            <button class="tab ${pestana === 'cuentas' ? 'active' : ''}" data-t="cuentas">Cuentas</button>
+            <button class="tab ${pestana === 'cargas' ? 'active' : ''}" data-t="cargas">Cargas</button>
+            <button class="tab ${pestana === 'puntos' ? 'active' : ''}" data-t="puntos">Plantas</button>
+          </div>
+          <div id="panel" class="stagger"></div>`;
+
+        c.querySelectorAll('.tab').forEach(b => {
+          b.onclick = () => { pestana = b.dataset.t; render(); };
+        });
+        ({ resumen, cuentas: panelCuentas, cargas: panelCargas, puntos: panelPuntos })[pestana]();
+      }
+
+      /* -------- Resumen -------- */
+      function resumen() {
+        const v = porRol(Store.ROL_VINATERO), e = porRol(Store.ROL_EMPRESA);
+        const volumen = cargas().reduce((s, x) => s + (Number(x.volumen) || 0), 0);
+        const suspendidas = cuentas().filter(a => a.activa === false).length;
+        const stats = [
+          { ic: '🍇', color: '#2E7D32', val: v.length, lbl: 'Viñateros', sub: 'Registrados' },
+          { ic: '🏭', color: '#1976D2', val: e.length, lbl: 'Empresas', sub: 'Biomasa / compostaje / transporte' },
+          { ic: '🌾', color: '#43A047', val: cargas().length, lbl: 'Cargas', sub: volumen + ' m³ publicados' },
+          { ic: '♻️', color: '#F9A825', val: puntos().length, lbl: 'Plantas y acopios', sub: puntos().filter(p => p.activo !== false).length + ' con cupos' },
+        ];
+        $('panel').innerHTML = `
+          <div class="grid cols-4" style="margin-top:16px">
+            ${stats.map(s => `
+              <div class="card stat-card">
+                <div class="chip-ic" style="background:${s.color}22;color:${s.color}">${s.ic}</div>
+                <div class="val">${s.val}</div>
+                <div class="lbl">${s.lbl}</div>
+                <div class="sub">${s.sub}</div>
+              </div>`).join('')}
+          </div>
+          ${suspendidas ? `<div class="card pad" style="margin-top:16px;display:flex;gap:12px;align-items:center">
+            <span style="font-size:20px">⛔</span>
+            <span>Hay <b>${suspendidas}</b> cuenta(s) suspendida(s). Revísalas en la pestaña <b>Cuentas</b>.</span>
+          </div>` : ''}
+          <div class="section">
+            <div class="section-title">Cargas por comuna</div>
+            <div class="grid" style="margin-top:12px">${porComunaHtml()}</div>
+          </div>`;
+      }
+
+      function porComunaHtml() {
+        const cuenta = {};
+        cargas().forEach(x => { cuenta[x.comuna] = (cuenta[x.comuna] || 0) + (Number(x.volumen) || 0); });
+        const filas = Object.entries(cuenta).sort((a, b) => b[1] - a[1]);
+        if (!filas.length) return `<div class="empty"><div class="ic">🌾</div><p>Todavía no hay cargas publicadas</p></div>`;
+        const mayor = filas[0][1];
+        return filas.map(([comuna, m3]) => `
+          <div class="card pad">
+            <div style="display:flex;align-items:center;gap:10px">
+              <b style="flex:1">${Shell.escape(comuna)}</b>
+              <span class="li-sub">${m3} m³</span>
+            </div>
+            <div class="progress" style="margin-top:8px">
+              <div style="width:${(m3 / mayor * 100).toFixed(0)}%;background:var(--primary)"></div>
+            </div>
+          </div>`).join('');
+      }
+
+      /* -------- Cuentas -------- */
+      function panelCuentas() {
+        const lista = cuentas().slice().sort((a, b) => Store.rolDe(a).localeCompare(Store.rolDe(b)));
+        $('panel').innerHTML = `
+          <div class="section" style="margin-top:16px">
+            <div class="section-title">Cuentas registradas</div>
+            <div class="section-sub">${lista.length} en total. Puedes suspender o eliminar cuentas.</div>
+          </div>
+          <div class="grid" style="margin-top:12px">
+            ${lista.map(a => {
+              const rol = Store.rolDe(a);
+              const ic = rol === Store.ROL_ADMIN ? '🛠️' : rol === Store.ROL_EMPRESA ? '🏭' : '🍇';
+              const suspendida = a.activa === false;
+              const esYo = a.email === Store.currentEmail();
+              return `
+                <div class="card list-item">
+                  <div class="li-ic" style="background:var(--surface-alt)">${ic}</div>
+                  <div class="li-body">
+                    <div class="li-title">${Shell.escape(a.nombre)} ${esYo ? '<span class="li-sub">(tu cuenta)</span>' : ''}</div>
+                    <div class="li-sub">${Shell.escape(a.email)} · ${Store.nombreRol(rol)}${a.comuna ? ' · ' + Shell.escape(a.comuna) : ''}</div>
+                    <div style="margin-top:6px">
+                      ${suspendida ? Shell.badge('Suspendida', '#E53935', '⛔') : Shell.badge('Activa', '#2E7D32', '✅')}
+                      ${a.porDefecto ? ' ' + Shell.badge('Clave por defecto', '#F9A825', '⚠️') : ''}
+                    </div>
+                  </div>
+                  ${esYo ? '' : `
+                    <button class="link-btn" data-suspender="${Shell.escape(a.email)}">${suspendida ? 'Reactivar' : 'Suspender'}</button>
+                    <button class="link-btn" style="color:var(--danger)" data-borrar="${Shell.escape(a.email)}">Eliminar</button>`}
+                </div>`;
+            }).join('')}
+          </div>`;
+
+        $('panel').querySelectorAll('[data-suspender]').forEach(b => {
+          b.onclick = async () => {
+            const a = Store.accountByEmail(b.dataset.suspender);
+            await Store.upsertAccount({ ...a, activa: a.activa === false });
+            Shell.toast(a.activa === false ? 'Cuenta reactivada' : 'Cuenta suspendida');
+            render();
+          };
+        });
+        $('panel').querySelectorAll('[data-borrar]').forEach(b => {
+          b.onclick = () => confirmar(
+            'Eliminar cuenta',
+            `Se eliminará <b>${Shell.escape(b.dataset.borrar)}</b> y todas sus cargas publicadas. Esto no se puede deshacer.`,
+            async () => { await Store.borrarCuenta(b.dataset.borrar); Shell.toast('Cuenta eliminada'); render(); });
+        });
+      }
+
+      /* -------- Cargas -------- */
+      function panelCargas() {
+        const lista = cargas();
+        $('panel').innerHTML = `
+          <div class="section" style="margin-top:16px">
+            <div class="section-title">Cargas publicadas</div>
+            <div class="section-sub">${lista.length} carga(s) de los viñateros registrados</div>
+          </div>
+          ${lista.length === 0
+            ? `<div class="empty"><div class="ic">🌾</div><p>Todavía no hay cargas publicadas</p></div>`
+            : `<div class="grid" style="margin-top:12px">${lista.map(x => {
+                const dueno = Store.accountByEmail(x.ownerEmail);
+                return `
+                  <div class="card list-item">
+                    <div class="li-ic" style="background:rgba(46,125,50,.12);color:var(--primary)">🌾</div>
+                    <div class="li-body">
+                      <div class="li-title">${x.volumen} m³ · ${Shell.escape(x.comuna)}</div>
+                      <div class="li-sub">${dueno ? Shell.escape(dueno.nombre) : 'Cuenta eliminada'} · ${Shell.escape(x.ownerEmail || '')}</div>
+                      <div class="li-sub">Destino: ${Shell.escape(x.destino)} · Disponible: ${Shell.escape(x.fecha || 'sin fecha')}</div>
+                    </div>
+                    <button class="link-btn" style="color:var(--danger)" data-carga="${Shell.escape(x.id)}">Eliminar</button>
+                  </div>`;
+              }).join('')}</div>`}`;
+
+        $('panel').querySelectorAll('[data-carga]').forEach(b => {
+          b.onclick = () => confirmar('Eliminar carga',
+            'Se quitará esta publicación de la plataforma.',
+            async () => { await Store.removeCarga(b.dataset.carga); Shell.toast('Carga eliminada'); render(); });
+        });
+      }
+
+      /* -------- Plantas y centros -------- */
+      function panelPuntos() {
+        const lista = puntos();
+        $('panel').innerHTML = `
+          <div class="section" style="margin-top:16px">
+            <div class="section-title">Plantas y centros de acopio</div>
+            <div class="section-sub">${lista.length} punto(s) en el mapa</div>
+          </div>
+          <button class="btn block" style="margin-top:12px" id="btn-nuevo">➕ Agregar planta o centro</button>
+          <div class="grid" style="margin-top:12px">
+            ${lista.map(p => {
+              const color = tipoColor(p.tipo, p.activo);
+              return `
+                <div class="card list-item">
+                  <div class="li-ic" style="background:${color}22;color:${color}">${recibeSarmientos(p.tipo) ? '♻️' : p.tipo === 'Transporte' ? '🚚' : '📦'}</div>
+                  <div class="li-body">
+                    <div class="li-title">${Shell.escape(p.nombre)}</div>
+                    <div class="li-sub">${p.tipo} · ${Shell.escape(p.comuna)}${p.cap != null ? ' · ' + p.cap + ' m³' : ''}</div>
+                    <div class="li-sub">${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}</div>
+                    <div style="margin-top:6px">${p.activo !== false ? Shell.badge('Con cupos', '#2E7D32', '✅') : Shell.badge('Sin cupos', '#E53935', '⛔')}</div>
+                  </div>
+                  <button class="link-btn" data-cupos="${Shell.escape(p.id)}">${p.activo !== false ? 'Cerrar cupos' : 'Abrir cupos'}</button>
+                  <button class="link-btn" style="color:var(--danger)" data-punto="${Shell.escape(p.id)}">Eliminar</button>
+                </div>`;
+            }).join('')}
+          </div>`;
+
+        $('btn-nuevo').onclick = formularioPunto;
+
+        $('panel').querySelectorAll('[data-cupos]').forEach(b => {
+          b.onclick = async () => {
+            const p = puntos().find(x => x.id === b.dataset.cupos);
+            await Store.guardarPunto({ ...p, activo: p.activo === false });
+            Shell.toast('Cupos actualizados');
+            render();
+          };
+        });
+        $('panel').querySelectorAll('[data-punto]').forEach(b => {
+          b.onclick = () => confirmar('Eliminar punto',
+            'Se quitará del mapa y del buscador de empresas.',
+            async () => { await Store.borrarPunto(b.dataset.punto); Shell.toast('Punto eliminado'); render(); });
+        });
+      }
+
+      /* Alta de una planta nueva: la comuna define las coordenadas. */
+      function formularioPunto() {
+        Shell.openModal(`
+          <div class="handle"></div>
+          <b style="font-size:18px">Nueva planta o centro</b>
+          <div class="field" style="margin-top:16px"><label>Nombre</label>
+            <input class="input" id="p-nombre" placeholder="Ej: Compost Río Claro"></div>
+          <div class="field"><label>Tipo</label>
+            <select id="p-tipo">
+              <option>Biomasa</option><option>Compostaje</option><option>Acopio</option>
+            </select></div>
+          <div class="field"><label>Comuna</label>
+            <select id="p-comuna">${DATA.comunas.map(x => `<option>${x.nombre}</option>`).join('')}</select></div>
+          <div class="field"><label>Capacidad (m³)</label>
+            <input class="input" id="p-cap" type="number" min="1" placeholder="Ej: 30"></div>
+          <div class="field"><label>Descripción</label>
+            <textarea id="p-desc" rows="2" placeholder="Qué recibe, horarios, accesos…"></textarea></div>
+          <div class="err" id="p-err"></div>
+          <div class="field-row">
+            <button class="btn ghost" style="flex:1" onclick="Shell.closeModal()">Cancelar</button>
+            <button class="btn" style="flex:1" id="p-guardar">Guardar</button>
+          </div>`);
+
+        $('p-guardar').onclick = async () => {
+          const nombre = $('p-nombre').value.trim();
+          if (!nombre) return ($('p-err').textContent = 'Ingresa el nombre');
+          const comuna = $('p-comuna').value;
+          const coord = Shell.coordComuna(comuna);
+          if (!coord) return ($('p-err').textContent = 'Esa comuna no tiene coordenadas');
+          await Store.guardarPunto({
+            id: 'p-' + Date.now(),
+            nombre, tipo: $('p-tipo').value, comuna,
+            desc: $('p-desc').value.trim(),
+            cap: parseFloat($('p-cap').value) || null,
+            activo: true, lat: coord.lat, lng: coord.lng,
+          });
+          Shell.closeModal();
+          Shell.toast('Punto agregado al mapa');
+          render();
+        };
+      }
+
+      /* -------- Confirmación para acciones que borran -------- */
+      function confirmar(titulo, mensaje, alAceptar) {
+        Shell.openModal(`
+          <div class="handle"></div>
+          <b style="font-size:18px">${titulo}</b>
+          <p style="margin:14px 0;line-height:1.45">${mensaje}</p>
+          <div class="field-row">
+            <button class="btn ghost" style="flex:1" onclick="Shell.closeModal()">Cancelar</button>
+            <button class="btn" style="flex:1;background:var(--danger)" id="ok-borrar">Sí, eliminar</button>
+          </div>`);
+        $('ok-borrar').onclick = async () => { Shell.closeModal(); await alAceptar(); };
+      }
+
+      $('btn-recargar').onclick = async () => {
+        await Store.sincronizar({ forzar: true });
+        render();
+        Shell.toast('Datos recargados');
+      };
+
+      $('tb-origen').textContent = Store.enNube() ? 'Base compartida' : 'Base local';
+      render();
+    });
+  </script>
+</body>
+</html>

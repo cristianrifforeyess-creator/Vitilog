@@ -1,0 +1,93 @@
+
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VITILOG · Perfil</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main">
+      <div class="topbar">
+        <div class="tb-logo">🌿</div>
+        <div><h1>Mi Perfil</h1><p>Región del Maule</p></div>
+        <div class="tb-actions"><button title="Configuración" onclick="location.href='configuracion.html'">⚙️</button></div>
+      </div>
+      <div class="content stagger" id="content"></div>
+    </main>
+  </div>
+  <nav class="bottom-nav" id="bottomnav"></nav>
+
+  <script src="js/config.js"></script>
+  <script src="js/nube.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/shell.js"></script>
+  <script>
+    Shell.init('perfil', { rol: Store.ROL_VINATERO }).then(listo => { if (!listo) return;
+      const u = Store.currentUser();
+      const mis = Store.misCargas();
+      const volumen = mis.reduce((s, c) => s + c.volumen, 0);
+
+      // Las 4 empresas más cercanas, de la misma fuente que el mapa.
+      const empresasHtml = Shell.empresasParaBuscador().slice(0, 4).map(e => {
+        const color = tipoColor(e.tipo, e.activo);
+        const ic = e.tipo === 'Biomasa' ? '🔥' : '♻️';
+        return `
+          <div class="card list-item">
+            <div class="li-ic" style="background:${color}22;color:${color}">${ic}</div>
+            <div class="li-body"><div class="li-title">${Shell.escape(e.nombre)}</div><div class="li-sub">${e.tipo} · ${e.comuna}${e.km != null ? ' · a ' + e.km + ' km' : ''}</div></div>
+            ${e.activo
+              ? `<button class="btn ghost" style="padding:8px 12px;font-size:13px" onclick="Shell.contactar('${Shell.escape(e.nombre)}','${e.tipo} · ${e.comuna}')">💬</button>`
+              : Shell.badge('Inactiva', '#5F6B60')}
+          </div>`;
+      }).join('');
+
+      document.getElementById('content').innerHTML = `
+        <div style="display:flex;align-items:center;gap:16px">
+          <div style="width:68px;height:68px;border-radius:50%;background:var(--surface-alt);display:grid;place-items:center;font-size:30px;font-weight:800;color:var(--primary)">${Shell.escape((u.nombre[0] || '?').toUpperCase())}</div>
+          <div>
+            <div style="font-size:19px;font-weight:800">${Shell.escape(u.nombre)} · Viñatero</div>
+            <div class="li-sub">${Shell.escape(u.comuna)}, Región del Maule</div>
+            <div style="margin-top:8px">${Shell.badge('Productor verificado', '#2E7D32', '✔')}</div>
+          </div>
+        </div>
+
+        <div class="grid cols-3" style="margin-top:20px">
+          <div class="card pad" style="text-align:center">
+            <div style="font-size:22px">🏞️</div>
+            <div style="font-size:16px;font-weight:800;margin-top:6px">${(+u.hectareas || 0)} ha</div>
+            <div class="li-sub">Viñedo</div>
+          </div>
+          <div class="card pad" style="text-align:center">
+            <div style="font-size:22px">📤</div>
+            <div style="font-size:16px;font-weight:800;margin-top:6px">${mis.length}</div>
+            <div class="li-sub">Cargas publicadas</div>
+          </div>
+          <div class="card pad" style="text-align:center">
+            <div style="font-size:22px">📦</div>
+            <div style="font-size:16px;font-weight:800;margin-top:6px">${volumen} m³</div>
+            <div class="li-sub">Volumen total</div>
+          </div>
+        </div>
+
+        <div class="section"><div class="section-title">Datos de contacto</div></div>
+        <div class="card" style="margin-top:12px">
+          <div class="list-item"><div class="li-ic">📞</div><div class="li-body"><div class="li-sub">Teléfono</div><div class="li-title">${u.telefono ? Shell.escape(u.telefono) : 'Sin registrar'}</div></div></div>
+          <div style="height:1px;background:var(--border)"></div>
+          <div class="list-item"><div class="li-ic">✉️</div><div class="li-body"><div class="li-sub">Correo</div><div class="li-title">${Shell.escape(u.email)}</div></div></div>
+          <div style="height:1px;background:var(--border)"></div>
+          <div class="list-item"><div class="li-ic">📍</div><div class="li-body"><div class="li-sub">Comuna</div><div class="li-title">${Shell.escape(u.comuna)}</div></div></div>
+        </div>
+
+        <div class="section"><div class="section-title">Empresas conectadas</div><div class="section-sub">Contacto directo · trazabilidad del residuo</div></div>
+        <div class="grid" style="margin-top:12px">${empresasHtml}</div>
+
+        <button class="btn outline block" style="margin-top:20px" onclick="Shell.logout()">🚪 Cerrar sesión</button>`;
+    });
+  </script>
+</body>
+</html>

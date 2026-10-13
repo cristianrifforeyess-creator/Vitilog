@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VITILOG · Publicar Sarmientos</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main">
+      <div class="topbar">
+        <button class="tb-logo" style="border:none;color:#fff" onclick="history.back()">←</button>
+        <div><h1>Publicar Sarmientos</h1><p>Región del Maule</p></div>
+      </div>
+      <div class="content" style="max-width:640px">
+        <div class="card pad" style="background:var(--surface-alt);display:flex;gap:12px;align-items:center;margin-bottom:20px">
+          <span style="font-size:22px">🌿</span>
+          <span style="font-size:13.5px">Publica tu carga de sarmientos para que las empresas de biomasa o compostaje la vean y coordinen la recolección.</span>
+        </div>
+
+        <div class="field">
+          <label>Comuna</label>
+          <select id="comuna"><option value="">Selecciona tu comuna</option></select>
+        </div>
+        <div class="field">
+          <label>Volumen estimado (m³)</label>
+          <input class="input" id="volumen" type="number" min="1" placeholder="Ej: 14">
+        </div>
+        <div class="field">
+          <label>Destino del residuo</label>
+          <div class="chip-select" id="destinos"></div>
+        </div>
+        <div class="field">
+          <label>Fecha disponible</label>
+          <input class="input" id="fecha" type="date">
+        </div>
+        <div class="field">
+          <label>Notas (opcional)</label>
+          <textarea id="notas" rows="3" placeholder="Acceso al predio, referencias, etc."></textarea>
+        </div>
+
+        <div class="err" id="err"></div>
+        <button class="btn block" onclick="publicar()">➕ Publicar carga</button>
+        <button class="btn ghost block" style="margin-top:10px" onclick="location.href='inicio.html'">Cancelar</button>
+      </div>
+    </main>
+  </div>
+  <nav class="bottom-nav" id="bottomnav"></nav>
+
+  <script src="js/config.js"></script>
+  <script src="js/nube.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/shell.js"></script>
+  <script>
+    Shell.init('inicio', { rol: Store.ROL_VINATERO }).then(listo => { if (!listo) return;
+      const $ = id => document.getElementById(id);
+      $('comuna').innerHTML += DATA.comunas.map(c => `<option>${c.nombre}</option>`).join('');
+
+      let destino = 'Indistinto';
+      const destinos = ['Biomasa', 'Compostaje', 'Indistinto'];
+      function renderChips() {
+        $('destinos').innerHTML = destinos.map(d =>
+          `<button class="chip ${d === destino ? 'active' : ''}" onclick="setDestino('${d}')">${d}</button>`).join('');
+      }
+      window.setDestino = d => { destino = d; renderChips(); };
+      renderChips();
+
+      // Fecha mínima = mañana
+      const t = new Date(); t.setDate(t.getDate() + 1);
+      $('fecha').value = t.toISOString().slice(0, 10);
+      $('fecha').min = new Date().toISOString().slice(0, 10);
+
+      window.publicar = () => {
+        const comuna = $('comuna').value;
+        const volumen = parseFloat(($('volumen').value || '').replace(',', '.'));
+        if (!comuna) return ($('err').textContent = 'Selecciona una comuna');
+        if (!volumen || volumen <= 0) return ($('err').textContent = 'Ingresa un volumen válido');
+        if (volumen > 500) return ($('err').textContent = 'Volumen demasiado alto');
+
+        const [y, m, d] = $('fecha').value.split('-');
+        // Se espera a que quede guardada antes de salir: si la base es
+        // compartida, salir antes perdería la publicación.
+        Store.addCarga({
+          id: String(Date.now()),
+          comuna, volumen, destino,
+          fecha: `${d}/${m}/${y}`,
+          notas: $('notas').value.trim(),
+          ownerEmail: Store.currentEmail(),
+        }).then(() => {
+          location.href = 'inicio.html';
+        }).catch(e => {
+          $('err').textContent = 'No se pudo publicar: ' + e.message;
+        });
+      };
+    });
+  </script>
+</body>
+</html>

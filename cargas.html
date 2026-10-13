@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VITILOG · Cargas Disponibles</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main">
+      <div class="topbar">
+        <div class="tb-logo">🌾</div>
+        <div><h1>Cargas Disponibles</h1><p>Sarmientos publicados por viñateros</p></div>
+      </div>
+      <div class="content">
+        <input class="input" id="q" placeholder="🔍  Buscar por viñatero o comuna…">
+        <div class="field-row" style="margin-top:12px;align-items:flex-end">
+          <div class="field" style="flex:1;margin-bottom:0">
+            <label>Comuna</label>
+            <select id="comuna"><option value="">Todas las comunas</option></select>
+          </div>
+          <div class="field" style="flex:1;margin-bottom:0">
+            <label>Volumen mínimo (m³)</label>
+            <input class="input" id="vmin" type="number" min="0" placeholder="Sin mínimo">
+          </div>
+        </div>
+        <div class="chip-select" id="filtros" style="margin-top:14px"></div>
+        <div id="results" class="stagger" style="margin-top:16px"></div>
+      </div>
+    </main>
+  </div>
+  <nav class="bottom-nav" id="bottomnav"></nav>
+
+  <script src="js/config.js"></script>
+  <script src="js/nube.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/shell.js"></script>
+  <script>
+    Shell.init('cargas', { rol: Store.ROL_EMPRESA }).then(listo => { if (!listo) return;
+      const $ = id => document.getElementById(id);
+      const cargas = Store.cargasPublicadas();
+
+      // Comunas presentes en las cargas, sin repetir.
+      const comunas = [...new Set(cargas.map(c => c.comuna))].sort();
+      $('comuna').innerHTML += comunas.map(c => `<option>${c}</option>`).join('');
+
+      let filtro = 'Todos';
+      const filtros = ['Todos', 'Biomasa', 'Compostaje', 'Indistinto'];
+      $('filtros').innerHTML = filtros.map(f =>
+        `<button class="chip ${f === filtro ? 'active' : ''}" data-f="${f}">${f === 'Todos' ? '' : tipoIcono(f) + ' '}${f}</button>`).join('');
+      $('filtros').querySelectorAll('.chip').forEach(b => {
+        b.onclick = () => {
+          filtro = b.dataset.f;
+          $('filtros').querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c.dataset.f === filtro));
+          render();
+        };
+      });
+
+      function tarjeta(c, i) {
+        const color = tipoColor(c.destino);
+        const dist = c.km ? ` · ${c.km} km` : '';
+        return `
+          <div class="card route-card">
+            <div class="route-head">
+              <div class="li-ic" style="background:${color}22;color:${color}">${tipoIcono(c.destino)}</div>
+              <b>${Shell.escape(c.productor)}</b>
+              ${Shell.badge(c.destino, color)}
+            </div>
+            <div class="route-info">
+              <span class="info-line">📍 Comuna: <b>${Shell.escape(c.comuna)}${dist}</b></span>
+              <span class="info-line">📦 Volumen: <b>${c.volumen} m³</b></span>
+              <span class="info-line">📅 Disponible: <b>${Shell.escape(c.fecha || 'Por confirmar')}</b></span>
+            </div>
+            ${c.notas ? `<p class="section-sub" style="margin-top:10px">📝 ${Shell.escape(c.notas)}</p>` : ''}
+            <div class="route-foot" style="gap:8px">
+              <span class="date"></span>
+              <button class="btn ghost" style="padding:10px 14px;font-size:13.5px" data-i="${i}">💬 Contactar</button>
+              <button class="btn" style="padding:10px 14px;font-size:13.5px" data-retiro="${i}">🚚 Programar retiro</button>
+            </div>
+          </div>`;
+      }
+
+      function render() {
+        const q = $('q').value.trim().toLowerCase();
+        const comuna = $('comuna').value;
+        const vmin = parseFloat($('vmin').value) || 0;
+
+        const lista = cargas.filter(c => {
+          const okTexto = !q || c.productor.toLowerCase().includes(q) || c.comuna.toLowerCase().includes(q);
+          const okComuna = !comuna || c.comuna === comuna;
+          const okDestino = filtro === 'Todos' || c.destino === filtro;
+          const okVolumen = c.volumen >= vmin;
+          return okTexto && okComuna && okDestino && okVolumen;
+        });
+
+        const box = $('results');
+        if (lista.length === 0) {
+          box.innerHTML = `<div class="empty"><div class="ic">🌾</div><p>No hay cargas que coincidan con los filtros</p></div>`;
+          return;
+        }
+
+        const total = lista.reduce((s, c) => s + c.volumen, 0);
+        box.innerHTML =
+          `<div class="section-sub" style="margin-bottom:10px">${lista.length} carga(s) · ${total} m³ en total</div>` +
+          `<div class="grid">` + lista.map(tarjeta).join('') + `</div>`;
+
+        // Contacto directo con el productor de cada carga.
+        box.querySelectorAll('button[data-i]').forEach(b => {
+          b.onclick = () => {
+            const c = lista[+b.dataset.i];
+            Shell.contactar(c.productor, `${c.comuna} · ${c.volumen} m³ de sarmientos`, {
+              tel: c.telefono, email: c.email, ic: '🍇',
+            });
+          };
+        });
+
+        // Programar el retiro: crea el envío y abre su seguimiento.
+        box.querySelectorAll('button[data-retiro]').forEach(b => {
+          b.onclick = () => programarRetiro(lista[+b.dataset.retiro]);
+        });
+
+        box.classList.remove('stagger'); void box.offsetWidth; box.classList.add('stagger');
+      }
+
+      /* Programa el retiro de una carga: pide el chofer y crea el envío,
+         que desde ese momento el viñatero puede seguir en el mapa. */
+      function programarRetiro(carga) {
+        const u = Store.currentUser();
+        const origen = Shell.coordComuna(carga.comuna);
+        const base = Shell.ubicacionCuenta();
+        if (!origen) { Shell.toast('No tenemos las coordenadas de esa comuna'); return; }
+
+        const km = base ? Shell.distanciaKm(origen, base) : 40;
+        const minutos = Math.max(6, Math.round(km * 1.4));
+
+        Shell.openModal(`
+          <div class="handle"></div>
+          <b style="font-size:18px">Programar retiro</b>
+          <p class="section-sub" style="margin-top:4px">
+            ${Shell.escape(carga.productor)} · ${carga.volumen} m³ en ${Shell.escape(carga.comuna)}
+          </p>
+          <div class="field" style="margin-top:16px">
+            <label for="r-chofer">Chofer a cargo</label>
+            <input class="input" id="r-chofer" placeholder="Nombre del chofer">
+          </div>
+          <div class="field">
+            <label for="r-tel">Teléfono del chofer</label>
+            <input class="input" id="r-tel" type="tel" inputmode="tel" placeholder="+56 9 ...">
+          </div>
+          <div class="field">
+            <label for="r-patente">Patente (opcional)</label>
+            <input class="input" id="r-patente" placeholder="Ej: KDJS-42">
+          </div>
+          <div class="field">
+            <label for="r-min">Tiempo estimado de viaje (minutos)</label>
+            <input class="input" id="r-min" type="number" min="1" value="${minutos}" inputmode="numeric">
+            <div class="section-sub" style="margin-top:6px">
+              ${km} km hasta ${Shell.escape(base ? base.comuna : 'tu base')}
+            </div>
+          </div>
+          <div class="err" id="r-err"></div>
+          <div class="field-row">
+            <button class="btn ghost" style="flex:1" onclick="Shell.closeModal()">Cancelar</button>
+            <button class="btn" style="flex:1" id="r-ok">🚚 Iniciar retiro</button>
+          </div>`);
+
+        $('r-ok').onclick = async () => {
+          const chofer = $('r-chofer').value.trim();
+          const tel = $('r-tel').value.trim();
+          const min = parseInt($('r-min').value, 10);
+          if (!chofer) return ($('r-err').textContent = 'Escribe el nombre del chofer.');
+          if (!tel) return ($('r-err').textContent = 'Escribe el teléfono del chofer.');
+          if (!min || min < 1) return ($('r-err').textContent = 'Ingresa un tiempo válido.');
+
+          const destino = base && base.lat ? base : origen;
+          const envio = await Store.addEnvio({
+            id: 'env-' + Date.now(),
+            cargaId: carga.id || null,
+            vinateroEmail: carga.email || null,
+            empresaEmail: Store.currentEmail(),
+            chofer, choferTelefono: tel, patente: $('r-patente').value.trim(),
+            origenComuna: carga.comuna, origenLat: origen.lat, origenLng: origen.lng,
+            destinoId: null, destinoNombre: u.nombre,
+            destinoLat: destino.lat, destinoLng: destino.lng,
+            estado: 'en_camino',
+            salida: new Date().toISOString(),
+            minutosTotal: min,
+            progreso: 0, vehLat: null, vehLng: null,
+            volumenDeclarado: carga.volumen,
+            volumenRecibido: null, pesoRecibido: null, observaciones: '',
+            creado: new Date().toISOString(),
+          });
+
+          Shell.closeModal();
+          location.href = 'seguimiento.html?id=' + encodeURIComponent(envio.id);
+        };
+      }
+
+      $('q').oninput = render;
+      $('comuna').onchange = render;
+      $('vmin').oninput = render;
+      render();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VITILOG · Mapa</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main">
+      <div class="topbar"><div class="tb-logo">🌿</div><div><h1>Mapa</h1><p>Dónde dejar los sarmientos · Región del Maule</p></div></div>
+      <div class="content">
+
+        <!-- Ubicación del usuario -->
+        <div class="card pad" id="barra-ubicacion" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <div class="li-ic" style="background:rgba(46,125,50,.12);color:var(--primary)">🏠</div>
+          <div class="li-body" style="min-width:180px">
+            <div class="li-title" id="ubi-titulo">Tu ubicación</div>
+            <div class="li-sub" id="ubi-detalle">—</div>
+          </div>
+          <button class="btn ghost" id="btn-gps" style="padding:10px 14px;font-size:13.5px">🎯 Usar mi ubicación actual</button>
+        </div>
+
+        <!-- Leyenda -->
+        <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;font-weight:600;margin:16px 0 12px">
+          <span>♻️ <span style="color:#F9A825">Biomasa</span></span>
+          <span>♻️ <span style="color:#43A047">Compostaje</span></span>
+          <span>📦 <span style="color:#1976D2">Centro de acopio</span></span>
+          <span>🚚 <span style="color:#6A1B9A">Transportista</span></span>
+          <span>⛔ <span style="color:#E53935">Sin cupos</span></span>
+          <span>🏠 <span style="color:var(--primary)">Tu ubicación</span></span>
+        </div>
+        <p class="section-sub" style="margin-bottom:12px">♻️ En las plantas de <b>biomasa</b> y <b>compostaje</b> puedes dejar tus sarmientos. Los <b>centros de acopio</b> solo agrupan cargas antes de llevarlas a una planta.</p>
+
+        <!-- La geografía y los marcadores los dibuja el SVG que inyecta Shell -->
+        <div class="map-sim map-propio" id="map">
+          <div class="map-chip">🗺️ Región del Maule</div>
+        </div>
+        <p class="section-sub" style="margin-top:10px" id="nota-mapa">Toca un marcador para ver la empresa o centro de acopio.</p>
+        <div id="puntos"></div>
+      </div>
+    </main>
+  </div>
+  <nav class="bottom-nav" id="bottomnav"></nav>
+
+  <script src="js/config.js"></script>
+  <script src="js/nube.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/shell.js"></script>
+  <script>
+    Shell.init('mapa').then(listo => { if (!listo) return;
+      const $ = id => document.getElementById(id);
+      const map = $('map');
+      const nota = $('nota-mapa');
+
+      // Recuadro esquemático ya armado, por si hay que restaurarlo.
+      const respaldoHTML = map.innerHTML;
+
+      /* Ubicación del usuario: parte de la comuna que eligió al registrarse
+         y se reemplaza por el GPS si da permiso. Vale igual para el viñatero
+         y para la empresa/transportista. */
+      let ubicacion = Shell.ubicacionCuenta();
+      let gmap = null, marcadorUsuario = null, marco = null;
+
+      /* -------- Datos derivados de la ubicación -------- */
+
+      /* Puntos con la distancia hasta el usuario, los más cercanos primero. */
+      function puntosPorCercania() {
+        return Shell.puntosMapa()
+          .map(p => ({ ...p, km: Shell.distanciaKm(ubicacion, p) }))
+          .sort((a, b) => (a.km ?? 1e9) - (b.km ?? 1e9));
+      }
+
+      /* Planta de biomasa o compostaje más cercana con cupos. */
+      function plantaMasCercana() {
+        return puntosPorCercania().find(p => recibeSarmientos(p.tipo) && p.activo) || null;
+      }
+
+      function actualizarBarra() {
+        if (!ubicacion) {
+          $('ubi-titulo').textContent = 'Sin ubicación';
+          $('ubi-detalle').textContent = 'Elige tu comuna en Configuración para ubicarte en el mapa.';
+          return;
+        }
+        const cercana = plantaMasCercana();
+        $('ubi-titulo').textContent = ubicacion.origen === 'gps'
+          ? '🎯 Tu ubicación actual'
+          : `🏠 ${ubicacion.etiqueta}: ${ubicacion.comuna}`;
+        $('ubi-detalle').textContent = cercana
+          ? `Planta más cercana para dejar sarmientos: ${cercana.nombre} (${cercana.comuna}), a ${cercana.km} km.`
+          : 'No hay plantas con cupos disponibles cerca.';
+      }
+
+      /* -------- Ficha de un punto -------- */
+      function verPunto(p) {
+        const color = tipoColor(p.tipo, p.activo);
+        const estado = p.activo ? Shell.badge('Disponible', '#2E7D32', '✅') : Shell.badge('Sin cupos', '#E53935', '⛔');
+        const entrega = recibeSarmientos(p.tipo)
+          ? Shell.badge('Aquí puedes dejar tus sarmientos', '#2E7D32', '♻️')
+          : p.tipo === 'Transporte'
+            ? Shell.badge('Transportista: retira y traslada cargas', '#6A1B9A', '🚚')
+            : Shell.badge('Solo agrupa cargas', '#1976D2', '📦');
+        const sello = p.registrada ? ' ' + Shell.badge('Registrada en VITILOG', '#1976D2', '🔖') : '';
+        const km = Shell.distanciaKm(ubicacion, p);
+        Shell.openModal(`
+          <div class="handle"></div>
+          <div style="display:flex;align-items:center;gap:12px">
+            <div class="li-ic" style="background:${color}22;color:${color}">🏭</div>
+            <div style="flex:1"><b style="font-size:17px">${Shell.escape(p.nombre)}</b><div class="li-sub">${p.tipo} · ${p.comuna}</div></div>
+            ${estado}
+          </div>
+          <div style="margin-top:12px">${entrega}${sello}</div>
+          <p style="margin:16px 0;line-height:1.4">${p.desc}</p>
+          <div class="route-info">
+            ${p.cap != null ? `<span class="info-line">📦 Capacidad: <b>${p.cap} m³</b></span>` : ''}
+            <span class="info-line">📍 Comuna: <b>${p.comuna}</b></span>
+            ${km != null ? `<span class="info-line">🛣️ Distancia: <b>${km} km desde ti</b></span>` : ''}
+          </div>
+          <div class="field-row" style="margin-top:20px">
+            <button class="btn ghost" style="flex:1" onclick="Shell.closeModal()">Cerrar</button>
+            <button class="btn" style="flex:1" ${p.activo ? '' : 'disabled'} onclick="Shell.closeModal();contactarPunto('${p.id}')">💬 Contactar</button>
+          </div>`);
+      }
+      window.verPunto = verPunto;
+
+      /* Contacto del punto. Si es una empresa registrada, usa su correo y
+         teléfono reales; si no, los datos de demostración. */
+      window.contactarPunto = (id) => {
+        const p = Shell.puntosMapa().find(x => x.id === id);
+        if (!p) return;
+        Shell.contactar(p.nombre, `${p.tipo} · ${p.comuna}`,
+          p.registrada ? { tel: p.telefono, email: p.email } : {});
+      };
+
+      /* -------- 1. Google Maps completo (con clave) -------- */
+      function iniciarGoogleMaps() {
+        map.innerHTML = '';
+        map.classList.add('map-real');
+        const vista = DATA.mapaVista;
+
+        gmap = new google.maps.Map(map, {
+          center: { lat: vista.lat, lng: vista.lng },
+          zoom: vista.zoom,
+          mapTypeId: (typeof GOOGLE_MAPS_TIPO !== 'undefined' ? GOOGLE_MAPS_TIPO : 'terrain'),
+          streetViewControl: false, mapTypeControl: true, fullscreenControl: true,
+        });
+
+        const limites = new google.maps.LatLngBounds();
+        Shell.puntosMapa().forEach(p => {
+          const color = tipoColor(p.tipo, p.activo);
+          const entrega = recibeSarmientos(p.tipo);
+          const pos = { lat: p.lat, lng: p.lng };
+          limites.extend(pos);
+
+          // Las plantas donde se deja el residuo van más grandes y con borde
+          // marcado; los centros de acopio, más discretos.
+          const marcador = new google.maps.Marker({
+            position: pos, map: gmap,
+            title: `${p.nombre} · ${p.comuna}` + (entrega ? ' (recibe sarmientos)' : ''),
+            zIndex: entrega ? 3 : 2,
+            icon: {
+              path: google.maps.SymbolPath.CIRCLE,
+              scale: entrega ? 12 : 8,
+              fillColor: color, fillOpacity: 1,
+              strokeColor: '#ffffff', strokeWeight: entrega ? 3 : 2,
+            },
+          });
+          marcador.addListener('click', () => verPunto(p));
+        });
+
+        dibujarUsuarioEnGoogle(limites);
+        gmap.fitBounds(limites, 60);
+        nota.textContent = 'Toca un marcador para ver la empresa o centro de acopio.';
+        return Shell.verificarMapaDibujado(map);
+      }
+
+      function dibujarUsuarioEnGoogle(limites) {
+        if (!gmap || !ubicacion) return;
+        if (marcadorUsuario) marcadorUsuario.setMap(null);
+        const pos = { lat: ubicacion.lat, lng: ubicacion.lng };
+        marcadorUsuario = new google.maps.Marker({
+          position: pos, map: gmap, zIndex: 4,
+          title: ubicacion.origen === 'gps' ? 'Estás aquí' : `${ubicacion.etiqueta} · ${ubicacion.comuna}`,
+          icon: {
+            path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
+            scale: 7, fillColor: '#1B5E20', fillOpacity: 1,
+            strokeColor: '#ffffff', strokeWeight: 2.5,
+          },
+        });
+        if (limites) limites.extend(pos);
+      }
+
+      /* -------- 2. Google Maps incrustado (sin clave) -------- */
+      function iniciarIncrustado() {
+        map.dataset.mapaReal = '1';
+        map.classList.add('map-real');
+        map.innerHTML = '';
+
+        let cargado = false;
+        marco = document.createElement('iframe');
+        marco.className = 'map-frame';
+        marco.title = 'Mapa de la Región del Maule';
+        marco.referrerPolicy = 'no-referrer-when-downgrade';
+        marco.src = Shell.urlMapaIncrustado(DATA.mapaVista);
+        marco.onload = () => { cargado = true; };
+        map.appendChild(marco);
+
+        setTimeout(() => { if (!cargado) iniciarPropio(new Error('sin-conexion')); }, 8000);
+
+        listarPuntos();
+        nota.textContent = 'Elige un punto de la lista para centrar el mapa y ver su ficha.';
+      }
+
+      function centrarEnUsuario() {
+        if (!marco || !ubicacion) return;
+        marco.src = Shell.urlMapaIncrustado({
+          lat: ubicacion.lat, lng: ubicacion.lng, zoom: 12,
+          etiqueta: ubicacion.origen === 'gps' ? 'Estás aquí' : `${ubicacion.etiqueta} (${ubicacion.comuna})`,
+        });
+      }
+
+      /* Lista de puntos: reemplaza a los marcadores clicables, que el mapa
+         incrustado no permite. Ordenada por cercanía al usuario. */
+      function listarPuntos() {
+        const caja = $('puntos');
+        const lista = puntosPorCercania();
+
+        caja.innerHTML = `
+          <div class="section" style="margin-top:18px">
+            <div class="section-title">Dónde dejar los sarmientos</div>
+            <div class="section-sub">${ubicacion ? 'Ordenados por cercanía a ' + Shell.escape(ubicacion.comuna || 'tu ubicación') : 'Toca uno para verlo en el mapa'}</div>
+          </div>
+          ${ubicacion ? `<div class="card list-item punto" id="punto-yo" style="margin-top:12px">
+            <div class="li-ic" style="background:rgba(46,125,50,.12);color:var(--primary)">🏠</div>
+            <div class="li-body">
+              <div class="li-title">${ubicacion.origen === 'gps' ? 'Estás aquí' : ubicacion.etiqueta}</div>
+              <div class="li-sub">${Shell.escape(ubicacion.comuna || 'Ubicación actual')}</div>
+            </div>
+            <span class="badge" style="color:#2E7D32;background:#2E7D3222">Tu ubicación</span>
+          </div>` : ''}
+          <div class="puntos-lista">
+            ${lista.map((p, i) => {
+              const color = tipoColor(p.tipo, p.activo);
+              const entrega = recibeSarmientos(p.tipo);
+              const estado = p.activo
+                ? Shell.badge('Disponible', '#2E7D32', '✅')
+                : Shell.badge('Sin cupos', '#E53935', '⛔');
+              return `
+                <div class="card list-item punto ${entrega ? 'entrega' : ''}" data-i="${i}">
+                  <div class="li-ic" style="background:${color}22;color:${color}">${entrega ? '♻️' : p.tipo === 'Transporte' ? '🚚' : '📦'}</div>
+                  <div class="li-body">
+                    <div class="li-title">${Shell.escape(p.nombre)}</div>
+                    <div class="li-sub">${p.tipo} · ${p.comuna}${p.km != null ? ' · a ' + p.km + ' km' : ''}</div>
+                    <div style="margin-top:6px">${estado}${p.registrada ? ' ' + Shell.badge('Registrada', '#1976D2', '🔖') : ''}</div>
+                  </div>
+                  <button class="link-btn" data-ficha="${i}">Ficha ›</button>
+                </div>`;
+            }).join('')}
+          </div>`;
+
+        const yo = $('punto-yo');
+        if (yo) yo.onclick = centrarEnUsuario;
+
+        caja.querySelectorAll('.puntos-lista .punto').forEach(tarjeta => {
+          const p = lista[+tarjeta.dataset.i];
+          tarjeta.onclick = () => {
+            caja.querySelectorAll('.punto').forEach(t => t.classList.remove('activo'));
+            tarjeta.classList.add('activo');
+            if (marco) {
+              // Mapa incrustado: se recentra en el punto elegido.
+              marco.src = Shell.urlMapaIncrustado({
+                lat: p.lat, lng: p.lng, zoom: 12, etiqueta: p.nombre,
+              });
+            } else {
+              // Mapa propio: el marcador ya está a la vista, se abre la ficha.
+              verPunto(p);
+            }
+          };
+        });
+        caja.querySelectorAll('[data-ficha]').forEach(b => {
+          b.onclick = e => { e.stopPropagation(); verPunto(lista[+b.dataset.ficha]); };
+        });
+      }
+
+      /* -------- 3. Mapa propio (sin internet ni Google) -------- */
+      function iniciarPropio(err) {
+        delete map.dataset.mapaReal;
+        map.classList.remove('map-real');
+        map.classList.add('map-propio');
+        map.innerHTML = respaldoHTML;
+        $('puntos').innerHTML = '';
+        marco = null;
+        Shell.pintarMapas();
+        pintarMarcadores();
+        listarPuntos();
+
+        const motivo = err && err.message === 'modo-propio' ? '' : Shell.motivoRespaldo(err) + ' ';
+        nota.textContent = '🗺️ ' + motivo
+          + 'Mapa propio con las ubicaciones reales. Toca un marcador para ver la empresa.';
+      }
+
+      /* Vuelve a dibujar todos los marcadores sobre el mapa propio. */
+      function pintarMarcadores() {
+        Shell.dibujarMarcadores(map, Shell.puntosMapa(), {
+          alHacerClic: verPunto,
+          usuario: ubicacion,
+        });
+      }
+
+      /* -------- Botón de ubicación actual (GPS) -------- */
+      $('btn-gps').onclick = async () => {
+        const boton = $('btn-gps');
+        if (!Shell.puedePedirGPS()) {
+          Shell.toast(Shell.motivoGPS(new Error('sin-origen-seguro')));
+          return;
+        }
+        boton.disabled = true;
+        boton.textContent = '🎯 Buscando…';
+        try {
+          const gps = await Shell.pedirGPS();
+          const base = Shell.ubicacionCuenta();
+          ubicacion = { ...gps, comuna: base ? base.comuna : '' };
+          actualizarBarra();
+          if (gmap) { dibujarUsuarioEnGoogle(null); gmap.panTo({ lat: gps.lat, lng: gps.lng }); gmap.setZoom(11); }
+          else if (marco) { listarPuntos(); centrarEnUsuario(); }
+          else { pintarMarcadores(); listarPuntos(); }
+          Shell.toast(`Ubicación obtenida (±${gps.precision} m)`);
+        } catch (err) {
+          Shell.toast(Shell.motivoGPS(err));
+        } finally {
+          boton.disabled = false;
+          boton.textContent = '🎯 Usar mi ubicación actual';
+        }
+      };
+
+      /* -------- Arranque -------- */
+      actualizarBarra();
+      const modo = Shell.modoMapa();
+      if (modo === 'propio') {
+        iniciarPropio(new Error('modo-propio'));
+      } else if (modo === 'incrustado') {
+        iniciarIncrustado();
+      } else {
+        Shell.cargarGoogleMaps().then(iniciarGoogleMaps).catch(iniciarPropio);
+      }
+    });
+  </script>
+</body>
+</html>
