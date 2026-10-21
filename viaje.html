@@ -26,6 +26,7 @@
   <script src="js/vivo.js"></script>
   <script src="js/ruteo.js"></script>
   <script src="js/mosaico.js"></script>
+  <script src="js/ficha.js"></script>
   <script src="js/shell.js"></script>
   <script>
     Shell.init('viaje', { rol: Store.ROL_CHOFER }).then(listo => { if (!listo) return;
@@ -120,7 +121,10 @@
               </div>
               <div>
                 <div class="dato-grande">${cargado} m³</div>
-                <div class="dato-rotulo">${(envio.paradas||[]).length ? 'Carga total' : 'Carga declarada'}</div>
+                <div class="dato-rotulo">
+                  ${(envio.paradas||[]).length ? 'Carga total' : 'Carga declarada'}
+                  · ${Ficha.energia(cargado)} MWh
+                </div>
               </div>
               <div>
                 <div class="dato-grande" style="color:${est.color}">${seg.eta || '—'}</div>

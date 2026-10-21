@@ -11,7 +11,11 @@
     <aside class="sidebar" id="sidebar"></aside>
     <main class="main">
       <div class="topbar"><div class="tb-logo">🌿</div><div><h1>Historial</h1><p>Región del Maule</p></div></div>
-      <div class="content stagger" id="content"></div>
+      <div class="content">
+        <!-- Resumen de la próxima ruta: la misma tarjeta de Inicio. -->
+        <div id="proxima-ruta"></div>
+        <div class="stagger" id="content"></div>
+      </div>
     </main>
   </div>
   <nav class="bottom-nav" id="bottomnav"></nav>
@@ -23,6 +27,7 @@
   <script src="js/vivo.js"></script>
   <script src="js/ruteo.js"></script>
   <script src="js/mosaico.js"></script>
+  <script src="js/ficha.js"></script>
   <script src="js/shell.js"></script>
   <script>
     Shell.init('historial', { rol: Store.ROL_VINATERO }).then(listo => { if (!listo) return;
@@ -55,6 +60,10 @@
         </div>
         <div class="section"><div class="section-title">Recolecciones anteriores</div><div class="section-sub">Trazabilidad de tus cargas</div></div>
         <div class="grid" style="margin-top:12px">${cards}</div>`;
+
+      /* Resumen de la próxima ruta. Vive en Inicio, Rutas e Historial con
+         el mismo código: lo que muestra depende del perfil de quien mira. */
+      Ficha.montar(document.getElementById('proxima-ruta'));
     });
   </script>
 </body>

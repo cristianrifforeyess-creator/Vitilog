@@ -593,3 +593,38 @@ html[data-theme="dark"] .marcador .nombre.yo { fill: var(--primary-light); }
   .bottom-nav a .ic { font-size: 22px; }
   .bottom-nav a.active { color: var(--primary); }
 }
+
+
+/* ---------------- Ficha: Resumen de la proxima ruta ----------------
+   Misma tarjeta en Inicio, Rutas e Historial, y para los tres perfiles.
+   Se apoya en las clases que ya existen (card, dato-grande, li-sub) para
+   que no desentone con el resto de la aplicacion. */
+.ficha-ruta { margin-top: 12px; }
+
+.ficha-cabecera { display: flex; align-items: center; gap: 12px; }
+.ficha-titulo { flex: 1; min-width: 0; }
+.ficha-titulo b { display: block; font-size: 16px; font-weight: 700; }
+.ficha-titulo .li-sub {
+  display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.ficha-datos {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  margin-top: 16px; text-align: center;
+}
+.ficha-datos .dato-grande { font-size: 21px; }
+
+.ficha-pie {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-top: 14px; padding-top: 12px;
+  border-top: 1px solid var(--border); flex-wrap: wrap;
+}
+.ficha-pie .li-sub { flex: 1; min-width: 180px; }
+
+/* En pantallas angostas los tres datos no caben en una fila legible:
+   el tiempo queda arriba, ocupando todo el ancho, y abajo los otros dos. */
+@media (max-width: 420px) {
+  .ficha-datos { grid-template-columns: repeat(2, 1fr); }
+  .ficha-datos > :first-child { grid-column: 1 / -1; }
+  .ficha-datos .dato-grande { font-size: 19px; }
+}

@@ -12,6 +12,8 @@
     <main class="main">
       <div class="topbar"><div class="tb-logo">🌿</div><div><h1>Rutas</h1><p>Región del Maule</p></div></div>
       <div class="content">
+        <!-- Resumen de la próxima ruta: la misma tarjeta de Inicio. -->
+        <div id="proxima-ruta"></div>
         <div class="tabs" role="tablist">
           <button class="tab active" id="tab-segui" role="tab" onclick="setTab('segui')">Seguimiento</button>
           <button class="tab" id="tab-disp" role="tab" onclick="setTab('disp')">Disponibles</button>
@@ -30,6 +32,7 @@
   <script src="js/vivo.js"></script>
   <script src="js/ruteo.js"></script>
   <script src="js/mosaico.js"></script>
+  <script src="js/ficha.js"></script>
   <script src="js/shell.js"></script>
   <script>
     // Accesible para viñatero y empresa: los dos siguen el mismo retiro.
@@ -224,6 +227,10 @@
 
       window.setTab = setTab;
       setTab('segui');
+
+      /* Resumen de la próxima ruta. Vive en Inicio, Rutas e Historial con
+         el mismo código: lo que muestra depende del perfil de quien mira. */
+      Ficha.montar(document.getElementById('proxima-ruta'));
     });
   </script>
 </body>

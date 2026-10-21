@@ -18,7 +18,11 @@
           <button title="Mi perfil" onclick="location.href='perfil.html'">👤</button>
         </div>
       </div>
-      <div class="content stagger" id="content"></div>
+      <div class="content">
+        <!-- Resumen de la próxima ruta: la misma tarjeta de Rutas e Historial. -->
+        <div id="proxima-ruta"></div>
+        <div class="stagger" id="content"></div>
+      </div>
     </main>
   </div>
   <nav class="bottom-nav" id="bottomnav"></nav>
@@ -30,6 +34,7 @@
   <script src="js/vivo.js"></script>
   <script src="js/ruteo.js"></script>
   <script src="js/mosaico.js"></script>
+  <script src="js/ficha.js"></script>
   <script src="js/shell.js"></script>
   <script>
     Shell.init('inicio', { rol: Store.ROL_VINATERO }).then(listo => { if (!listo) return;
@@ -142,6 +147,10 @@
       };
 
       window.borrarCarga = (id) => { Store.removeCarga(id).then(() => location.reload()); };
+
+      /* Resumen de la próxima ruta. Vive en Inicio, Rutas e Historial con
+         el mismo código: lo que muestra depende del perfil de quien mira. */
+      Ficha.montar(document.getElementById('proxima-ruta'));
     });
   </script>
 </body>
