@@ -141,6 +141,11 @@
         </div>
 
         <div class="section">
+          <!-- Lo que esta planta lleva recibido. Se actualiza solo. -->
+          <div id="aporte-inicio"></div>
+        </div>
+
+        <div class="section">
           <div class="section-title">Resumen de la oferta</div>
           <div class="section-sub">Sarmientos disponibles en la Región del Maule</div>
           <div class="grid cols-4" style="margin-top:12px">${statsHtml}</div>
@@ -193,6 +198,7 @@
 
       /* Resumen de la próxima ruta. Vive en Inicio, Rutas e Historial con
          el mismo código: lo que muestra depende del perfil de quien mira. */
+      Ficha.montarAporte(document.getElementById('aporte-inicio'));
       Ficha.montar(document.getElementById('proxima-ruta'));
     });
   </script>

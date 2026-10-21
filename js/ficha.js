@@ -57,6 +57,98 @@ const Ficha = {
     return d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
   },
 
+  /* =====================================================================
+     Lo que ya aportaste: el acumulado del perfil
+     =====================================================================
+     Es la otra mitad del resumen. Mientras la ficha de abajo mira hacia
+     adelante (lo que viene), esta mira hacia atrás: cuánto lleva aportado
+     esta cuenta desde que se registró.
+
+     Cada perfil aporta algo distinto, así que cada uno cuenta lo suyo:
+     el viñatero publica sarmientos, el transportista los traslada y la
+     planta los recibe. Se actualiza sola con cada publicación nueva. */
+  aporte() {
+    const yo = Store.currentEmail();
+    const rol = Store.rolActual();
+    if (!yo) return null;
+
+    const entregado = e => e.estado === 'entregado';
+    const m3De = e => (Number(e.volumenRecibido) || Number(e.volumenDeclarado) || 0)
+      + (e.paradas || []).reduce((t, p) => t + (Number(p.volumen) || 0), 0);
+
+    if (rol === Store.ROL_CHOFER) {
+      const mios = Store.envios().filter(e => e.choferEmail === yo);
+      const hechos = mios.filter(entregado);
+      const m3 = hechos.reduce((t, e) => t + m3De(e), 0);
+      return {
+        titulo: 'Lo que has trasladado',
+        datos: [
+          { val: hechos.length, lbl: 'Viajes completados' },
+          { val: Math.round(m3 * 10) / 10 + ' m³', lbl: 'Volumen trasladado' },
+          { val: this.energia(m3) + ' MWh', lbl: 'Energía movida', color: 'var(--warning)' },
+          { val: mios.length - hechos.length, lbl: 'En curso' },
+        ],
+      };
+    }
+
+    if (rol === Store.ROL_EMPRESA) {
+      const mios = Store.envios().filter(e => e.empresaEmail === yo);
+      const recibidos = mios.filter(entregado);
+      const m3 = recibidos.reduce((t, e) => t + m3De(e), 0);
+      return {
+        titulo: 'Lo que has recibido',
+        datos: [
+          { val: recibidos.length, lbl: 'Recepciones' },
+          { val: Math.round(m3 * 10) / 10 + ' m³', lbl: 'Volumen recibido' },
+          { val: this.energia(m3) + ' MWh', lbl: 'Energía aprovechable', color: 'var(--warning)' },
+          { val: mios.length - recibidos.length, lbl: 'En camino' },
+        ],
+      };
+    }
+
+    // Viñatero
+    const mias = Store.cargasPublicadas().filter(c => c.email === yo);
+    const m3 = mias.reduce((t, c) => t + (Number(c.volumen) || 0), 0);
+    const retirados = Store.envios().filter(e => e.vinateroEmail === yo && entregado(e));
+    return {
+      titulo: 'La carga que has aportado',
+      datos: [
+        { val: mias.length, lbl: 'Cargas publicadas' },
+        { val: Math.round(m3 * 10) / 10 + ' m³', lbl: 'Sarmientos aportados' },
+        { val: this.energia(m3) + ' MWh', lbl: 'Energía equivalente', color: 'var(--warning)' },
+        { val: retirados.length, lbl: 'Retiros completados' },
+      ],
+    };
+  },
+
+  _htmlAporte(a) {
+    /* El título lo pone el módulo porque cambia según el perfil: no es lo
+       mismo aportar sarmientos que trasladarlos o recibirlos. */
+    return `
+      <div class="section-title">${a.titulo}</div>
+      <div class="card pad ficha-ruta">
+        <div class="ficha-datos">
+          ${a.datos.map(d => `
+            <div>
+              <div class="dato-grande" ${d.color ? `style="color:${d.color}"` : ''}>${d.val}</div>
+              <div class="dato-rotulo">${d.lbl}</div>
+            </div>`).join('')}
+        </div>
+      </div>`;
+  },
+
+  /* Deja el acumulado al día: se redibuja con cada carga o envío nuevo. */
+  montarAporte(contenedor) {
+    if (!contenedor) return () => {};
+    const pintar = () => {
+      const a = this.aporte();
+      contenedor.innerHTML = a ? this._htmlAporte(a) : '';
+    };
+    pintar();
+    const baja = Shell.enVivo(['cargas', 'envios'], pintar);
+    return baja;
+  },
+
   /* -------- Qué mostrarle a quien está mirando --------
      Devuelve null si no hay nada próximo que resumir. */
   objetivo() {
@@ -242,7 +334,7 @@ const Ficha = {
      Deja la tarjeta viva dentro del contenedor: se actualiza sola cuando
      cambia la base o cuando el observador se mueve. Devuelve una función
      para desmontarla. */
-  montar(contenedor) {
+  montar(contenedor, { seccion = null } = {}) {
     if (!contenedor) return () => {};
 
     let viva = true;
@@ -257,6 +349,9 @@ const Ficha = {
     const pintar = () => {
       if (!viva) return;
       const obj = this.objetivo();
+      /* Sin nada próximo que resumir se esconde la sección entera, título
+         incluido: un encabezado solo, sin nada debajo, se ve como un error. */
+      if (seccion) seccion.style.display = obj ? '' : 'none';
       if (!obj) {
         contenedor.innerHTML = '';
         return;

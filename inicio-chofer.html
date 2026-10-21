@@ -18,7 +18,11 @@
           <button title="Ajustes" onclick="location.href='configuracion.html'" aria-label="Ajustes">⚙️</button>
         </div>
       </div>
-      <div class="content stagger" id="content"></div>
+      <div class="content">
+        <!-- Lo que este transportista lleva trasladado. -->
+        <div id="aporte-inicio"></div>
+        <div class="stagger" id="content"></div>
+      </div>
     </main>
   </div>
   <nav class="bottom-nav" id="bottomnav"></nav>
@@ -389,6 +393,8 @@
 
       /* Las cargas que publica un viñatero aparecen acá apenas se publican,
          sin tocar nada. Si no hay base compartida, se revisa cada 20 s. */
+      Ficha.montarAporte(document.getElementById('aporte-inicio'));
+
       Shell.enVivo(['cargas', 'envios'], info => {
         buscarNuevas({ avisar: true, recargar: info.tipo === 'RECARGA' });
       }, { cadaMs: 20000 });
