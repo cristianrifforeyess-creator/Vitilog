@@ -62,6 +62,7 @@
         const cargado = (Number(envio.volumenDeclarado) || 0)
           + (envio.paradas || []).reduce((t, p) => t + (Number(p.volumen) || 0), 0);
         const libre = Store.capacidadRestante(envio, yo);
+        const noLeidos = Store.mensajesNoLeidos(envio.id).length;
 
         $('tb-sub').textContent = `${envio.origenComuna} → ${envio.destinoNombre}`;
 
@@ -190,11 +191,13 @@
                 <div class="li-title">${Shell.escape(nombreProductor())}</div>
                 <div class="li-sub">${Shell.escape(envio.origenComuna)}</div>
               </div>
-              <button class="btn ghost" style="padding:10px 14px;font-size:13.5px" id="btn-contacto">💬 Contactar</button>
+              <button class="btn ghost" style="padding:10px 14px;font-size:13.5px" id="btn-contacto">📞 Contactar</button>
             </div>
-            <button class="btn ghost block" style="margin-top:10px"
+            <button class="btn ${noLeidos ? '' : 'ghost'} block" style="margin-top:10px"
                     onclick="location.href='seguimiento.html?id=${encodeURIComponent(envio.id)}'">
-              💬 Abrir chat y cierre de entrega
+              💬 ${noLeidos
+                ? noLeidos + ' mensaje(s) sin leer'
+                : 'Abrir chat y cierre de entrega'}
             </button>
           </div>`;
 
@@ -375,10 +378,25 @@
         render();
       }
 
+      /* Mensajes ya anunciados en esta pantalla. No se marcan como leídos:
+         el transportista todavía no abrió el chat. Esto solo evita repetir
+         el mismo aviso cada diez segundos. */
+      const avisados = new Set();
+
+      async function revisarMensajes() {
+        if (Store.enNube()) await Store.refrescarMensajes(envio.id);
+        const nuevos = Store.mensajesNoLeidos(envio.id).filter(m => !avisados.has(m.id));
+        if (!nuevos.length) return;
+        nuevos.forEach(m => avisados.add(m.id));
+        const ultimo = nuevos[nuevos.length - 1];
+        Shell.notificar('💬 ' + ultimo.autorNombre, ultimo.texto.slice(0, 90));
+      }
+
       /* Refresco suave: recalcula estado y frescura de la señal. */
       async function tic() {
         const fresco = Store.envioPorId(envio.id);
         if (fresco) envio = fresco;
+        await revisarMensajes();
         const { seguimiento } = await Shell.sincronizarEnvio(envio);
         envio = Store.envioPorId(envio.id) || envio;
         render();

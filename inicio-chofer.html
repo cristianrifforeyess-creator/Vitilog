@@ -153,6 +153,7 @@
       function tarjetaActivo(envio) {
         const seg = Shell.calcularSeguimiento(envio);
         const est = estadoEnvio(seg.estado);
+        const sinLeer = Store.mensajesNoLeidos(envio.id).length;
         return `
           <div class="card pad" style="border:2px solid ${est.color}">
             <div class="envio-cabecera">
@@ -169,7 +170,7 @@
               <div style="width:${Math.round(seg.progreso*100)}%;background:${est.color}"></div>
             </div>
             <button class="btn block" style="margin-top:14px" onclick="location.href='viaje.html'">
-              🚚 Abrir mi viaje
+              🚚 Abrir mi viaje${sinLeer ? ' · 💬 ' + sinLeer : ''}
             </button>
           </div>`;
       }

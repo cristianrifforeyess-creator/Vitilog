@@ -824,6 +824,41 @@ const Store = {
       .sort((a, b) => (a.creado || '').localeCompare(b.creado || ''));
   },
 
+  /* -------- Qué mensajes ya vio esta persona --------
+     Se guarda en el dispositivo, no en la base: es una marca de lectura
+     personal, y compartirla entre dispositivos no vale la complicación.
+     Formato: { 'id-del-envio': 'fecha ISO del ultimo visto' }. */
+  K_CHAT_VISTO: 'vitilog_chat_visto',
+
+  _vistos() {
+    try { return JSON.parse(localStorage.getItem(this.K_CHAT_VISTO)) || {}; }
+    catch (e) { return {}; }
+  },
+
+  /* Mensajes escritos por otra persona que llegaron después de la última
+     vez que se abrió ese chat. */
+  mensajesNoLeidos(envioId) {
+    const desde = this._vistos()[envioId] || '';
+    const yo = (this.currentEmail() || '').toLowerCase();
+    return this.mensajes(envioId).filter(m =>
+      (m.autorEmail || '').toLowerCase() !== yo && (m.creado || '') > desde);
+  },
+
+  /* Todos los no leídos del usuario, de todos sus envíos en curso. */
+  totalNoLeidos() {
+    return this.misEnvios()
+      .reduce((t, e) => t + this.mensajesNoLeidos(e.id).length, 0);
+  },
+
+  /* Se llama al abrir el chat: desde acá todo queda como leído. */
+  marcarChatVisto(envioId) {
+    try {
+      const v = this._vistos();
+      v[envioId] = new Date().toISOString();
+      localStorage.setItem(this.K_CHAT_VISTO, JSON.stringify(v));
+    } catch (e) { /* almacenamiento bloqueado: se seguirá avisando, no es grave */ }
+  },
+
   async addMensaje({ envioId, texto }) {
     const u = this.currentUser();
     const mensaje = {

@@ -107,18 +107,17 @@
         </div>`;
       }
 
+      /* El chat está abierto durante todo el viaje, no solo al final.
+
+         Antes se abría recién en destino, para que la conversación quedara
+         junto al cierre de la entrega. En la práctica dejaba fuera el
+         momento en que más falta hace escribirse: "¿vienes en camino?",
+         "el portón está por el otro lado". */
       function chatHtml(seg) {
-        const abierto = pasoEstado(seg.estado) >= pasoEstado('en_destino');
-        if (!abierto) {
-          return `<div class="chat-bloqueado">
-            🔒 El chat se abre cuando el camión llegue a destino.<br>
-            <span style="font-size:12.5px">Así la conversación queda junto a la confirmación de la entrega.</span>
-          </div>`;
-        }
         const mensajes = Store.mensajes(envio.id);
         const burbujas = mensajes.length === 0
           ? `<div class="chat-bloqueado" style="background:none;padding:14px">
-               Aún no hay mensajes. Escribe el primero para coordinar la recepción.
+               Aún no hay mensajes. Escribe el primero para coordinar el retiro.
              </div>`
           : mensajes.map(m => {
               const mio = m.autorEmail === yo;
@@ -374,6 +373,22 @@
 
         if (Store.enNube()) await Store.refrescarMensajes(envio.id);
 
+        /* Mensajes nuevos de la otra parte. Esta pantalla está abierta, así
+           que se marcan como leídos de inmediato: avisar de algo que ya está
+           a la vista sería molesto. */
+        const nuevos = Store.mensajesNoLeidos(envio.id);
+        if (nuevos.length) {
+          // Si la pestaña está a la vista, el mensaje aparece solo en el
+          // chat; avisar encima sería ruido. El aviso es para cuando no.
+          if (document.hidden) {
+            const ultimo = nuevos[nuevos.length - 1];
+            Shell.notificar(
+              `💬 ${nuevos.length === 1 ? ultimo.autorNombre : nuevos.length + ' mensajes nuevos'}`,
+              ultimo.texto.slice(0, 90));
+          }
+          Store.marcarChatVisto(envio.id);
+        }
+
         estadoPrevio = seguimiento.estado;
         render();
         if (seguimiento.estado === 'entregado') detenerReloj();
@@ -385,6 +400,9 @@
 
       // Permiso de notificaciones: se pide una sola vez, al entrar aquí.
       Shell.pedirPermisoNotificaciones();
+
+      // Entrar a esta pantalla es leer el chat: se parte sin pendientes.
+      Store.marcarChatVisto(envio.id);
 
       render();
       if (envio.estado !== 'entregado') reloj = setInterval(tic, 5000);
