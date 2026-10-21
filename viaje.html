@@ -23,6 +23,7 @@
   <script src="js/nube.js"></script>
   <script src="js/data.js"></script>
   <script src="js/store.js"></script>
+  <script src="js/vivo.js"></script>
   <script src="js/shell.js"></script>
   <script>
     Shell.init('viaje', { rol: Store.ROL_CHOFER }).then(listo => { if (!listo) return;
@@ -242,6 +243,18 @@
 
       Shell.pedirPermisoNotificaciones();
       render();
+
+      /* Si se llega acá recién aceptando un retiro, la transmisión arranca
+         sola: aceptar ya fue la decisión del transportista y no tiene sentido
+         pedirle un segundo toque con el camión partiendo. El navegador igual
+         pedirá permiso de ubicación la primera vez, y se puede apagar en
+         cualquier momento desde el botón de arriba. */
+      if (new URLSearchParams(location.search).get('iniciar') === '1'
+        && !Shell.transmitiendo()) {
+        encenderGps();
+        history.replaceState(null, '', 'viaje.html');
+      }
+
       reloj = setInterval(tic, 10000);
       window.addEventListener('beforeunload', () => {
         Shell.detenerTransmision();

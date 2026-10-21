@@ -57,6 +57,9 @@ alter table cuentas add column if not exists modalidad text default 'independien
 alter table cuentas add column if not exists empresa_nombre text default '';
 alter table cuentas add column if not exists ultimo_acceso timestamptz;
 alter table cuentas add column if not exists accesos integer not null default 0;
+-- Vínculo del transportista con la planta para la que conduce. Lo declara él
+-- mismo en su perfil; con esto la planta puede encargarle retiros.
+alter table cuentas add column if not exists empresa_email text;
 
 -- ---------------------------------------------------------------------
 -- Cargas de sarmientos publicadas por los viñateros
@@ -118,7 +121,7 @@ create table if not exists envios (
   destino_lng       double precision not null,
 
   estado            text not null default 'programado'
-                    check (estado in ('programado','en_camino','llegando','en_destino','entregado')),
+                    check (estado in ('asignado','programado','en_camino','llegando','en_destino','entregado')),
   salida            timestamptz,
   minutos_total     numeric not null default 30 check (minutos_total > 0),
   progreso          numeric not null default 0 check (progreso between 0 and 1),
@@ -140,6 +143,12 @@ create table if not exists envios (
 create index if not exists envios_vinatero_idx on envios (vinatero_email);
 create index if not exists envios_empresa_idx  on envios (empresa_email);
 create index if not exists envios_estado_idx   on envios (estado);
+
+-- Para bases creadas antes del estado "asignado" (el retiro que una planta
+-- encarga y el transportista todavía no acepta).
+alter table envios drop constraint if exists envios_estado_check;
+alter table envios add constraint envios_estado_check
+  check (estado in ('asignado','programado','en_camino','llegando','en_destino','entregado'));
 
 -- ---------------------------------------------------------------------
 -- Mensajes: el chat de cada envío
@@ -209,3 +218,30 @@ insert into puntos (id, nombre, tipo, comuna, descripcion, capacidad, activo, la
   ('linares2',     'Compost Andes Linares',        'Compostaje', 'Linares',         'Planta de compostaje del valle de Linares.',                      32, true,  -35.8300, -71.5500),
   ('parral',       'Bioenergía Parral Sur',        'Biomasa',    'Parral',          'Generación eléctrica con residuos agrícolas del sur del Maule.',  45, true,  -36.1600, -71.8000)
 on conflict (id) do nothing;
+
+-- ---------------------------------------------------------------------
+-- Tiempo real: qué tablas avisan sus cambios por WebSocket
+-- ---------------------------------------------------------------------
+-- Sin esto, js/vivo.js se conecta pero no recibe nada: Supabase solo
+-- transmite los cambios de las tablas que estén en esta publicación.
+-- Las líneas se pueden volver a ejecutar sin problema.
+do $$
+declare t text;
+begin
+  foreach t in array array['cuentas', 'cargas', 'envios', 'mensajes', 'puntos'] loop
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t
+    ) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    end if;
+  end loop;
+end $$;
+
+-- Para que un UPDATE o un DELETE viajen con la fila completa y no solo con
+-- la llave: es lo que necesita la aplicación para refrescar sin recargar.
+alter table cuentas  replica identity full;
+alter table cargas   replica identity full;
+alter table envios   replica identity full;
+alter table mensajes replica identity full;
+alter table puntos   replica identity full;

@@ -89,6 +89,47 @@ const Store = {
     return this._aviso;
   },
 
+  /* =====================================================================
+     Cambios que llegan en vivo (los trae js/vivo.js)
+     ===================================================================== */
+  /* Qué sabe hacer el almacén con cada tabla: dónde guardarla en memoria,
+     cómo traducir la fila que manda Postgres y cuál es su llave. */
+  _TABLAS_VIVAS: {
+    cargas:   { cache: 'cargas',   mapa: '_cargaDesdeNube',   llave: 'id' },
+    envios:   { cache: 'envios',   mapa: '_envioDesdeNube',   llave: 'id' },
+    mensajes: { cache: 'mensajes', mapa: '_mensajeDesdeNube', llave: 'id' },
+    cuentas:  { cache: 'cuentas',  mapa: '_cuentaDesdeNube',  llave: 'email' },
+    puntos:   { cache: 'puntos',   mapa: '_puntoDesdeNube',   llave: 'id' },
+  },
+
+  /* Mete en la copia en memoria una fila que cambió en la base, sin volver a
+     descargarlo todo. Devuelve true si algo cambió de verdad. */
+  aplicarCambioRemoto(tabla, tipo, fila) {
+    const def = this._TABLAS_VIVAS[tabla];
+    if (!def || !fila) return false;
+
+    const lista = this._cache[def.cache];
+    if (!Array.isArray(lista)) return false;
+
+    const traducir = this[def.mapa];
+    if (typeof traducir !== 'function') return false;
+
+    const registro = traducir.call(this, fila);
+    const llave = def.llave;
+    const mismo = x => String(x[llave]) === String(registro[llave]);
+    const i = lista.findIndex(mismo);
+
+    if (tipo === 'DELETE') {
+      if (i < 0) return false;
+      lista.splice(i, 1);
+    } else if (i >= 0) {
+      lista[i] = registro;
+    } else {
+      lista.push(registro);
+    }
+    return true;
+  },
+
   /* En modo local se siembran las plantas de data.js y una cuenta de
      administración, para que el sitio sea usable de entrada. */
   async _sembrarLocal() {
@@ -119,6 +160,7 @@ const Store = {
       capacidad: Number(f.capacidad) || 0,
       modalidad: f.modalidad === 'empresa' ? 'empresa' : 'independiente',
       empresa_nombre: f.empresa_nombre || '',
+      empresa_email: f.empresa_email || '',
       disponible: f.disponible !== false,
       activa: f.activa !== false, creada: f.creada,
       ultimo_acceso: f.ultimo_acceso || null,
@@ -237,6 +279,7 @@ const Store = {
       capacidad: Number(a.capacidad) || 0,
       modalidad: a.modalidad === 'empresa' ? 'empresa' : 'independiente',
       empresa_nombre: a.empresa_nombre || '',
+      empresa_email: a.empresa_email || '',
       disponible: a.disponible !== false,
       activa: a.activa !== false,
       ultimo_acceso: a.ultimo_acceso || null,
@@ -385,7 +428,7 @@ const Store = {
       /* Parte como independiente. Si conduce para una empresa, lo cambia
          después en Configuración: así el registro queda corto. */
       modalidad: 'independiente',
-      empresa_nombre: '',
+      empresa_nombre: '', empresa_email: '',
       disponible: true, activa: true,
     });
     this.setSession(email);
@@ -499,6 +542,57 @@ const Store = {
       this.rolDe(a) === this.ROL_CHOFER && a.activa !== false && a.disponible !== false);
   },
 
+  /* =====================================================================
+     Flota: los transportistas que trabajan para una planta receptora
+     ===================================================================== */
+  /* Transportistas vinculados a una empresa. El vínculo lo declara el propio
+     transportista en su perfil, así nadie queda enganchado sin saberlo. */
+  flotaDe(empresaEmail) {
+    const correo = (empresaEmail || '').toLowerCase();
+    if (!correo) return [];
+    return this._cache.cuentas.filter(a =>
+      this.rolDe(a) === this.ROL_CHOFER
+      && a.activa !== false
+      && (a.empresa_email || '').toLowerCase() === correo);
+  },
+
+  /* Mi flota, si quien mira es una planta receptora. */
+  miFlota() {
+    return this.flotaDe(this.currentEmail());
+  },
+
+  /* Servicios que una planta le encargó a este transportista y que todavía
+     no acepta ni rechaza. */
+  serviciosAsignados() {
+    const correo = this.currentEmail();
+    return this._cache.envios.filter(e =>
+      e.choferEmail === correo && e.estado === 'asignado');
+  },
+
+  /* El transportista toma el servicio: recién acá empieza a correr el viaje
+     y tiene sentido encender el GPS. */
+  async aceptarServicio(envioId) {
+    const envio = this.envioPorId(envioId);
+    if (!envio) return 'Ese servicio ya no existe';
+    if (envio.choferEmail !== this.currentEmail()) return 'Ese servicio no es tuyo';
+    if (envio.estado !== 'asignado') return 'Ese servicio ya no está pendiente';
+    await this.actualizarEnvio(envioId, {
+      estado: 'en_camino',
+      salida: new Date().toISOString(),
+    });
+    return null;
+  },
+
+  /* El transportista no puede tomarlo: la carga vuelve a quedar libre. */
+  async rechazarServicio(envioId) {
+    const envio = this.envioPorId(envioId);
+    if (!envio) return 'Ese servicio ya no existe';
+    if (envio.choferEmail !== this.currentEmail()) return 'Ese servicio no es tuyo';
+    if (envio.estado !== 'asignado') return 'Ese servicio ya no está pendiente';
+    await this.borrarEnvio(envioId);
+    return null;
+  },
+
   /* Cargas que todavía nadie se comprometió a retirar. Es lo que ve el
      chofer en su panel, ordenado por cercanía a su base. */
   cargasDisponibles(desde) {
@@ -532,9 +626,11 @@ const Store = {
       .sort((a, b) => (b.salida || '').localeCompare(a.salida || ''));
   },
 
-  /* El viaje que el chofer tiene abierto ahora mismo, si lo hay. */
+  /* El viaje que el transportista tiene abierto ahora mismo, si lo hay.
+     Un servicio que todavía no acepta no cuenta como viaje en curso. */
   servicioActivo() {
-    return this.misServicios().find(e => e.estado !== 'entregado') || null;
+    return this.misServicios().find(e =>
+      e.estado !== 'entregado' && e.estado !== 'asignado') || null;
   },
 
   /* =====================================================================

@@ -35,8 +35,13 @@
             <div class="section-sub">Solo cambia cómo apareces ante el viñatero. Las herramientas son las mismas.</div>
           </div>
           <div class="field" id="f-empresa-nombre" style="display:none">
-            <label>Empresa para la que conduces</label>
-            <input class="input" id="empresa-nombre" placeholder="Ej: Transportes Maule Ltda.">
+            <label for="empresa-sel">Empresa para la que conduces</label>
+            <select id="empresa-sel"></select>
+            <div class="section-sub" style="margin-top:6px">
+              Si eliges una planta registrada, podrá encargarte retiros directamente.
+            </div>
+            <input class="input" id="empresa-nombre" style="margin-top:10px"
+                   placeholder="Nombre de la empresa">
           </div>
           <div class="field" id="f-patente" style="display:none"><label>Patente del camión</label><input class="input" id="patente" style="text-transform:uppercase"></div>
           <div class="field" id="f-capacidad" style="display:none"><label>Capacidad de carga (m³)</label><input class="input" id="capacidad" type="number" min="1"></div>
@@ -126,6 +131,7 @@
   <script src="js/nube.js"></script>
   <script src="js/data.js"></script>
   <script src="js/store.js"></script>
+  <script src="js/vivo.js"></script>
   <script src="js/shell.js"></script>
   <script>
     // La clave activa del menú cambia según el rol (empresa lo tiene como "Ajustes").
@@ -136,6 +142,7 @@
       const esChofer = Store.rolDe(u) === Store.ROL_CHOFER;
       // Modalidad elegida en pantalla; se guarda al presionar "Guardar cambios".
       let modalidad = u.modalidad || 'independiente';
+      let empresaEmail = u.empresa_email || '';
 
       $('nombre').value = u.nombre;
       $('email').value = u.email;
@@ -165,6 +172,14 @@
         $('capacidad').value = u.capacidad || '';
         pintarModalidades();
         $('empresa-nombre').value = u.empresa_nombre || '';
+        pintarEmpresas();
+        $('empresa-sel').onchange = () => {
+          empresaEmail = $('empresa-sel').value;
+          // Al elegir una planta registrada se toma su nombre tal cual.
+          const elegida = Store.accountByEmail(empresaEmail);
+          if (elegida) $('empresa-nombre').value = elegida.nombre;
+          $('empresa-nombre').style.display = empresaEmail ? 'none' : 'block';
+        };
         $('disponible').checked = u.disponible !== false;
         $('disp-sub').textContent = u.disponible !== false
           ? 'Las cargas nuevas te llegarán' : 'No recibirás avisos de cargas';
@@ -174,6 +189,19 @@
             ? 'Las cargas nuevas te llegarán' : 'No recibirás avisos de cargas';
           Shell.toast($('disponible').checked ? 'Disponible' : 'No disponible');
         };
+      }
+
+      /* Plantas receptoras registradas, para vincularse a una de verdad y no
+         solo escribir su nombre. */
+      function pintarEmpresas() {
+        const empresas = Store.accounts()
+          .filter(a => Store.rolDe(a) === Store.ROL_EMPRESA && a.activa !== false)
+          .sort((a, b) => a.nombre.localeCompare(b.nombre));
+        $('empresa-sel').innerHTML =
+          `<option value="">Otra empresa (escribir el nombre)</option>` +
+          empresas.map(e => `<option value="${Shell.escape(e.email)}" ${
+            e.email === empresaEmail ? 'selected' : ''}>${Shell.escape(e.nombre)}</option>`).join('');
+        $('empresa-nombre').style.display = empresaEmail ? 'none' : 'block';
       }
 
       /* Dibuja las dos modalidades como tarjetas, igual que en el acceso. */
@@ -303,6 +331,7 @@
           cambios.patente = $('patente').value.trim().toUpperCase();
           cambios.capacidad = parseFloat($('capacidad').value) || 0;
           cambios.modalidad = modalidad;
+          cambios.empresa_email = modalidad === 'empresa' ? empresaEmail : '';
           cambios.empresa_nombre = modalidad === 'empresa'
             ? $('empresa-nombre').value.trim() : '';
         } else {

@@ -86,6 +86,8 @@ const DATA = {
   /* Estados por los que pasa un envío, en orden. El seguimiento avanza por
      esta lista; cada estado define su color y qué se puede hacer en él. */
   estadosEnvio: [
+    { id: 'asignado', label: 'Asignado', ic: '📨', color: '#546E7A',
+      desc: 'La planta se lo encargó a un transportista, que aún no responde' },
     { id: 'programado', label: 'Programado', ic: '📅', color: '#1976D2',
       desc: 'El retiro está agendado y aún no sale' },
     { id: 'en_camino', label: 'En camino', ic: '🚚', color: '#EF6C00',

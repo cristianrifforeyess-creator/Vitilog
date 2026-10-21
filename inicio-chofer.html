@@ -27,6 +27,7 @@
   <script src="js/nube.js"></script>
   <script src="js/data.js"></script>
   <script src="js/store.js"></script>
+  <script src="js/vivo.js"></script>
   <script src="js/shell.js"></script>
   <script>
     Shell.init('inicio', { rol: Store.ROL_CHOFER }).then(listo => { if (!listo) return;
@@ -36,10 +37,11 @@
       const base = Shell.ubicacionCuenta();
 
       let vistos = new Set();     // para avisar solo de las cargas nuevas
-      let reloj = null;
+      let vistosEnvios = new Set();  // lo mismo para los retiros encargados
 
       function render() {
         const activo = Store.servicioActivo();
+        const asignados = Store.serviciosAsignados();
         const cargas = Store.cargasDisponibles(base);
         const hechos = Store.misServicios().filter(e => e.estado === 'entregado');
 
@@ -53,6 +55,15 @@
 
         c.innerHTML = `
           ${activo ? tarjetaActivo(activo) : ''}
+
+          ${asignados.length ? `
+            <div class="section" ${activo ? '' : 'style="margin-top:4px"'}>
+              <div class="section-title">Retiros que te encargaron</div>
+              <div class="section-sub">Acepta para empezar el viaje y encender el GPS</div>
+            </div>
+            <div class="grid" style="margin-top:12px">
+              ${asignados.map(tarjetaAsignado).join('')}
+            </div>` : ''}
 
           <div class="section" ${activo ? '' : 'style="margin-top:4px"'}>
             <div class="section-title">Cargas esperando retiro</div>
@@ -88,6 +99,33 @@
             </div>` : ''}`;
 
         conectar(cargas);
+      }
+
+      /* Retiro que una planta le encargó a este transportista y que todavía
+         no responde. Es lo primero que tiene que decidir. */
+      function tarjetaAsignado(envio) {
+        const planta = Store.accountByEmail(envio.empresaEmail);
+        const km = Shell.distanciaKm(
+          { lat: envio.origenLat, lng: envio.origenLng },
+          { lat: envio.destinoLat, lng: envio.destinoLng });
+        return `
+          <div class="card pad" style="border:2px dashed var(--warning)">
+            <div class="list-item" style="padding:0">
+              <div class="li-ic" style="background:rgba(249,168,37,.15);color:var(--warning)">📨</div>
+              <div class="li-body">
+                <div class="li-title">${Shell.escape(envio.origenComuna)} → ${Shell.escape(envio.destinoNombre)}</div>
+                <div class="li-sub">
+                  ${envio.volumenDeclarado} m³${km != null ? ' · ' + km + ' km' : ''}${
+                    envio.minutosTotal ? ' · ~' + envio.minutosTotal + ' min' : ''}
+                </div>
+                <div class="li-sub">Te lo encargó ${Shell.escape(planta ? planta.nombre : 'la planta receptora')}</div>
+              </div>
+            </div>
+            <div class="field-row" style="margin-top:14px">
+              <button class="btn ghost" style="flex:1" data-rechazar-envio="${Shell.escape(envio.id)}">No puedo</button>
+              <button class="btn" style="flex:1" data-aceptar-envio="${Shell.escape(envio.id)}">✅ Aceptar</button>
+            </div>
+          </div>`;
       }
 
       /* Viaje en curso: ocupa el primer lugar, es lo único que importa. */
@@ -152,6 +190,30 @@
         });
         c.querySelectorAll('[data-ver]').forEach(el => {
           el.onclick = () => location.href = 'seguimiento.html?id=' + encodeURIComponent(el.dataset.ver);
+        });
+
+        /* Retiros encargados por una planta: aceptar arranca el viaje y lleva
+           directo a la pantalla donde se enciende el GPS. */
+        c.querySelectorAll('[data-aceptar-envio]').forEach(b => {
+          b.onclick = async () => {
+            if (Store.servicioActivo()) {
+              return Shell.toast('Primero cierra el viaje que tienes en curso');
+            }
+            b.disabled = true;
+            const error = await Store.aceptarServicio(b.dataset.aceptarEnvio);
+            if (error) { b.disabled = false; return Shell.toast(error); }
+            // El "1" le dice a la pantalla del viaje que encienda el GPS sola.
+            location.href = 'viaje.html?iniciar=1';
+          };
+        });
+        c.querySelectorAll('[data-rechazar-envio]').forEach(b => {
+          b.onclick = async () => {
+            b.disabled = true;
+            const error = await Store.rechazarServicio(b.dataset.rechazarEnvio);
+            if (error) { b.disabled = false; return Shell.toast(error); }
+            Shell.toast('Retiro rechazado. La carga queda libre.');
+            render();
+          };
         });
       }
 
@@ -232,16 +294,29 @@
 
           Shell.closeModal();
           Shell.notificar('Servicio aceptado', `${carga.comuna} → ${planta.nombre}`);
-          location.href = 'viaje.html';
+          location.href = 'viaje.html?iniciar=1';
         };
       }
 
-      /* Revisa si llegaron cargas nuevas y avisa una sola vez por cada una. */
-      async function buscarNuevas({ avisar = true } = {}) {
-        if (Store.enNube()) await Store.sincronizar({ forzar: true });
+      /* Revisa si llegaron cargas nuevas y avisa una sola vez por cada una.
+
+         Con la base compartida escuchando en vivo, la copia en memoria ya
+         viene actualizada y no hace falta volver a descargarla: por eso
+         "recargar" solo es cierto cuando el aviso llegó por el reloj. */
+      async function buscarNuevas({ avisar = true, recargar = true } = {}) {
+        if (recargar && Store.enNube()) await Store.sincronizar({ forzar: true });
         const cargas = Store.cargasDisponibles(base);
 
         if (avisar) {
+          // Un retiro encargado por una planta pesa más que una carga suelta:
+          // alguien está esperando respuesta.
+          const encargos = Store.serviciosAsignados().filter(e => !vistosEnvios.has(e.id));
+          encargos.forEach(e => {
+            const planta = Store.accountByEmail(e.empresaEmail);
+            Shell.notificar('📨 Te encargaron un retiro',
+              `${planta ? planta.nombre : 'Una planta'}: ${e.origenComuna} · ${e.volumenDeclarado} m³`);
+          });
+
           const nuevas = cargas.filter(g => !vistos.has(g.id));
           if (nuevas.length === 1) {
             const g = nuevas[0];
@@ -252,6 +327,7 @@
           }
         }
         cargas.forEach(g => vistos.add(g.id));
+        Store.serviciosAsignados().forEach(e => vistosEnvios.add(e.id));
         render();
       }
 
@@ -264,10 +340,14 @@
 
       // Primera pasada sin avisar: todo lo que ya existe no es "nuevo".
       Store.cargasDisponibles(base).forEach(g => vistos.add(g.id));
+      Store.serviciosAsignados().forEach(e => vistosEnvios.add(e.id));
       render();
 
-      reloj = setInterval(buscarNuevas, 20000);
-      window.addEventListener('beforeunload', () => clearInterval(reloj));
+      /* Las cargas que publica un viñatero aparecen acá apenas se publican,
+         sin tocar nada. Si no hay base compartida, se revisa cada 20 s. */
+      Shell.enVivo(['cargas', 'envios'], info => {
+        buscarNuevas({ avisar: true, recargar: info.tipo === 'RECARGA' });
+      }, { cadaMs: 20000 });
     });
   </script>
 </body>

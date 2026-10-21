@@ -372,6 +372,67 @@ const Shell = {
 
   /* -------- Empresas ubicadas en el mapa -------- */
 
+  /* =====================================================================
+     Pantallas que se actualizan solas
+     ===================================================================== */
+  /* Conecta una pantalla con los cambios de la base.
+
+     Si hay base compartida, escucha en vivo por WebSocket y redibuja apenas
+     algo cambia. Si no la hay (o el navegador bloquea los WebSocket), vuelve
+     a preguntar cada cierto rato, que es lento pero nunca deja la pantalla
+     desactualizada. En los dos casos se corta solo al salir de la página.
+
+       const baja = Shell.enVivo(['cargas'], render);
+
+     Devuelve la función para darse de baja a mano, si hiciera falta. */
+  enVivo(tablas, alCambiar, { cadaMs = 20000 } = {}) {
+    let cancelada = false;
+    let baja = null;
+    let reloj = null;
+
+    const avisar = info => {
+      if (cancelada) return;
+      try { alCambiar(info); }
+      catch (e) { /* un error al redibujar no debe matar la escucha */ }
+    };
+
+    if (typeof Vivo !== 'undefined' && Vivo.disponible()) {
+      baja = Vivo.escuchar(tablas, avisar);
+    } else {
+      /* Respaldo: se recarga la base cada tanto. Solo mientras la pestaña
+         esté a la vista, para no gastar datos ni batería de fondo. */
+      reloj = setInterval(async () => {
+        if (document.hidden || cancelada) return;
+        try {
+          await Store.sincronizar({ forzar: true });
+          avisar({ tabla: null, tipo: 'RECARGA', fila: null });
+        } catch (e) { /* se reintenta en el siguiente giro */ }
+      }, cadaMs);
+    }
+
+    const cortar = () => {
+      if (cancelada) return;
+      cancelada = true;
+      if (baja) baja();
+      if (reloj) clearInterval(reloj);
+      window.removeEventListener('pagehide', cortar);
+    };
+    window.addEventListener('pagehide', cortar);
+    return cortar;
+  },
+
+  /* Etiqueta chica que dice si la pantalla se está actualizando sola. */
+  indicadorVivo(estado) {
+    const mapa = {
+      vivo: ['#2E7D32', '🟢', 'En vivo'],
+      conectando: ['#F9A825', '🟡', 'Conectando…'],
+      caido: ['#E53935', '🔴', 'Sin conexión en vivo'],
+      apagado: ['#78909C', '⚪', 'Actualización periódica'],
+    };
+    const [color, ic, texto] = mapa[estado] || mapa.apagado;
+    return this.badge(texto, color, ic);
+  },
+
   /* Cómo se presenta un transportista: por su cuenta o conduciendo para una
      empresa. Es el mismo perfil con las mismas herramientas; esto solo sirve
      para que el viñatero sepa con quién está tratando. */
@@ -452,6 +513,9 @@ const Shell = {
      "Llegando" exige las dos condiciones: estar cerca y llevar buena parte
      del camino hecho. Si no, un trayecto corto arrancaría ya en "llegando". */
   estadoPorAvance(envio, progreso, kmRestantes) {
+    // Mientras el transportista no acepte, el viaje no empezó: ningún
+    // cálculo de avance debe adelantarlo.
+    if (envio.estado === 'asignado') return 'asignado';
     if (progreso <= 0) return 'programado';
     if (progreso >= 1) return envio.estado === 'entregado' ? 'entregado' : 'en_destino';
     const cerca = kmRestantes != null && kmRestantes <= 15;
@@ -477,7 +541,8 @@ const Shell = {
 
     const kmTotal = this.distanciaKm(origen, destino);
     const kmRestantes = this.distanciaKm(posicion, destino);
-    const estado = envio.estado === 'entregado' ? 'entregado'
+    const estado = (envio.estado === 'entregado' || envio.estado === 'asignado')
+                 ? envio.estado
                  : this.estadoPorAvance(envio, progreso, kmRestantes);
 
     // Minutos que faltan, proporcionales a la distancia que queda.

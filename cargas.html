@@ -37,14 +37,14 @@
   <script src="js/nube.js"></script>
   <script src="js/data.js"></script>
   <script src="js/store.js"></script>
+  <script src="js/vivo.js"></script>
   <script src="js/shell.js"></script>
   <script>
     Shell.init('cargas', { rol: Store.ROL_EMPRESA }).then(listo => { if (!listo) return;
       const $ = id => document.getElementById(id);
-      const cargas = Store.cargasPublicadas();
 
       // Comunas presentes en las cargas, sin repetir.
-      const comunas = [...new Set(cargas.map(c => c.comuna))].sort();
+      const comunas = [...new Set(Store.cargasPublicadas().map(c => c.comuna))].sort();
       $('comuna').innerHTML += comunas.map(c => `<option>${c}</option>`).join('');
 
       let filtro = 'Todos';
@@ -88,7 +88,7 @@
         const comuna = $('comuna').value;
         const vmin = parseFloat($('vmin').value) || 0;
 
-        const lista = cargas.filter(c => {
+        const lista = Store.cargasPublicadas().filter(c => {
           const okTexto = !q || c.productor.toLowerCase().includes(q) || c.comuna.toLowerCase().includes(q);
           const okComuna = !comuna || c.comuna === comuna;
           const okDestino = filtro === 'Todos' || c.destino === filtro;
@@ -136,6 +136,12 @@
         const km = base ? Shell.distanciaKm(origen, base) : 40;
         const minutos = Math.max(6, Math.round(km * 1.4));
 
+        // Transportistas vinculados a esta planta: a ellos se les puede encargar
+
+        // el retiro directamente, sin escribir nada a mano.
+
+        const flota = Store.miFlota();
+
         Shell.openModal(`
           <div class="handle"></div>
           <b style="font-size:18px">Programar retiro</b>
@@ -143,15 +149,25 @@
             ${Shell.escape(carga.productor)} · ${carga.volumen} m³ en ${Shell.escape(carga.comuna)}
           </p>
           <div class="field" style="margin-top:16px">
-            <label for="r-chofer">Chofer a cargo</label>
-            <input class="input" id="r-chofer" placeholder="Nombre del chofer">
+            <label for="r-flota">Transportista a cargo</label>
+            <select id="r-flota">
+              ${flota.map(f => `<option value="${Shell.escape(f.email)}">${
+                Shell.escape(f.nombre)}${f.patente ? ' · ' + Shell.escape(f.patente) : ''}${
+                f.disponible === false ? ' (no disponible)' : ''}</option>`).join('')}
+              <option value="">Otro transportista (escribir los datos)</option>
+            </select>
+            <div class="section-sub" style="margin-top:6px">
+              ${flota.length
+                ? 'Le llegará el encargo a su perfil y decide si lo toma.'
+                : 'Todavía no tienes transportistas vinculados: cada uno se vincula desde su propio perfil, en Ajustes.'}
+            </div>
           </div>
-          <div class="field">
-            <label for="r-tel">Teléfono del transportista</label>
+          <div class="field" id="r-manual" style="display:none">
+            <label for="r-chofer">Nombre del transportista</label>
+            <input class="input" id="r-chofer" placeholder="Nombre del transportista">
+            <label for="r-tel" style="margin-top:10px">Teléfono</label>
             <input class="input" id="r-tel" type="tel" inputmode="tel" placeholder="+56 9 ...">
-          </div>
-          <div class="field">
-            <label for="r-patente">Patente (opcional)</label>
+            <label for="r-patente" style="margin-top:10px">Patente (opcional)</label>
             <input class="input" id="r-patente" placeholder="Ej: KDJS-42">
           </div>
           <div class="field">
@@ -167,34 +183,58 @@
             <button class="btn" style="flex:1" id="r-ok">🚚 Iniciar retiro</button>
           </div>`);
 
+        $('r-flota').onchange = () => {
+          $('r-manual').style.display = $('r-flota').value ? 'none' : 'block';
+        };
+        $('r-flota').onchange();
+
         $('r-ok').onclick = async () => {
-          const chofer = $('r-chofer').value.trim();
-          const tel = $('r-tel').value.trim();
           const min = parseInt($('r-min').value, 10);
+          const elegido = $('r-flota').value
+            ? Store.accountByEmail($('r-flota').value) : null;
+
+          // Con un transportista vinculado los datos salen de su perfil; si no,
+          // se escriben a mano y el viaje queda sin seguimiento por GPS.
+          const chofer = elegido ? elegido.nombre : $('r-chofer').value.trim();
+          const tel = elegido ? (elegido.telefono || '') : $('r-tel').value.trim();
+          const patente = elegido ? (elegido.patente || '') : $('r-patente').value.trim();
+
           if (!chofer) return ($('r-err').textContent = 'Escribe el nombre del transportista.');
           if (!tel) return ($('r-err').textContent = 'Escribe el teléfono del transportista.');
           if (!min || min < 1) return ($('r-err').textContent = 'Ingresa un tiempo válido.');
 
+          $('r-ok').disabled = true;
           const destino = base && base.lat ? base : origen;
-          const envio = await Store.addEnvio({
-            id: 'env-' + Date.now(),
-            cargaId: carga.id || null,
-            vinateroEmail: carga.email || null,
-            empresaEmail: Store.currentEmail(),
-            chofer, choferTelefono: tel, patente: $('r-patente').value.trim(),
-            origenComuna: carga.comuna, origenLat: origen.lat, origenLng: origen.lng,
-            destinoId: null, destinoNombre: u.nombre,
-            destinoLat: destino.lat, destinoLng: destino.lng,
-            estado: 'en_camino',
-            salida: new Date().toISOString(),
-            minutosTotal: min,
-            progreso: 0, vehLat: null, vehLng: null,
-            volumenDeclarado: carga.volumen,
-            volumenRecibido: null, pesoRecibido: null, observaciones: '',
-            creado: new Date().toISOString(),
-          });
+          let envio;
+          try {
+            envio = await Store.addEnvio({
+              id: 'env-' + Date.now(),
+              cargaId: carga.id || null,
+              vinateroEmail: carga.email || null,
+              empresaEmail: Store.currentEmail(),
+              choferEmail: elegido ? elegido.email : null,
+              chofer, choferTelefono: tel, patente,
+              origenComuna: carga.comuna, origenLat: origen.lat, origenLng: origen.lng,
+              destinoId: null, destinoNombre: u.nombre,
+              destinoLat: destino.lat, destinoLng: destino.lng,
+              // Si hay transportista vinculado, el viaje espera a que lo acepte.
+              estado: elegido ? 'asignado' : 'en_camino',
+              salida: elegido ? null : new Date().toISOString(),
+              minutosTotal: min,
+              progreso: 0, vehLat: null, vehLng: null,
+              volumenDeclarado: carga.volumen,
+              volumenRecibido: null, pesoRecibido: null, observaciones: '',
+              creado: new Date().toISOString(),
+            });
+          } catch (e) {
+            $('r-ok').disabled = false;
+            return ($('r-err').textContent = 'No se pudo programar el retiro: ' + e.message);
+          }
 
           Shell.closeModal();
+          if (elegido) {
+            Shell.toast(`Encargo enviado a ${elegido.nombre}`);
+          }
           location.href = 'seguimiento.html?id=' + encodeURIComponent(envio.id);
         };
       }
@@ -203,6 +243,9 @@
       $('comuna').onchange = render;
       $('vmin').oninput = render;
       render();
+
+      /* Las cargas nuevas entran solas en el listado. */
+      Shell.enVivo(['cargas', 'envios'], render);
     });
   </script>
 </body>
