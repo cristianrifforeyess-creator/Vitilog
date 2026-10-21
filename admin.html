@@ -83,7 +83,7 @@
         const suspendidas = cuentas().filter(a => a.activa === false).length;
         const stats = [
           { ic: '🍇', color: '#2E7D32', val: v.length, lbl: 'Viñateros', sub: 'Registrados' },
-          { ic: '🏭', color: '#1976D2', val: e.length, lbl: 'Empresas', sub: 'Biomasa / compostaje / transporte' },
+          { ic: '🏭', color: '#1976D2', val: e.length, lbl: 'Plantas', sub: 'Biomasa o compostaje' },
           { ic: '🌾', color: '#43A047', val: cargas().length, lbl: 'Cargas', sub: volumen + ' m³ publicados' },
           { ic: '♻️', color: '#F9A825', val: puntos().length, lbl: 'Plantas y acopios', sub: puntos().filter(p => p.activo !== false).length + ' con cupos' },
         ];

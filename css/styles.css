@@ -634,3 +634,91 @@ html[data-theme="dark"] .marcador .nombre.yo { fill: var(--primary-light); }
   .ficha-datos > :nth-child(2) { grid-column: 1 / -1; order: -1; }
   .ficha-datos .dato-grande { font-size: 19px; }
 }
+
+
+/* ================= Refinamiento visual =================
+   El sitio funcionaba bien pero se veia apagado: superficies planas,
+   titulos sueltos y todo al mismo peso. Lo de aqui abajo le da relieve
+   SIN cambiar la paleta ni meter adornos: mismos colores, mismas formas,
+   solo mejor jerarquia. Nada de esto altera el comportamiento. */
+
+/* ---- Titulos de seccion ----
+   Una barra de acento corta delante. Ordena la lectura y marca donde
+   empieza cada bloque, que antes habia que adivinar por el espaciado. */
+.section-title {
+  display: flex; align-items: center; gap: 9px;
+}
+.section-title::before {
+  content: ''; flex: 0 0 auto;
+  width: 4px; height: 18px; border-radius: 3px;
+  background: linear-gradient(180deg, var(--primary-light), var(--primary));
+}
+
+/* ---- Numeros que cambian solos ----
+   Cifras de ancho fijo: sin esto, un contador que pasa de 1 a 2 cargas
+   hace saltar todo lo que tiene al lado. */
+.dato-grande, .stat-card .val, .ficha-datos .dato-grande {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Barra superior ----
+   Un reflejo muy tenue arriba a la derecha, para que el verde no sea una
+   mancha plana. Va en el mismo fondo, sin capas encima del texto. */
+.topbar {
+  background:
+    radial-gradient(120% 90% at 85% -25%, rgba(255, 255, 255, .16), transparent 55%),
+    linear-gradient(135deg, var(--primary-dark), var(--primary));
+}
+
+/* ---- Tarjetas ----
+   Profundidad al pasar por encima, solo en las que se pueden tocar. */
+.card { transition: box-shadow .18s ease, border-color .18s ease, transform .18s ease; }
+.list-item:hover {
+  border-color: var(--primary-light);
+  box-shadow: 0 10px 26px rgba(46, 125, 50, .12);
+}
+html[data-theme="dark"] .list-item:hover {
+  box-shadow: 0 10px 26px rgba(0, 0, 0, .45);
+}
+
+/* El icono redondo de cada fila llevaba el color al aire; un aro muy sutil
+   lo asienta sobre la tarjeta. */
+.li-ic { box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .05); }
+html[data-theme="dark"] .li-ic { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .07); }
+
+/* ---- Botones de accion ----
+   Llevan el color en un atributo del HTML, asi que el matiz se añade por
+   encima con una capa propia; el contenido se mantiene al frente. */
+.action-btn { position: relative; overflow: hidden; }
+.action-btn::after {
+  content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background: linear-gradient(135deg, rgba(255, 255, 255, .18), rgba(0, 0, 0, .10));
+}
+.action-btn > * { position: relative; z-index: 1; }
+.action-btn:hover { box-shadow: 0 10px 24px rgba(0, 0, 0, .16); }
+
+/* ---- Fichas de resumen ----
+   Un velo verde apenas perceptible arriba, para separarlas del resto de
+   tarjetas sin recurrir a un color de fondo distinto. */
+.ficha-ruta {
+  background-image: linear-gradient(180deg, rgba(46, 125, 50, .055), rgba(46, 125, 50, 0) 60%);
+}
+html[data-theme="dark"] .ficha-ruta {
+  background-image: linear-gradient(180deg, rgba(139, 195, 74, .07), rgba(139, 195, 74, 0) 60%);
+}
+
+/* Separadores entre los datos, para que se lean como un grupo y no como
+   cuatro numeros sueltos. Solo donde los cuatro caben en una fila. */
+@media (min-width: 721px) {
+  .ficha-datos > div + div { border-left: 1px solid var(--border); }
+}
+
+/* ---- Estados vacios ----
+   Antes era texto gris flotando. Un recuadro punteado deja claro que el
+   espacio existe y que ahi va a aparecer algo. */
+.empty {
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 34px 18px;
+}
+.empty .ic { opacity: .5; }
