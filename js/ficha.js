@@ -106,12 +106,32 @@ const Ficha = {
         .filter(c => c.email === Store.currentEmail() && c.lat != null);
       if (!mias.length) return null;
       const c = mias[0];
+
+      /* Acá NO se mide desde quien mira. El viñatero está parado junto a su
+         propia carga, así que esa distancia siempre daría cero y el tiempo
+         un minuto: un dato inútil ocupando el lugar más visible de la
+         tarjeta. Lo que de verdad falta saber es cuánto tendrían que viajar
+         los sarmientos hasta la planta más cercana que los reciba. */
+      const planta = this._plantaMasCercana(c);
+      if (!planta) {
+        return {
+          tipo: 'carga', carga: c,
+          titulo: 'Tu carga esperando retiro',
+          subtitulo: `${c.comuna} · disponible desde el ${c.fecha || 'por confirmar'}`,
+          volumen: c.volumen,
+          sinTiempo: 'No hay plantas con cupos para ese destino',
+          href: 'rutas.html',
+        };
+      }
       return {
         tipo: 'carga',
         carga: c,
         titulo: 'Tu carga esperando retiro',
         subtitulo: `${c.comuna} · disponible desde el ${c.fecha || 'por confirmar'}`,
-        destino: { lat: c.lat, lng: c.lng },
+        origen: { lat: c.lat, lng: c.lng },
+        destino: { lat: planta.lat, lng: planta.lng },
+        rotuloTiempo: 'Viaje hasta la planta',
+        referencia: `hasta ${planta.nombre}`,
         volumen: c.volumen,
         href: 'rutas.html',
       };
@@ -137,6 +157,19 @@ const Ficha = {
     return null;
   },
 
+  /* Planta con cupos más cercana a una carga, por carretera no se puede
+     saber sin consultar: para elegir candidata basta la línea recta, y el
+     tiempo exacto se calcula después sobre la elegida. */
+  _plantaMasCercana(carga) {
+    const plantas = (Shell.empresasParaBuscador() || []).filter(p =>
+      p.activo && p.lat != null
+      && (carga.destino === 'Indistinto' || p.tipo === carga.destino));
+    if (!plantas.length) return null;
+    return plantas
+      .map(p => ({ ...p, _km: Ruteo.rectaKm(carga, p) || 1e9 }))
+      .sort((a, b) => a._km - b._km)[0];
+  },
+
   /* -------- Dibujo -------- */
   _html(obj, ruta, estadoGps, origenEsGps) {
     const mwh = this.energia(obj.volumen);
@@ -145,17 +178,25 @@ const Ficha = {
     /* El tiempo tarda en llegar: hasta entonces se dice que se está
        calculando, en vez de mostrar un número inventado. */
     const tiempo = ruta ? this.duracion(ruta.minutos) : null;
-    const hora = ruta ? this.horaLlegada(ruta.minutos) : null;
+    /* La hora de llegada solo tiene sentido si alguien ya va en camino. En
+       una carga que todavía espera retiro nadie salió, así que anunciar una
+       hora seria inventarla. */
+    const hora = (ruta && !obj.origen) ? this.horaLlegada(ruta.minutos) : null;
 
     /* De dónde se midió importa tanto como el número: no es lo mismo
        "desde donde estás" que "desde tu comuna" cuando el GPS está apagado,
        y dar a entender lo primero sería mentir. */
-    const desde = origenEsGps ? 'desde donde estás' : 'desde tu comuna';
-    const nota = !ruta
-      ? (estadoGps || 'Calculando distancia…')
-      : (ruta.real
-          ? `🛣️ ${ruta.km} km por carretera ${desde}`
-          : `📏 ${ruta.km} km estimados ${desde} (el servicio de rutas no respondió)`);
+    const desde = obj.referencia
+      ? obj.referencia                                   // "hasta BioEnergía Maule"
+      : (origenEsGps ? 'desde donde estás' : 'desde tu comuna');
+
+    const nota = obj.sinTiempo
+      ? obj.sinTiempo
+      : !ruta
+        ? (estadoGps || 'Calculando distancia…')
+        : (ruta.real
+            ? `🛣️ ${ruta.km} km por carretera ${desde}`
+            : `📏 ${ruta.km} km estimados ${desde} (el servicio de rutas no respondió)`);
 
     return `
       <div class="card pad ficha-ruta">
@@ -173,7 +214,8 @@ const Ficha = {
         <div class="ficha-datos">
           <div>
             <div class="dato-grande">${tiempo || '—'}</div>
-            <div class="dato-rotulo">${obj.tipo === 'viaje' ? 'Te falta' : 'Tiempo estimado'}</div>
+            <div class="dato-rotulo">${obj.rotuloTiempo
+              || (obj.tipo === 'viaje' ? 'Te falta' : 'Tiempo estimado')}</div>
           </div>
           <div>
             <div class="dato-grande">${obj.volumen} m³</div>
@@ -223,13 +265,19 @@ const Ficha = {
     /* Recalcula distancia y tiempo. Solo si hay dónde y hacia dónde, y sin
        pisar un cálculo que ya está en curso. */
     const recalcular = async () => {
-      if (!viva || calculando || !miPos) return;
+      if (!viva || calculando) return;
       const obj = this.objetivo();
       if (!obj || !obj.destino || obj.destino.lat == null) return;
+      // Sin origen propio hace falta saber dónde está quien mira.
+      if (!obj.origen && !miPos) return;
 
       calculando = true;
       try {
-        const r = await Ruteo.ruta([miPos, obj.destino], { conGeometria: false });
+        /* Algunas fichas miden entre dos puntos fijos (la carga y la planta)
+           en vez de desde el observador. Ahí la posición de quien mira no
+           pinta nada y el resultado es el mismo para todos. */
+        const desde = obj.origen || miPos;
+        const r = await Ruteo.ruta([desde, obj.destino], { conGeometria: false });
         if (!viva) return;
         if (r) { ruta = r; pintar(); }
       } finally {
@@ -270,6 +318,8 @@ const Ficha = {
     };
 
     pintar();
+    // Si la ficha mide entre dos puntos fijos, no hay que esperar al GPS.
+    recalcular();
 
     // Ubicación del observador: una lectura y después seguimiento continuo.
     if (navigator.geolocation && Shell.puedePedirGPS && Shell.puedePedirGPS()) {
