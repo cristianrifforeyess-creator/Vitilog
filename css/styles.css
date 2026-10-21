@@ -94,6 +94,9 @@ button { font-family: inherit; cursor: pointer; }
   background: var(--primary); color: #fff;
   display: grid; place-items: center; font-size: 22px;
 }
+/* El logo en imagen ya trae su propio fondo redondeado: si se le deja el
+   verde del recuadro, asoma por las esquinas. */
+.brand img.logo { background: none; border-radius: 0; }
 .brand b { font-size: 20px; font-weight: 800; letter-spacing: .5px; color: var(--primary-dark); }
 html[data-theme="dark"] .brand b { color: var(--primary-light); }
 
@@ -722,3 +725,34 @@ html[data-theme="dark"] .ficha-ruta {
   padding: 34px 18px;
 }
 .empty .ic { opacity: .5; }
+
+
+/* ---- Cargas agrupadas por productor ----
+   Un viñatero con varias cargas ocupaba varias tarjetas identicas y habia
+   que leerlas una por una para notar que eran del mismo. Agrupadas, la
+   cabecera dice de quien es y cuanto ofrece en total, y debajo van sus
+   cargas como filas. */
+.grupo-cabecera { display: flex; align-items: center; gap: 12px; }
+.grupo-titulo { flex: 1; min-width: 0; }
+.grupo-titulo b { display: block; font-size: 16px; font-weight: 700; }
+
+.grupo-cargas { margin-top: 14px; display: grid; gap: 10px; }
+
+.carga-fila {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px; border-radius: 12px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+}
+.carga-datos { flex: 1; min-width: 0; }
+.carga-titulo {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 14.5px; margin-bottom: 3px;
+}
+
+@media (max-width: 560px) {
+  .grupo-cabecera { flex-wrap: wrap; }
+  .grupo-cabecera > button { width: 100%; }
+  .carga-fila { flex-wrap: wrap; }
+  .carga-fila > button { width: 100%; }
+}

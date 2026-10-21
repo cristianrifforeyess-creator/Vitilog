@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>VITILOG · Servicios</title>
+  <link rel="icon" type="image/svg+xml" href="img/logo.svg">
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
@@ -76,7 +77,8 @@
             <div class="section-title">Cargas esperando retiro</div>
             <div class="section-sub">
               ${cargas.length === 0 ? 'Ninguna por ahora' :
-                `${cargas.length} disponible(s)${base ? ', de la más cercana a la más lejana' : ''}`}
+                `${cargas.length} disponible(s) de ${Shell.agruparPorProductor(cargas).length} productor(es)${
+                  base ? ', de la más cercana a la más lejana' : ''}`}
             </div>
           </div>
 
@@ -86,7 +88,10 @@
                  <p>No hay cargas publicadas en este momento.</p>
                  <p style="font-size:13px">Cuando un viñatero publique una, aparecerá acá y te avisaremos.</p>
                </div>`
-            : `<div class="grid" style="margin-top:12px">${cargas.map(tarjetaCarga).join('')}</div>`}
+            : `<div class="grid" style="margin-top:12px">${
+                Shell.agruparPorProductor(cargas)
+                  .map(g => tarjetaGrupo(g, g.cargas.map(x => cargas.indexOf(x))))
+                  .join('')}</div>`}
 
           ${hechos.length ? `
             <div class="section">
@@ -181,25 +186,46 @@
       }
 
       /* Una carga que se puede aceptar. */
-      function tarjetaCarga(carga, i) {
+      /* Una carga dentro de la tarjeta de su productor. */
+      function filaCarga(carga, i) {
         const color = tipoColor(carga.destino);
         return `
-          <div class="card route-card">
-            <div class="route-head">
-              <div class="li-ic" style="background:${color}22;color:${color}">${tipoIcono(carga.destino)}</div>
-              <b>${carga.volumen} m³ · ${Shell.escape(carga.comuna)}</b>
-              ${carga.km != null ? Shell.badge('a ' + carga.km + ' km', '#1976D2', '📍') : ''}
+          <div class="carga-fila">
+            <div class="li-ic" style="background:${color}22;color:${color}">${tipoIcono(carga.destino)}</div>
+            <div class="carga-datos">
+              <div class="carga-titulo">
+                <b>${carga.volumen} m³</b> · ${Shell.escape(carga.comuna)}
+                ${carga.km != null ? Shell.badge('a ' + carga.km + ' km', '#1976D2', '📍') : ''}
+              </div>
+              <div class="li-sub">♻️ ${Shell.escape(carga.destino)} · 📅 ${Shell.escape(carga.fecha || 'Por confirmar')}</div>
+              ${carga.notas ? `<div class="li-sub">📝 ${Shell.escape(carga.notas)}</div>` : ''}
             </div>
-            <div class="route-info">
-              <span class="info-line">🍇 Productor: <b>${Shell.escape(carga.productor)}</b></span>
-              <span class="info-line">♻️ Destino: <b>${Shell.escape(carga.destino)}</b></span>
-              <span class="info-line">📅 Disponible: <b>${Shell.escape(carga.fecha || 'Por confirmar')}</b></span>
+            <button class="btn" style="padding:10px 14px;font-size:13.5px" data-aceptar="${i}">✋ Aceptar</button>
+          </div>`;
+      }
+
+      /* Todo lo que ofrece un mismo productor, junto. Para el transportista
+         importa el doble que para la planta: varias cargas del mismo sitio
+         son un solo desvío, y eso se ve de una mirada. */
+      function tarjetaGrupo(g, indices) {
+        const varias = g.cargas.length > 1;
+        return `
+          <div class="card pad route-card">
+            <div class="grupo-cabecera">
+              <div class="li-ic" style="background:rgba(46,125,50,.12);color:var(--primary)">🍇</div>
+              <div class="grupo-titulo">
+                <b>${Shell.escape(g.productor)}</b>
+                <span class="li-sub">
+                  ${varias ? `${g.cargas.length} cargas · ` : ''}${g.volumen} m³ en total
+                  · ${g.comunas.map(Shell.escape).join(', ')}
+                  ${g.km != null ? ` · desde ${g.km} km` : ''}
+                </span>
+              </div>
+              <button class="btn ghost" style="padding:10px 14px;font-size:13.5px"
+                      data-llamar="${indices[0]}">📞 Productor</button>
             </div>
-            ${carga.notas ? `<p class="section-sub" style="margin-top:10px">📝 ${Shell.escape(carga.notas)}</p>` : ''}
-            <div class="route-foot" style="gap:8px">
-              <span class="date"></span>
-              <button class="btn ghost" style="padding:10px 14px;font-size:13.5px" data-llamar="${i}">📞 Productor</button>
-              <button class="btn" style="padding:10px 14px;font-size:13.5px" data-aceptar="${i}">✋ Aceptar servicio</button>
+            <div class="grupo-cargas">
+              ${g.cargas.map((x, k) => filaCarga(x, indices[k])).join('')}
             </div>
           </div>`;
       }

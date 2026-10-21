@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>VITILOG · Cargas Disponibles</title>
+  <link rel="icon" type="image/svg+xml" href="img/logo.svg">
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
@@ -62,26 +63,47 @@
         };
       });
 
-      function tarjeta(c, i) {
+      /* Una carga suelta dentro de la tarjeta de su productor. El índice es
+         el de la lista completa, para que los botones sigan encontrándola. */
+      function filaCarga(c, i) {
         const color = tipoColor(c.destino);
         const dist = c.km ? ` · ${c.km} km` : '';
         return `
-          <div class="card route-card">
-            <div class="route-head">
-              <div class="li-ic" style="background:${color}22;color:${color}">${tipoIcono(c.destino)}</div>
-              <b>${Shell.escape(c.productor)}</b>
-              ${Shell.badge(c.destino, color)}
+          <div class="carga-fila">
+            <div class="li-ic" style="background:${color}22;color:${color}">${tipoIcono(c.destino)}</div>
+            <div class="carga-datos">
+              <div class="carga-titulo">
+                <b>${c.volumen} m³</b> · ${Shell.escape(c.comuna)}${dist}
+                ${Shell.badge(c.destino, color)}
+              </div>
+              <div class="li-sub">📅 Disponible: ${Shell.escape(c.fecha || 'Por confirmar')}</div>
+              ${c.notas ? `<div class="li-sub">📝 ${Shell.escape(c.notas)}</div>` : ''}
             </div>
-            <div class="route-info">
-              <span class="info-line">📍 Comuna: <b>${Shell.escape(c.comuna)}${dist}</b></span>
-              <span class="info-line">📦 Volumen: <b>${c.volumen} m³</b></span>
-              <span class="info-line">📅 Disponible: <b>${Shell.escape(c.fecha || 'Por confirmar')}</b></span>
+            <button class="btn" style="padding:10px 14px;font-size:13.5px" data-retiro="${i}">🚚 Programar</button>
+          </div>`;
+      }
+
+      /* Tarjeta de un productor con todo lo que ofrece. Si solo tiene una
+         carga se ve igual que antes; la diferencia aparece cuando tiene
+         varias, que es cuando antes se repetía la misma cabecera. */
+      function tarjetaGrupo(g, indices) {
+        const varias = g.cargas.length > 1;
+        return `
+          <div class="card pad route-card">
+            <div class="grupo-cabecera">
+              <div class="li-ic" style="background:rgba(46,125,50,.12);color:var(--primary)">🍇</div>
+              <div class="grupo-titulo">
+                <b>${Shell.escape(g.productor)}</b>
+                <span class="li-sub">
+                  ${varias ? `${g.cargas.length} cargas · ` : ''}${g.volumen} m³ en total
+                  · ${g.comunas.map(Shell.escape).join(', ')}
+                </span>
+              </div>
+              <button class="btn ghost" style="padding:10px 14px;font-size:13.5px"
+                      data-i="${indices[0]}">📞 Contactar</button>
             </div>
-            ${c.notas ? `<p class="section-sub" style="margin-top:10px">📝 ${Shell.escape(c.notas)}</p>` : ''}
-            <div class="route-foot" style="gap:8px">
-              <span class="date"></span>
-              <button class="btn ghost" style="padding:10px 14px;font-size:13.5px" data-i="${i}">📞 Contactar</button>
-              <button class="btn" style="padding:10px 14px;font-size:13.5px" data-retiro="${i}">🚚 Programar retiro</button>
+            <div class="grupo-cargas">
+              ${g.cargas.map((c, k) => filaCarga(c, indices[k])).join('')}
             </div>
           </div>`;
       }
@@ -106,9 +128,20 @@
         }
 
         const total = lista.reduce((s, c) => s + c.volumen, 0);
+
+        /* Se agrupa por productor, pero los botones siguen apuntando a la
+           posición de cada carga en "lista": así el resto del código que
+           lee data-i y data-retiro no cambia. */
+        const grupos = Shell.agruparPorProductor(lista);
+        const posicion = new Map(lista.map((c, i) => [c, i]));
+
         box.innerHTML =
-          `<div class="section-sub" style="margin-bottom:10px">${lista.length} carga(s) · ${total} m³ en total</div>` +
-          `<div class="grid">` + lista.map(tarjeta).join('') + `</div>`;
+          `<div class="section-sub" style="margin-bottom:10px">
+             ${lista.length} carga(s) de ${grupos.length} productor(es) · ${total} m³ en total
+           </div>` +
+          `<div class="grid">`
+          + grupos.map(g => tarjetaGrupo(g, g.cargas.map(c => posicion.get(c)))).join('')
+          + `</div>`;
 
         // Contacto directo con el productor de cada carga.
         box.querySelectorAll('button[data-i]').forEach(b => {

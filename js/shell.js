@@ -458,6 +458,45 @@ const Shell = {
     return this.badge(texto, color, ic);
   },
 
+  /* Junta las cargas por quien las publicó.
+
+     Un viñatero que publica cuatro cargas llenaba cuatro tarjetas iguales
+     seguidas, y había que leerlas una por una para darse cuenta de que
+     eran del mismo productor. Agrupadas se ve de una sola vez cuánto
+     ofrece en total, que es lo que decide si vale la pena ir.
+
+     Devuelve los grupos ordenados por volumen total, de mayor a menor, y
+     respetando el orden original dentro de cada uno. */
+  agruparPorProductor(cargas) {
+    const grupos = new Map();
+    (cargas || []).forEach(c => {
+      // Sin correo (las cargas de ejemplo) cada una va por su cuenta.
+      const clave = (c.email || '').toLowerCase() || ('suelta:' + c.id);
+      if (!grupos.has(clave)) {
+        grupos.set(clave, {
+          clave,
+          productor: c.productor || 'Productor VITILOG',
+          telefono: c.telefono || '',
+          email: c.email || '',
+          cargas: [],
+        });
+      }
+      grupos.get(clave).cargas.push(c);
+    });
+
+    return [...grupos.values()].map(g => {
+      const comunas = [...new Set(g.cargas.map(c => c.comuna))];
+      return {
+        ...g,
+        volumen: Math.round(g.cargas.reduce((t, c) => t + (Number(c.volumen) || 0), 0) * 10) / 10,
+        comunas,
+        // La distancia del grupo es la de su carga más cercana.
+        km: g.cargas.reduce((m, c) =>
+          (c.km != null && (m == null || c.km < m)) ? c.km : m, null),
+      };
+    }).sort((a, b) => b.volumen - a.volumen);
+  },
+
   /* Cómo se presenta un transportista: por su cuenta o conduciendo para una
      empresa. Es el mismo perfil con las mismas herramientas; esto solo sirve
      para que el viñatero sepa con quién está tratando. */
@@ -943,7 +982,10 @@ const Shell = {
       // Configuración solo va al pie si el menú del rol no la incluye ya.
       const configEnMenu = nav.some(n => n.href === 'configuracion.html');
       sidebar.innerHTML = `
-        <div class="brand"><div class="logo">🌿</div><b>VITILOG</b></div>
+        <div class="brand">
+          <img class="logo" src="img/logo.svg" alt="" width="34" height="34">
+          <b>VITILOG</b>
+        </div>
         <div class="nav-role">${etiquetaRol}</div>
         ${links}
         <div class="spacer"></div>

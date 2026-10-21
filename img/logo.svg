@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="VITILOG">
+  <!-- Marca de VITILOG: una hoja de vid sobre el surco del camino.
+       Las dos cosas que hace la aplicación, en un solo dibujo.
+
+       Está pensada para verse bien a 16 px (la pestaña del navegador):
+       formas gruesas, nada de líneas finas ni detalles que se pierdan. -->
+  <defs>
+    <linearGradient id="vl-fondo" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#43A047"/>
+      <stop offset="1" stop-color="#1B5E20"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="64" height="64" rx="16" fill="url(#vl-fondo)"/>
+
+  <!-- Hoja -->
+  <path fill="#EAF5E6"
+        d="M44.5 13.5c1.2 9.6-1.3 17.2-6.3 21.6-3.6 3.2-8 4.3-11.8 3.4-1.1 3-1.7 6-1.9 9.2a2.6 2.6 0 1 1-5.2-.3c.3-4.3 1.3-8.3 3-12-2.6-3-3.5-7.2-2.4-11.3 1.5-5.7 6.6-10 14.5-11.9a2.6 2.6 0 0 1 1.2 5.1c-6.1 1.5-9.5 4.4-10.5 8.2-.4 1.6-.3 3.2.2 4.5 2.4-3.4 5.5-6.4 9.3-9a2.6 2.6 0 1 1 2.9 4.3c-3.6 2.4-6.4 5.2-8.5 8.4 1.9.1 4-.7 5.8-2.3 3.3-2.9 5.2-8.2 4.6-15.3a2.6 2.6 0 0 1 5.1-.6z"/>
+
+  <!-- Surco del camino, por debajo de la hoja -->
+  <path fill="none" stroke="#8BC34A" stroke-width="4.2" stroke-linecap="round"
+        d="M13 52c8-3.2 16.5-3.6 25.5-1.2"/>
+</svg>
