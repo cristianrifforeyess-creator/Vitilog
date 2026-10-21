@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>VITILOG · Buscar Empresas</title>
+  <title>AgroConecta · Buscar Empresas</title>
   <link rel="icon" type="image/svg+xml" href="img/logo.svg">
   <link rel="stylesheet" href="css/styles.css">
 </head>
@@ -78,7 +78,7 @@
               </div>`;
           }).join('') + `</div>`;
 
-        // Contacto: datos reales si la empresa está registrada en VITILOG.
+        // Contacto: datos reales si la empresa está registrada en AgroConecta.
         box.querySelectorAll('button[data-id]').forEach(b => {
           b.onclick = () => {
             const e = list.find(x => x.id === b.dataset.id);

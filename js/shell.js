@@ -475,7 +475,7 @@ const Shell = {
       if (!grupos.has(clave)) {
         grupos.set(clave, {
           clave,
-          productor: c.productor || 'Productor VITILOG',
+          productor: c.productor || 'Productor AgroConecta',
           telefono: c.telefono || '',
           email: c.email || '',
           cargas: [],
@@ -524,7 +524,7 @@ const Shell = {
           nombre: a.nombre,
           tipo: a.tipo || 'Biomasa',
           comuna: a.comuna,
-          desc: 'Empresa registrada en VITILOG.'
+          desc: 'Empresa registrada en AgroConecta.'
             + (a.encargado ? ' Contacto: ' + a.encargado + '.' : ''),
           cap: null, activo: true, registrada: true,
           email: a.email, telefono: a.telefono || '',
@@ -968,7 +968,7 @@ const Shell = {
 
   _renderNav(active, rol) {
     const nav = this.navFor(rol);
-    const etiquetaRol = rol === Store.ROL_ADMIN ? '🛠️ Administración VITILOG'
+    const etiquetaRol = rol === Store.ROL_ADMIN ? '🛠️ Administración AgroConecta'
       : rol === Store.ROL_EMPRESA ? '🏭 Cuenta de planta receptora'
       : rol === Store.ROL_CHOFER ? '🚚 Cuenta de transportista'
       : '🍇 Cuenta de viñatero';
@@ -984,7 +984,10 @@ const Shell = {
       sidebar.innerHTML = `
         <div class="brand">
           <img class="logo" src="img/logo.svg" alt="" width="40" height="40">
-          <b>VITILOG</b>
+          <div class="brand-texto">
+            <b>AgroConecta</b>
+            <span>por VITILOG</span>
+          </div>
         </div>
         <div class="nav-role">${etiquetaRol}</div>
         ${links}
@@ -1068,7 +1071,7 @@ const Shell = {
         <div><b style="font-size:17px">${this.escape(nombre)}</b><div class="li-sub">${this.escape(tipo)}</div></div>
       </div>
       <a class="opt" href="tel:${c.tel.replace(/\s/g, '')}"><span class="ic">📞</span><div><b>Llamar</b><span>${c.tel}</span></div></a>
-      <a class="opt" href="mailto:${c.email}?subject=Consulta%20VITILOG"><span class="ic">✉️</span><div><b>Enviar correo</b><span>${c.email}</span></div></a>
+      <a class="opt" href="mailto:${c.email}?subject=Consulta%20AgroConecta"><span class="ic">✉️</span><div><b>Enviar correo</b><span>${c.email}</span></div></a>
       <button class="opt" onclick="Shell.copiar('${c.tel} · ${c.email}')"><span class="ic">📋</span><div><b>Copiar datos</b><span>Teléfono y correo</span></div></button>
       <button class="btn ghost block" style="margin-top:6px" onclick="Shell.closeModal()">Cerrar</button>`);
   },

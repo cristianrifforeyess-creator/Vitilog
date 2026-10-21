@@ -141,7 +141,7 @@ const Store = {
     if (!this._cache.cuentas.some(c => this.rolDe(c) === this.ROL_ADMIN)) {
       const { hash, sal } = await this._cifrar('admin1234');
       this._cache.cuentas.push({
-        rol: this.ROL_ADMIN, nombre: 'Administración VITILOG',
+        rol: this.ROL_ADMIN, nombre: 'Administración AgroConecta',
         email: 'admin@vitilog.cl', clave_hash: hash, clave_sal: sal,
         comuna: 'Talca', telefono: '', activa: true, porDefecto: true,
       });
@@ -526,7 +526,7 @@ const Store = {
       const dueno = this.accountByEmail(c.ownerEmail);
       return {
         ...c,
-        productor: dueno ? dueno.nombre : 'Productor VITILOG',
+        productor: dueno ? dueno.nombre : 'Productor AgroConecta',
         telefono: dueno ? dueno.telefono : '',
         email: c.ownerEmail,
       };
@@ -705,7 +705,7 @@ const Store = {
         const coord = typeof Shell !== 'undefined' ? Shell.coordComuna(c.comuna) : null;
         return {
           ...c,
-          productor: dueno ? dueno.nombre : 'Productor VITILOG',
+          productor: dueno ? dueno.nombre : 'Productor AgroConecta',
           telefono: dueno ? dueno.telefono : '',
           email: c.ownerEmail,
           lat: coord ? coord.lat : null,
