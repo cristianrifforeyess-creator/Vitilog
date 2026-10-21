@@ -261,8 +261,15 @@ html[data-theme="dark"] .brand b { color: var(--primary-light); }
 
 /* Auth */
 .auth { min-height: 100vh; display: grid; grid-template-columns: 1fr 1fr; }
+/* Antes era media pantalla de verde saturado, y encima el logo verde:
+   cansaba la vista y la marca se perdia contra el fondo. Ahora el panel
+   es un verde profundo y apagado que hace de telon, con una luz suave
+   arriba a la izquierda para que no quede plano. El blanco del texto y
+   del logo resalta mucho mas sobre esto. */
 .auth-brand {
-  background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+  background:
+    radial-gradient(85% 65% at 18% 8%, rgba(139, 195, 74, .16), transparent 62%),
+    linear-gradient(150deg, #1E4620, #163619 55%, #112B15);
   color: #fff; padding: 56px; display: flex; flex-direction: column; justify-content: center;
 }
 .auth-brand h2 { font-size: 26px; font-weight: 800; line-height: 1.25; margin: 24px 0 16px; }

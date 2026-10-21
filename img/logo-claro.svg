@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="AgroConecta">
+  <!-- La marca en claro, sin recuadro, para ponerla SOBRE verde.
+       La version con fondo verde desaparecia contra el panel del acceso:
+       verde sobre verde no se lee por mucho que cambien los tonos. -->
+  <path fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" opacity=".92"
+        d="M38.5 16.1 A19 19 0 1 1 25.5 16.1"/>
+  <path fill="#FFFFFF" opacity=".92" d="M33.0 13.4 L27.4 21.3 L23.6 10.9 Z"/>
+
+  <g fill="#FFFFFF">
+    <circle cx="25.6" cy="29.5" r="3.9"/>
+    <circle cx="32"   cy="29.5" r="3.9"/>
+    <circle cx="38.4" cy="29.5" r="3.9"/>
+    <circle cx="28.8" cy="36.3" r="3.9"/>
+    <circle cx="35.2" cy="36.3" r="3.9"/>
+    <circle cx="32"   cy="43.1" r="3.9"/>
+  </g>
+</svg>
