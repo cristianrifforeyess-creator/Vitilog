@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="VITILOG">
+  <!-- Marca de VITILOG, sobre el concepto original: la uva y la trazabilidad.
+
+       El racimo es el residuo; la flecha que lo rodea es el ciclo cerrado,
+       el sarmiento que vuelve convertido en energia en vez de quemarse.
+       Van uno DENTRO del otro a proposito: en el logo anterior eran dos
+       dibujos uno al lado del otro y nunca llegaban a ser una sola marca.
+
+       Decisiones tomadas para que aguante el tamano chico:
+         · trazos gruesos, nada de lineas finas ni zarcillos
+         · solo dos elementos; probe con una hoja encima del racimo y a
+           tamano pequeno se leia como una uva mas
+         · formato cuadrado, que es la forma de todos los huecos donde va
+         · verde de la aplicacion, no morado: el morado se leia como de
+           otra marca al lado de la interfaz
+       A 16 px se reconoce como un anillo con un racimo dentro. -->
+  <defs>
+    <linearGradient id="vl-fondo" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#43A047"/>
+      <stop offset="1" stop-color="#1B5E20"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="64" height="64" rx="16" fill="url(#vl-fondo)"/>
+
+  <!-- Ciclo: casi una vuelta completa; la punta de flecha cruza la
+       abertura y cierra la idea de recorrido que se repite. -->
+  <path fill="none" stroke="#8BC34A" stroke-width="5" stroke-linecap="round"
+        d="M38.5 16.1 A19 19 0 1 1 25.5 16.1"/>
+  <path fill="#8BC34A" d="M33.0 13.4 L27.4 21.3 L23.6 10.9 Z"/>
+
+  <!-- Racimo -->
+  <g fill="#EAF5E6">
+    <circle cx="25.6" cy="29.5" r="3.9"/>
+    <circle cx="32"   cy="29.5" r="3.9"/>
+    <circle cx="38.4" cy="29.5" r="3.9"/>
+    <circle cx="28.8" cy="36.3" r="3.9"/>
+    <circle cx="35.2" cy="36.3" r="3.9"/>
+    <circle cx="32"   cy="43.1" r="3.9"/>
+  </g>
+</svg>

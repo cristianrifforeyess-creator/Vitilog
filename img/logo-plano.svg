@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="VITILOG">
+  <!-- La misma marca sin el recuadro verde, para ponerla sobre fondo claro:
+       documentos, la portada del informe, una presentacion. Los colores se
+       invierten respecto a la version con fondo, porque el verde claro que
+       alli resaltaba, sobre blanco se pierde. -->
+  <path fill="none" stroke="#2E7D32" stroke-width="5" stroke-linecap="round"
+        d="M38.5 16.1 A19 19 0 1 1 25.5 16.1"/>
+  <path fill="#2E7D32" d="M33.0 13.4 L27.4 21.3 L23.6 10.9 Z"/>
+
+  <g fill="#8BC34A">
+    <circle cx="25.6" cy="29.5" r="3.9"/>
+    <circle cx="32"   cy="29.5" r="3.9"/>
+    <circle cx="38.4" cy="29.5" r="3.9"/>
+    <circle cx="28.8" cy="36.3" r="3.9"/>
+    <circle cx="35.2" cy="36.3" r="3.9"/>
+    <circle cx="32"   cy="43.1" r="3.9"/>
+  </g>
+</svg>
