@@ -222,8 +222,13 @@ const Ficha = {
         subtitulo: `${c.comuna} · disponible desde el ${c.fecha || 'por confirmar'}`,
         origen: { lat: c.lat, lng: c.lng },
         destino: { lat: planta.lat, lng: planta.lng },
-        rotuloTiempo: 'Viaje hasta la planta',
-        referencia: `hasta ${planta.nombre}`,
+        rotuloTiempo: `Hasta ${planta.nombre}`,
+        /* Se explica por qué sale esa planta y no otra: el viñatero no la
+           eligió, la escogió la aplicación por cercanía. Sin esto el nombre
+           aparecía suelto y daba a entender que el retiro ya estaba
+           acordado con ella. */
+        referencia: `hasta ${planta.nombre}, la planta más cercana que recibe `
+          + (c.destino === 'Indistinto' ? 'sarmientos' : c.destino.toLowerCase()),
         volumen: c.volumen,
         href: 'rutas.html',
       };
