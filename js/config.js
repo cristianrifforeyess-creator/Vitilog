@@ -107,8 +107,8 @@ const MODO_MAPA = 'propio';
    La solución de fondo es mover el inicio de sesión a Supabase Auth con
    políticas por usuario. Ahí la clave se publica sin ningún riesgo. */
 
-const SUPABASE_URL = '';
-const SUPABASE_ANON_KEY = '';
+const SUPABASE_URL = 'https://gjzxmrguecgebrzxclbu.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdqenhtcmd1ZWNnZWJyenhjbGJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MDk1MjUsImV4cCI6MjEwNzQ4NTUyNX0.u_w0pRAH3jnSYOmXXODyXoIGeAEhbVqBK0LTI_fWOso';
 
 /* Origen de los datos:
      'auto'  -> usa la base compartida si está configurada; si no, la local.
