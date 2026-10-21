@@ -27,6 +27,7 @@
   <script src="js/data.js"></script>
   <script src="js/store.js"></script>
   <script src="js/vivo.js"></script>
+  <script src="js/ruteo.js"></script>
   <script src="js/shell.js"></script>
   <script>
     Shell.init('rutas').then(listo => { if (!listo) return;
@@ -236,7 +237,8 @@
           <!-- Mapa del recorrido -->
           <div class="section">
             <div class="section-title">Recorrido</div>
-            <div class="section-sub">${envio.origenComuna} → ${Shell.escape(envio.destinoNombre)} · ${seg.kmTotal} km en total</div>
+            <div class="section-sub">${envio.origenComuna} → ${Shell.escape(envio.destinoNombre)} · ${seg.kmTotal} km en total${
+              envio.rutaReal ? ' por carretera' : ''}</div>
             <div class="map-sim map-propio map-ruta" id="mapa-ruta" style="margin-top:12px"></div>
           </div>
 
@@ -283,6 +285,11 @@
         Shell.dibujarMarcadores(mapa, [], {});                 // limpia la capa
         Shell.encuadrarRuta(mapa.querySelector('.map-geo'), envio, seg);
         Shell.dibujarRuta(mapa, envio, seg);
+
+        /* El camino real llega del servicio de ruteo, que tarda un momento.
+           Cuando llega, se vuelve a dibujar con la carretera de verdad en
+           lugar de la línea recta. */
+        Shell.rutaDelEnvio(envio).then(cambio => { if (cambio) render(); });
       }
 
       function conectarEventos(seg) {

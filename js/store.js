@@ -64,7 +64,8 @@ const Store = {
           Nube.listar('envios'),
           Nube.listar('mensajes'),
         ]);
-        this._recordarColumnas(cuentas);
+        this._recordarColumnas('cuentas', cuentas);
+        this._recordarColumnas('envios', envios);
         this._cache.cuentas = (cuentas || []).map(this._cuentaDesdeNube);
         this._cache.cargas = (cargas || []).map(this._cargaDesdeNube);
         this._cache.puntos = (puntos || []).map(this._puntoDesdeNube);
@@ -214,6 +215,8 @@ const Store = {
       volumenRecibido: f.volumen_recibido != null ? Number(f.volumen_recibido) : null,
       pesoRecibido: f.peso_recibido != null ? Number(f.peso_recibido) : null,
       observaciones: f.observaciones || '', creado: f.creado,
+      /* Paradas extra del viaje consolidado. Llegan como JSON desde la base. */
+      paradas: Array.isArray(f.paradas) ? f.paradas : [],
     };
   },
   _envioHaciaNube(e) {
@@ -232,6 +235,7 @@ const Store = {
       volumen_declarado: e.volumenDeclarado,
       volumen_recibido: e.volumenRecibido, peso_recibido: e.pesoRecibido,
       observaciones: e.observaciones || '',
+      paradas: Array.isArray(e.paradas) ? e.paradas : [],
     };
   },
   _mensajeDesdeNube(f) {
@@ -248,21 +252,42 @@ const Store = {
   },
 
   /* La tabla remota puede ser más antigua que este código: si todavía no
-     tiene la columna "modalidad", enviarla haría fallar el guardado entero.
-     Por eso se anota qué columnas trae de verdad y se recorta el envío. */
-  _columnasCuenta: null,
-  _recordarColumnas(filas) {
+     tiene la columna "modalidad" o "paradas", mandarla haría fallar el
+     guardado entero. Por eso se anota qué columnas trae de verdad cada
+     tabla y se recorta lo que se envía.
+
+     Es deliberado que falte en silencio: vale más guardar el resto que
+     perderlo todo porque la base está a medio actualizar. */
+  _columnas: {},
+  _recordarColumnas(tabla, filas) {
     if (Array.isArray(filas) && filas.length) {
-      this._columnasCuenta = Object.keys(filas[0]);
+      this._columnas[tabla] = Object.keys(filas[0]);
     }
   },
-  _soloColumnasConocidas(fila) {
-    if (!this._columnasCuenta) return fila;
+  _soloColumnasConocidas(tabla, fila) {
+    const conocidas = this._columnas[tabla];
+    if (!conocidas) return fila;
     const limpia = {};
     for (const k of Object.keys(fila)) {
-      if (this._columnasCuenta.includes(k)) limpia[k] = fila[k];
+      if (conocidas.includes(k)) limpia[k] = fila[k];
     }
     return limpia;
+  },
+
+  /* Para la administración: qué columnas esperadas no están en la base.
+     Si aparece algo acá, falta correr sql/esquema.sql. */
+  columnasQueFaltan() {
+    const esperadas = {
+      cuentas: ['modalidad', 'empresa_nombre', 'empresa_email', 'ultimo_acceso', 'accesos'],
+      envios: ['paradas'],
+    };
+    const faltan = [];
+    for (const [tabla, cols] of Object.entries(esperadas)) {
+      const hay = this._columnas[tabla];
+      if (!hay) continue;
+      cols.forEach(c => { if (!hay.includes(c)) faltan.push(tabla + '.' + c); });
+    }
+    return faltan;
   },
 
   /* Qué columnas de la cuenta viajan a la base compartida. Si un campo no
@@ -326,7 +351,7 @@ const Store = {
     const i = lista.findIndex(a => (a.email || '').toLowerCase() === acc.email.toLowerCase());
     if (i >= 0) lista[i] = acc; else lista.push(acc);
     if (this.enNube()) {
-      await Nube.guardar('cuentas', this._soloColumnasConocidas(this._cuentaHaciaNube(acc)));
+      await Nube.guardar('cuentas', this._soloColumnasConocidas('cuentas', this._cuentaHaciaNube(acc)));
     } else {
       this._write(this.K_ACCOUNTS, lista);
     }
@@ -593,11 +618,85 @@ const Store = {
     return null;
   },
 
+  /* =====================================================================
+     Recolección múltiple: varias viñas en un mismo viaje
+     ===================================================================== */
+  /* Cuántos m³ le quedan libres al camión en este viaje. Cuenta la carga
+     original más todas las paradas ya aceptadas. */
+  capacidadRestante(envio, cuenta = null) {
+    const chofer = cuenta || this.accountByEmail(envio && envio.choferEmail);
+    const total = Number(chofer && chofer.capacidad) || 0;
+    if (!total || !envio) return 0;
+    const ocupado = (Number(envio.volumenDeclarado) || 0)
+      + (envio.paradas || []).reduce((s, p) => s + (Number(p.volumen) || 0), 0);
+    return Math.max(0, Math.round((total - ocupado) * 10) / 10);
+  },
+
+  /* Cargas que caben en lo que queda del camión y que todavía nadie tomó.
+     No se filtran por cercanía acá: de eso se encarga quien llame, que es
+     el único que sabe por dónde va el camión. */
+  cargasQueCaben(envio, cuenta = null) {
+    const libre = this.capacidadRestante(envio, cuenta);
+    if (libre <= 0) return [];
+    const yaEn = new Set((envio.paradas || []).map(p => p.cargaId));
+    return this.cargasDisponibles()
+      .filter(c => !yaEn.has(c.id) && c.volumen <= libre);
+  },
+
+  /* Suma una viña al viaje en curso. El orden óptimo lo decide quien llama
+     (con el servicio de ruteo) y lo pasa en "orden". */
+  async agregarParada(envioId, carga, { orden = null, km = null, minutos = null } = {}) {
+    const envio = this.envioPorId(envioId);
+    if (!envio) return 'Ese viaje ya no existe';
+    if (envio.choferEmail !== this.currentEmail()) return 'Ese viaje no es tuyo';
+    if (envio.estado === 'entregado') return 'Ese viaje ya está cerrado';
+
+    const libre = this.capacidadRestante(envio);
+    if (carga.volumen > libre) {
+      return `No te caben ${carga.volumen} m³: quedan ${libre} m³ libres.`;
+    }
+
+    const paradas = (envio.paradas || []).concat([{
+      cargaId: carga.id,
+      comuna: carga.comuna,
+      lat: carga.lat,
+      lng: carga.lng,
+      volumen: carga.volumen,
+      productor: carga.productor || '',
+      telefono: carga.telefono || '',
+      recogida: false,
+    }]);
+
+    // Si vino un orden optimizado, se reordenan las paradas con él.
+    const ordenadas = (orden && orden.length === paradas.length)
+      ? orden.map(i => paradas[i]) : paradas;
+
+    const cambios = { paradas: ordenadas };
+    if (minutos) cambios.minutosTotal = minutos;
+    await this.actualizarEnvio(envioId, cambios);
+    return null;
+  },
+
+  /* El transportista marca que ya cargó en una de las paradas. */
+  async marcarParadaRecogida(envioId, cargaId) {
+    const envio = this.envioPorId(envioId);
+    if (!envio) return 'Ese viaje ya no existe';
+    const paradas = (envio.paradas || []).map(p =>
+      p.cargaId === cargaId ? { ...p, recogida: true } : p);
+    await this.actualizarEnvio(envioId, { paradas });
+    return null;
+  },
+
   /* Cargas que todavía nadie se comprometió a retirar. Es lo que ve el
      chofer en su panel, ordenado por cercanía a su base. */
   cargasDisponibles(desde) {
-    const comprometidas = new Set(
-      this._cache.envios.filter(e => e.cargaId).map(e => e.cargaId));
+    /* Una carga deja de estar libre tanto si alguien creó un envío para
+       ella como si quedó incluida como parada de un viaje consolidado. */
+    const comprometidas = new Set();
+    this._cache.envios.forEach(e => {
+      if (e.cargaId) comprometidas.add(e.cargaId);
+      (e.paradas || []).forEach(p => comprometidas.add(p.cargaId));
+    });
 
     return this._cache.cargas
       .filter(c => !comprometidas.has(c.id) && c.estado !== 'retirada')
@@ -660,7 +759,9 @@ const Store = {
 
   async addEnvio(envio) {
     this._cache.envios.unshift(envio);
-    if (this.enNube()) await Nube.guardar('envios', this._envioHaciaNube(envio));
+    if (this.enNube()) {
+      await Nube.guardar('envios', this._soloColumnasConocidas('envios', this._envioHaciaNube(envio)));
+    }
     else this._write(this.K_ENVIOS, this._cache.envios);
     return envio;
   },
@@ -671,7 +772,9 @@ const Store = {
     if (i < 0) return null;
     this._cache.envios[i] = { ...this._cache.envios[i], ...cambios };
     const envio = this._cache.envios[i];
-    if (this.enNube()) await Nube.guardar('envios', this._envioHaciaNube(envio));
+    if (this.enNube()) {
+      await Nube.guardar('envios', this._soloColumnasConocidas('envios', this._envioHaciaNube(envio)));
+    }
     else this._write(this.K_ENVIOS, this._cache.envios);
     return envio;
   },

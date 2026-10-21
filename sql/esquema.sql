@@ -150,6 +150,11 @@ alter table envios drop constraint if exists envios_estado_check;
 alter table envios add constraint envios_estado_check
   check (estado in ('asignado','programado','en_camino','llegando','en_destino','entregado'));
 
+-- Paradas extra de un viaje consolidado: el camión pasa a buscar carga a
+-- varias viñas antes de llegar a la planta. Cada parada guarda la carga, la
+-- comuna, el volumen y si ya se recogió.
+alter table envios add column if not exists paradas jsonb not null default '[]'::jsonb;
+
 -- ---------------------------------------------------------------------
 -- Mensajes: el chat de cada envío
 -- ---------------------------------------------------------------------

@@ -24,6 +24,7 @@
   <script src="js/data.js"></script>
   <script src="js/store.js"></script>
   <script src="js/vivo.js"></script>
+  <script src="js/ruteo.js"></script>
   <script src="js/shell.js"></script>
   <script>
     Shell.init('viaje', { rol: Store.ROL_CHOFER }).then(listo => { if (!listo) return;
@@ -53,6 +54,13 @@
         const transmitiendo = Shell.transmitiendo();
         const frescura = Shell.frescura(envio);
         const perdida = Shell.senalPerdida(envio);
+
+        /* Consolidación de carga: cuánto lleva y cuánto le cabe todavía. */
+        const yo = Store.currentUser();
+        const capacidad = Number(yo && yo.capacidad) || 0;
+        const cargado = (Number(envio.volumenDeclarado) || 0)
+          + (envio.paradas || []).reduce((t, p) => t + (Number(p.volumen) || 0), 0);
+        const libre = Store.capacidadRestante(envio, yo);
 
         $('tb-sub').textContent = `${envio.origenComuna} → ${envio.destinoNombre}`;
 
@@ -109,8 +117,8 @@
                 <div class="dato-rotulo">Faltan</div>
               </div>
               <div>
-                <div class="dato-grande">${envio.volumenDeclarado} m³</div>
-                <div class="dato-rotulo">Carga declarada</div>
+                <div class="dato-grande">${cargado} m³</div>
+                <div class="dato-rotulo">${(envio.paradas||[]).length ? 'Carga total' : 'Carga declarada'}</div>
               </div>
               <div>
                 <div class="dato-grande" style="color:${est.color}">${seg.eta || '—'}</div>
@@ -123,6 +131,37 @@
           <div class="section">
             <div class="section-title">Recorrido</div>
             <div class="map-sim map-propio map-ruta" id="mapa-ruta" style="margin-top:12px"></div>
+          </div>
+
+          <!-- Paradas ya aceptadas en este viaje -->
+          ${(envio.paradas || []).length ? `
+            <div class="section">
+              <div class="section-title">Paradas de este viaje</div>
+              <div class="section-sub">En el orden que conviene hacerlas</div>
+            </div>
+            <div class="grid" style="margin-top:12px">
+              ${envio.paradas.map((p, i) => `
+                <div class="card list-item">
+                  <div class="li-ic" style="background:${p.recogida ? 'rgba(46,125,50,.14)' : 'rgba(25,118,210,.12)'};color:${p.recogida ? 'var(--primary)' : 'var(--info)'}">${p.recogida ? '✅' : (i+1)}</div>
+                  <div class="li-body">
+                    <div class="li-title">${Shell.escape(p.comuna)} · ${p.volumen} m³</div>
+                    <div class="li-sub">${Shell.escape(p.productor || 'Productor VITILOG')}</div>
+                  </div>
+                  ${p.recogida ? '' : `<button class="link-btn" data-recogida="${Shell.escape(p.cargaId)}">Ya cargué</button>`}
+                </div>`).join('')}
+            </div>` : ''}
+
+          <!-- Consolidación: cargas que caben y quedan de paso -->
+          <div class="section">
+            <div class="section-title">Aprovechar el viaje</div>
+            <div class="section-sub">
+              Te quedan <b>${libre} m³</b> libres de ${capacidad || '?'} m³
+            </div>
+          </div>
+          <div id="consolidar" style="margin-top:12px">
+            ${libre <= 0
+              ? `<div class="empty"><div class="ic">📦</div><p>El camión va lleno.</p></div>`
+              : `<div class="section-sub">Buscando cargas que te queden de paso…</div>`}
           </div>
 
           <!-- Acción principal según el momento del viaje -->
@@ -173,10 +212,27 @@
         Shell.dibujarMarcadores(mapa, [], {});
         Shell.encuadrarRuta(mapa.querySelector('.map-geo'), envio, seg);
         Shell.dibujarRuta(mapa, envio, seg);
+
+        /* El camino real llega del servicio de ruteo, que tarda un momento.
+           Cuando llega, se vuelve a dibujar con la carretera de verdad en
+           lugar de la línea recta. */
+        Shell.rutaDelEnvio(envio).then(cambio => { if (cambio) render(); });
       }
 
       function conectar(seg) {
         $('btn-gps').onclick = () => Shell.transmitiendo() ? apagarGps() : encenderGps();
+
+        document.querySelectorAll('[data-recogida]').forEach(b => {
+          b.onclick = async () => {
+            b.disabled = true;
+            await Store.marcarParadaRecogida(envio.id, b.dataset.recogida);
+            envio = Store.envioPorId(envio.id) || envio;
+            Shell.toast('Parada marcada como cargada');
+            render();
+          };
+        });
+
+        buscarDePaso(seg);
 
         const salir = $('btn-salir');
         if (salir) salir.onclick = async () => {
@@ -201,6 +257,96 @@
           Shell.contactar(nombreProductor(), envio.origenComuna,
             { tel: v ? v.telefono : '', email: envio.vinateroEmail, ic: '🍇' });
         };
+      }
+
+      /* ---------------- Consolidación de carga ----------------
+         Busca cargas libres que quepan en lo que queda del camión y que no
+         obliguen a dar un rodeo largo. El criterio es cuánto se alarga el
+         viaje si se suma esa parada, no la distancia en línea recta: una
+         viña puede estar cerca y quedar al otro lado del río. */
+      async function buscarDePaso(seg) {
+        const caja = $('consolidar');
+        if (!caja) return;
+
+        const yo = Store.currentUser();
+        const libre = Store.capacidadRestante(envio, yo);
+        if (libre <= 0) return;
+
+        const candidatas = Store.cargasQueCaben(envio, yo)
+          .filter(c => c.lat != null && c.lng != null);
+        if (candidatas.length === 0) {
+          caja.innerHTML = `<div class="empty"><div class="ic">🌾</div>
+            <p>No hay cargas libres que te quepan ahora.</p></div>`;
+          return;
+        }
+
+        const desde = seg.posicion;
+        const destino = { lat: envio.destinoLat, lng: envio.destinoLng };
+        const directo = (envio.kmRuta != null)
+          ? envio.kmRuta : (Shell.distanciaKm(desde, destino) || 0);
+
+        /* Una sola consulta para todas: desde dónde va el camión a cada
+           viña, y de cada viña a la planta. */
+        const m = await Ruteo.matriz([desde, ...candidatas, destino]);
+        const ultimo = candidatas.length + 1;
+
+        const conRodeo = candidatas.map((c, i) => {
+          const ida = m ? m.km[0][i + 1] : Shell.distanciaKm(desde, c);
+          const resto = m ? m.km[i + 1][ultimo] : Shell.distanciaKm(c, destino);
+          const total = (ida ?? 0) + (resto ?? 0);
+          return { ...c, ida, total, rodeo: Math.round((total - directo) * 10) / 10 };
+        })
+          .filter(c => c.rodeo <= 35)       // más de 35 km de rodeo no compensa
+          .sort((a, b) => a.rodeo - b.rodeo)
+          .slice(0, 5);
+
+        if (conRodeo.length === 0) {
+          caja.innerHTML = `<div class="empty"><div class="ic">🛣️</div>
+            <p>Las cargas libres te quedan muy desviadas del camino.</p></div>`;
+          return;
+        }
+
+        caja.innerHTML = `<div class="grid">${conRodeo.map((c, i) => `
+          <div class="card list-item">
+            <div class="li-ic" style="background:rgba(249,168,37,.14);color:var(--warning)">🌾</div>
+            <div class="li-body">
+              <div class="li-title">${Shell.escape(c.comuna)} · ${c.volumen} m³</div>
+              <div class="li-sub">${Shell.escape(c.productor)}</div>
+              <div class="li-sub">
+                ${c.rodeo <= 0 ? 'Te queda justo de paso' : '+' + c.rodeo + ' km de rodeo'}
+                ${m && m.real ? '' : ' (estimado)'}
+              </div>
+            </div>
+            <button class="btn" style="padding:10px 14px;font-size:13.5px"
+                    data-sumar="${i}">+ Sumar</button>
+          </div>`).join('')}</div>`;
+
+        caja.querySelectorAll('[data-sumar]').forEach(b => {
+          b.onclick = async () => {
+            const carga = conRodeo[+b.dataset.sumar];
+            b.disabled = true;
+            b.textContent = 'Calculando…';
+
+            /* Con la parada nueva se recalcula el orden de TODAS las paradas:
+               sumar una al final casi nunca es lo más corto. */
+            const paradas = (envio.paradas || []).concat([carga]);
+            const opt = await Ruteo.optimizar(
+              seg.posicion,
+              paradas.map(p => ({ lat: p.lat, lng: p.lng })),
+              { lat: envio.destinoLat, lng: envio.destinoLng });
+
+            const error = await Store.agregarParada(envio.id, carga, {
+              orden: opt && opt.orden,
+              minutos: opt && opt.minutos,
+            });
+            if (error) { b.disabled = false; b.textContent = '+ Sumar'; return Shell.toast(error); }
+
+            envio = Store.envioPorId(envio.id) || envio;
+            envio.geometria = null;          // la ruta cambió: se vuelve a pedir
+            Shell.toast(`Parada sumada · ${opt ? opt.km + ' km en total' : ''}`);
+            render();
+          };
+        });
       }
 
       /* ---------------- GPS ---------------- */

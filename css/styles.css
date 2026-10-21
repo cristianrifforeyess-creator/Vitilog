@@ -359,13 +359,17 @@ html[data-theme="dark"] .marcador .nombre.yo { fill: var(--primary-light); }
 .map-sim.map-ruta { aspect-ratio: auto; height: 340px; }
 @media (max-width: 760px) { .map-sim.map-ruta { height: 260px; } }
 
+/* fill:none es obligatorio: el trazado del camino es un polyline, y sin eso
+   el navegador rellenaría el area encerrada en vez de dibujar la linea. */
 .ruta-total {
   stroke: var(--map-track); stroke-width: 3; stroke-dasharray: 7 6;
   vector-effect: non-scaling-stroke; opacity: .8;
+  fill: none; stroke-linejoin: round;
 }
 .ruta-hecha {
   stroke: var(--in-progress); stroke-width: 5; stroke-linecap: round;
   vector-effect: non-scaling-stroke;
+  fill: none; stroke-linejoin: round;
 }
 .marcador .icono-ruta { font-size: 26px; text-anchor: middle; }
 .ruta-origen .halo { fill: var(--primary); opacity: .25; }

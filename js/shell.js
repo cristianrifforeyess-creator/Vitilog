@@ -539,8 +539,14 @@ const Shell = {
     const posicion = hayGps ? { lat: envio.vehLat, lng: envio.vehLng }
                             : this.interpolar(origen, destino, progreso);
 
-    const kmTotal = this.distanciaKm(origen, destino);
-    const kmRestantes = this.distanciaKm(posicion, destino);
+    /* Si ya se consultó el camino real, manda ese número: la línea recta
+       entre Talca y Curicó son 62 km, pero por la carretera son 66,4. Lo que
+       falta se corrige en la misma proporción. */
+    const kmRecto = this.distanciaKm(origen, destino);
+    const kmTotal = envio.kmRuta || kmRecto;
+    const correccion = (envio.kmRuta && kmRecto > 0) ? envio.kmRuta / kmRecto : 1;
+    const kmRestantes = Math.round(
+      this.distanciaKm(posicion, destino) * correccion * 10) / 10;
     const estado = (envio.estado === 'entregado' || envio.estado === 'asignado')
                  ? envio.estado
                  : this.estadoPorAvance(envio, progreso, kmRestantes);
@@ -638,6 +644,36 @@ const Shell = {
     return true;
   },
 
+  /* Comprueba que el GPS esté encendido y autorizado ANTES de dejar
+     empezar un viaje. Sin esto, el transportista podía aceptar un retiro y
+     salir sin que el viñatero pudiera verlo nunca: el seguimiento en vivo
+     dejaba de ser una promesa y pasaba a ser una lotería.
+
+     Devuelve { ok, motivo }. Pide una lectura real, no solo el permiso,
+     porque el permiso puede estar dado y el GPS apagado igual. */
+  exigirGPS() {
+    return new Promise(resolve => {
+      if (!navigator.geolocation) {
+        return resolve({ ok: false, motivo: 'Este dispositivo no tiene GPS o el navegador no lo permite.' });
+      }
+      if (!this.puedePedirGPS()) {
+        return resolve({ ok: false, motivo: 'El GPS solo funciona en sitios seguros (https). Abre la aplicación desde el enlace oficial.' });
+      }
+      navigator.geolocation.getCurrentPosition(
+        pos => resolve({ ok: true, posicion: {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          precision: Math.round(pos.coords.accuracy),
+        } }),
+        err => resolve({ ok: false, motivo:
+          err.code === 1 ? 'Tienes que permitir el acceso a tu ubicación para empezar el viaje. Búscalo en el candado de la barra de direcciones.'
+          : err.code === 3 ? 'El GPS no respondió a tiempo. Sal a un lugar despejado y vuelve a intentarlo.'
+          : 'No se pudo obtener tu ubicación. Revisa que el GPS del teléfono esté encendido.' }),
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
+      );
+    });
+  },
+
   detenerTransmision() {
     if (this._emisor) {
       navigator.geolocation.clearWatch(this._emisor.vigia);
@@ -699,6 +735,30 @@ const Shell = {
   },
 
   /* Dibuja el recorrido y el camión sobre el mapa propio. */
+  /* Pide el camino real del envío y se lo cuelga al objeto en memoria.
+
+     No se guarda en la base: son cientos de coordenadas que se pueden volver
+     a pedir cuando hagan falta, y Ruteo ya las recuerda en el dispositivo.
+     Devuelve true si el envío cambió y conviene redibujar. */
+  async rutaDelEnvio(envio) {
+    if (!envio || envio.geometria) return false;
+    if (typeof Ruteo === 'undefined') return false;
+
+    const puntos = [
+      { lat: envio.origenLat, lng: envio.origenLng },
+      ...(envio.paradas || []).map(p => ({ lat: p.lat, lng: p.lng })),
+      { lat: envio.destinoLat, lng: envio.destinoLng },
+    ];
+    const r = await Ruteo.ruta(puntos);
+    if (!r) return false;
+
+    envio.geometria = r.geometria;
+    envio.kmRuta = r.km;
+    envio.minutosRuta = r.minutos;
+    envio.rutaReal = r.real;
+    return true;
+  },
+
   dibujarRuta(contenedor, envio, seguimiento) {
     const capa = contenedor.querySelector('.geo-marcadores');
     if (!capa) return;
@@ -709,18 +769,48 @@ const Shell = {
     const d = proyectar(envio.destinoLat, envio.destinoLng);
     const v = proyectar(seguimiento.posicion.lat, seguimiento.posicion.lng);
 
-    // Tramo completo, en gris, y encima el tramo ya recorrido.
-    const total = nuevo('line');
-    total.setAttribute('class', 'ruta-total');
-    total.setAttribute('x1', o.x); total.setAttribute('y1', o.y);
-    total.setAttribute('x2', d.x); total.setAttribute('y2', d.y);
-    capa.appendChild(total);
+    /* El camino real, si ya se consultó al servicio de ruteo. Son cientos de
+       puntos siguiendo la carretera; si no está, se cae a la línea recta
+       entre origen y destino, que es lo que había antes. */
+    const camino = (envio.geometria && envio.geometria.length > 1)
+      ? envio.geometria.map(p => proyectar(p.lat, p.lng)) : null;
 
-    const hecho = nuevo('line');
-    hecho.setAttribute('class', 'ruta-hecha');
-    hecho.setAttribute('x1', o.x); hecho.setAttribute('y1', o.y);
-    hecho.setAttribute('x2', v.x); hecho.setAttribute('y2', v.y);
-    capa.appendChild(hecho);
+    if (camino) {
+      const trazo = pts => pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+
+      const total = nuevo('polyline');
+      total.setAttribute('class', 'ruta-total');
+      total.setAttribute('points', trazo(camino));
+      capa.appendChild(total);
+
+      /* El tramo recorrido se corta en el punto del camino más cercano al
+         camión: así lo verde sigue la carretera y no atraviesa los cerros. */
+      let corte = 0;
+      let mejor = Infinity;
+      camino.forEach((p, i) => {
+        const dist = (p.x - v.x) ** 2 + (p.y - v.y) ** 2;
+        if (dist < mejor) { mejor = dist; corte = i; }
+      });
+      if (corte > 0) {
+        const hecho = nuevo('polyline');
+        hecho.setAttribute('class', 'ruta-hecha');
+        hecho.setAttribute('points', trazo(camino.slice(0, corte + 1)));
+        capa.appendChild(hecho);
+      }
+    } else {
+      // Tramo completo, en gris, y encima el tramo ya recorrido.
+      const total = nuevo('line');
+      total.setAttribute('class', 'ruta-total');
+      total.setAttribute('x1', o.x); total.setAttribute('y1', o.y);
+      total.setAttribute('x2', d.x); total.setAttribute('y2', d.y);
+      capa.appendChild(total);
+
+      const hecho = nuevo('line');
+      hecho.setAttribute('class', 'ruta-hecha');
+      hecho.setAttribute('x1', o.x); hecho.setAttribute('y1', o.y);
+      hecho.setAttribute('x2', v.x); hecho.setAttribute('y2', v.y);
+      capa.appendChild(hecho);
+    }
 
     // Si el mapa está acercado, todo se dibuja proporcionalmente más chico.
     const svg = contenedor.querySelector('.map-geo');

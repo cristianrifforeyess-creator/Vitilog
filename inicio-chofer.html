@@ -28,6 +28,7 @@
   <script src="js/data.js"></script>
   <script src="js/store.js"></script>
   <script src="js/vivo.js"></script>
+  <script src="js/ruteo.js"></script>
   <script src="js/shell.js"></script>
   <script>
     Shell.init('inicio', { rol: Store.ROL_CHOFER }).then(listo => { if (!listo) return;
@@ -99,6 +100,25 @@
             </div>` : ''}`;
 
         conectar(cargas);
+      }
+
+      /* Explica por qué no se puede partir y qué hacer, en vez de un aviso
+         suelto que desaparece en dos segundos. */
+      function avisoSinGPS(motivo) {
+        Shell.openModal(`
+          <div class="handle"></div>
+          <div style="text-align:center;padding:6px 0 2px">
+            <div style="font-size:42px">📡</div>
+            <b style="font-size:19px;display:block;margin-top:8px">Necesitas el GPS encendido</b>
+          </div>
+          <p class="section-sub" style="margin-top:12px">${Shell.escape(motivo)}</p>
+          <div class="card pad" style="background:var(--surface-alt);margin:14px 0">
+            <div class="li-sub">
+              El viaje no puede empezar sin ubicación: el viñatero y la planta
+              siguen el recorrido en vivo, y sin GPS se quedarían a ciegas.
+            </div>
+          </div>
+          <button class="btn block" onclick="Shell.closeModal()">Entendido</button>`);
       }
 
       /* Retiro que una planta le encargó a este transportista y que todavía
@@ -200,6 +220,11 @@
               return Shell.toast('Primero cierra el viaje que tienes en curso');
             }
             b.disabled = true;
+
+            // Sin GPS no se arranca: el viñatero tiene que poder seguirte.
+            const gps = await Shell.exigirGPS();
+            if (!gps.ok) { b.disabled = false; return avisoSinGPS(gps.motivo); }
+
             const error = await Store.aceptarServicio(b.dataset.aceptarEnvio);
             if (error) { b.disabled = false; return Shell.toast(error); }
             // El "1" le dice a la pantalla del viaje que encienda el GPS sola.
@@ -218,20 +243,34 @@
       }
 
       /* Aceptar: se elige la planta de destino y se crea el viaje. */
-      function aceptar(carga) {
+      async function aceptar(carga) {
         if (Store.servicioActivo()) {
           Shell.toast('Ya tienes un viaje en curso. Ciérralo antes de tomar otro.');
           return;
         }
         if (!carga.lat) { Shell.toast('Esa comuna no tiene coordenadas'); return; }
 
-        // Plantas que reciben ese tipo de residuo, de la más cercana a la carga.
-        const plantas = Shell.empresasParaBuscador()
-          .filter(p => p.activo && (carga.destino === 'Indistinto' || p.tipo === carga.destino))
-          .map(p => ({ ...p, kmDesdeCarga: Shell.distanciaKm(carga, p) }))
-          .sort((a, b) => a.kmDesdeCarga - b.kmDesdeCarga);
+        // Sin GPS no se arranca: el viñatero tiene que poder seguirte.
+        const gps = await Shell.exigirGPS();
+        if (!gps.ok) return avisoSinGPS(gps.motivo);
 
+        let plantas = Shell.empresasParaBuscador()
+          .filter(p => p.activo && (carga.destino === 'Indistinto' || p.tipo === carga.destino));
         if (plantas.length === 0) { Shell.toast('No hay plantas con cupos para ese destino'); return; }
+
+        /* Distancias por carretera, no en línea recta: una planta puede verse
+           cerca en el mapa y quedar al otro lado del río. Una sola consulta
+           para todas, en vez de una por planta. */
+        Shell.toast('Calculando distancias reales…');
+        const m = await Ruteo.matriz([carga, ...plantas]);
+        plantas = plantas
+          .map((p, i) => ({
+            ...p,
+            kmDesdeCarga: m ? m.km[0][i + 1] : Shell.distanciaKm(carga, p),
+            minDesdeCarga: m ? m.minutos[0][i + 1] : null,
+          }))
+          .sort((a, b) => (a.kmDesdeCarga ?? 1e9) - (b.kmDesdeCarga ?? 1e9));
+        const porCarretera = !!(m && m.real);
 
         Shell.openModal(`
           <div class="handle"></div>
@@ -248,9 +287,11 @@
           <div class="field">
             <label for="a-min">Tiempo estimado del viaje (minutos)</label>
             <input class="input" id="a-min" type="number" min="1" inputmode="numeric"
-                   value="${Math.max(6, Math.round(plantas[0].kmDesdeCarga * 1.4))}">
+                   value="${plantas[0].minDesdeCarga || Math.max(6, Math.round(plantas[0].kmDesdeCarga * 1.4))}">
             <div class="section-sub" style="margin-top:6px">
-              Se usa como referencia mientras el GPS no esté transmitiendo.
+              ${porCarretera
+                ? '🛣️ Distancias y tiempos por la carretera real, a velocidad de camión cargado.'
+                : '📏 El servicio de rutas no respondió: son estimaciones en línea recta.'}
             </div>
           </div>
           <div class="err" id="a-err"></div>
@@ -262,7 +303,7 @@
         // Al cambiar de planta se recalcula el tiempo sugerido.
         $('a-planta').onchange = () => {
           const p = plantas.find(x => x.id === $('a-planta').value);
-          if (p) $('a-min').value = Math.max(6, Math.round(p.kmDesdeCarga * 1.4));
+          if (p) $('a-min').value = p.minDesdeCarga || Math.max(6, Math.round(p.kmDesdeCarga * 1.4));
         };
 
         $('a-ok').onclick = async () => {
