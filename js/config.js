@@ -74,19 +74,38 @@ const MODO_MAPA = 'propio';
    funcione sin servidor propio. Sirve para el trabajo y para demostrar;
    no la uses con datos reales de personas. */
 
-/* Estos dos valores se dejan VACÍOS a propósito.
+/* PEGA AQUÍ LOS DOS VALORES DE TU PROYECTO.
 
-   La clave "anon" se escribe desde la propia aplicación:
-     entra como administración -> Configuración -> Base compartida.
-   Queda guardada en el dispositivo, no en el código.
+   Mientras estén vacíos, quien abra el enlace público NO se conecta a tu
+   base: arranca una copia local y vacía en su propio navegador. Por eso
+   parecía que las cuentas "se borraban" al entrar desde otro dispositivo.
 
-   Por qué no va aquí: este archivo viaja al repositorio público, y hay
-   programas que rastrean GitHub buscando claves de Supabase. Como las
-   políticas del esquema son permisivas, quien tuviera la clave podría leer
-   y borrar toda la base. Guardándola en el dispositivo, eso no ocurre.
+   Al completarlos, el sitio entero queda apuntando a una sola base y las
+   cuentas, las cargas y los viajes se ven iguales desde cualquier parte.
 
-   Si algún día se migra a Supabase Auth con políticas por usuario, la clave
-   sí podría ir escrita aquí sin riesgo. */
+   Los encuentras en Supabase -> Project Settings -> API:
+     Project URL      -> SUPABASE_URL
+     anon public key  -> SUPABASE_ANON_KEY
+
+   Ejemplo de cómo queda:
+     const SUPABASE_URL = 'https://xxxxxxxx.supabase.co';
+     const SUPABASE_ANON_KEY = 'eyJhbGciOi...';
+
+   LO QUE HAY QUE TENER CLARO ANTES DE PUBLICARLOS
+   -----------------------------------------------
+   La clave "anon" está pensada para ir en el código de un sitio web: no es
+   un secreto en sí misma. Lo que la hace peligrosa acá son las políticas
+   del esquema, que son permisivas para que el prototipo funcione sin
+   servidor propio. Con esta clave publicada, cualquiera puede leer y borrar
+   todas las tablas, incluidos los hashes de las contraseñas.
+
+   Por eso, mientras siga así:
+     · usa contraseñas desechables, nunca una que uses en otro servicio;
+     · no cargues datos reales de personas;
+     · borra el proyecto de Supabase cuando termines de mostrarlo.
+
+   La solución de fondo es mover el inicio de sesión a Supabase Auth con
+   políticas por usuario. Ahí la clave se publica sin ningún riesgo. */
 
 const SUPABASE_URL = '';
 const SUPABASE_ANON_KEY = '';
