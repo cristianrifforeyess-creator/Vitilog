@@ -982,10 +982,7 @@ const Shell = {
       // Configuración solo va al pie si el menú del rol no la incluye ya.
       const configEnMenu = nav.some(n => n.href === 'configuracion.html');
       sidebar.innerHTML = `
-        <div class="brand">
-          <img class="logo" src="img/logo.svg" alt="" width="34" height="34">
-          <b>VITILOG</b>
-        </div>
+        <div class="brand"><div class="logo">🌿</div><b>VITILOG</b></div>
         <div class="nav-role">${etiquetaRol}</div>
         ${links}
         <div class="spacer"></div>
