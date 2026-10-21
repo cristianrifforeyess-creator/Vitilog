@@ -359,6 +359,31 @@ html[data-theme="dark"] .marcador .nombre.yo { fill: var(--primary-light); }
 .map-sim.map-ruta { aspect-ratio: auto; height: 340px; }
 @media (max-width: 760px) { .map-sim.map-ruta { height: 260px; } }
 
+/* ---- Mapa real de OpenStreetMap ----
+   Mientras los mosaicos no hayan cargado se ve el dibujo; al estar listos se
+   esconde la geografia dibujada y quedan solo las imagenes reales con los
+   marcadores encima. Si fallan, la clase se quita y el dibujo vuelve. */
+.map-geo.con-mosaico .geo-tierra,
+.map-geo.con-mosaico .geo-mar,
+.map-geo.con-mosaico .geo-cerros,
+.map-geo.con-mosaico .geo-andes,
+.map-geo.con-mosaico .geo-nieve,
+.map-geo.con-mosaico .geo-ruta,
+.map-geo.con-mosaico .geo-texto { display: none; }
+
+/* Los nombres de los marcadores necesitan mas contraste sobre una foto de
+   mapa que sobre el dibujo plano. */
+.map-geo.con-mosaico .nombre {
+  paint-order: stroke; stroke: var(--surface); stroke-width: 3.5px;
+  stroke-linejoin: round;
+}
+
+.geo-credito {
+  font-size: 13px; text-anchor: end; fill: var(--text-secondary);
+  opacity: .75; paint-order: stroke; stroke: var(--surface);
+  stroke-width: 3px; stroke-linejoin: round;
+}
+
 /* fill:none es obligatorio: el trazado del camino es un polyline, y sin eso
    el navegador rellenaría el area encerrada en vez de dibujar la linea. */
 .ruta-total {

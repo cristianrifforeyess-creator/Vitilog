@@ -145,7 +145,25 @@ const Shell = {
     document.querySelectorAll('.map-sim').forEach(box => {
       if (box.dataset.mapaReal) return;
       if (!box.querySelector('.map-geo')) box.insertAdjacentHTML('afterbegin', MAPA_SVG);
+      // Encima del dibujo se intentan las imágenes reales. Si no hay
+      // internet no pasa nada: el dibujo ya está puesto.
+      this.mosaicos(box);
     });
+  },
+
+  /* Pide las imágenes reales de OpenStreetMap para un recuadro de mapa.
+     Separado para poder llamarlo también después de acercar el mapa, que es
+     cuando hace falta pedir mosaicos con más detalle. */
+  mosaicos(contenedor) {
+    if (typeof Mosaico === 'undefined' || !contenedor) return;
+    /* Se aplaza un turno a propósito. Si el SVG se acaba de insertar en esta
+       misma vuelta, las <image> que se le cuelguen no llegan a pedirse nunca:
+       el navegador no las ve hasta que el árbol se asienta. Costó encontrarlo
+       porque no da ningún error, simplemente no pasa nada. */
+    setTimeout(() => {
+      try { Mosaico.pintar(contenedor); }
+      catch (e) { /* el dibujo queda igual: no vale la pena cortar la página */ }
+    }, 0);
   },
 
   /* Dibuja los marcadores dentro del mapa propio a partir de lat/lng.
@@ -246,6 +264,8 @@ const Shell = {
     svg.setAttribute('viewBox',
       `${(p.x - w / 2).toFixed(1)} ${(p.y - h / 2).toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)}`);
     svg.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+    // Al acercar hacen falta imágenes con más detalle que las que había.
+    this.mosaicos(svg.closest('.map-sim'));
   },
 
   /* ¿Hay una clave de Google Maps configurada en js/config.js? */
@@ -732,9 +752,9 @@ const Shell = {
     svg.setAttribute('preserveAspectRatio', 'xMidYMid slice');
     // Al acercar, los marcadores deben encogerse para no tapar el mapa.
     svg.dataset.escalaRuta = (ancho / m.ancho).toFixed(3);
+    this.mosaicos(svg.closest('.map-sim'));
   },
 
-  /* Dibuja el recorrido y el camión sobre el mapa propio. */
   /* Pide el camino real del envío y se lo cuelga al objeto en memoria.
 
      No se guarda en la base: son cientos de coordenadas que se pueden volver
