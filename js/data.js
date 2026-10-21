@@ -1,12 +1,5 @@
 /* Datos de ejemplo (Región del Maule) — equivalente a MockData de la app. */
 const DATA = {
-  statsInicio: [
-    { ic: '🧭', color: '#2E7D32', val: '3.8 km', lbl: 'Ruta Óptima', sub: 'Recorrido' },
-    { ic: '⏱️', color: '#1976D2', val: '18 min', lbl: 'Tiempo Estimado', sub: 'Aproximado' },
-    { ic: '📦', color: '#43A047', val: '14 m³', lbl: 'Volumen Estimado', sub: 'Sarmientos' },
-    { ic: '🔥', color: '#F9A825', val: '4.2 MWh', lbl: 'Valor Energético', sub: 'Aprovechable' },
-  ],
-
   alertas: [
     { ic: '✅', color: '#2E7D32', titulo: 'Zona lista para recolectar', detalle: 'Sarmientos acumulados en Curicó' },
     { ic: '🏭', color: '#1976D2', titulo: 'Nueva empresa disponible', detalle: 'BioEnergía Maule busca cargas en tu zona' },

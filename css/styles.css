@@ -609,10 +609,14 @@ html[data-theme="dark"] .marcador .nombre.yo { fill: var(--primary-light); }
 }
 
 .ficha-datos {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
   margin-top: 16px; text-align: center;
 }
-.ficha-datos .dato-grande { font-size: 21px; }
+.ficha-datos .dato-grande { font-size: 20px; }
+
+@media (max-width: 720px) {
+  .ficha-datos { grid-template-columns: repeat(2, 1fr); gap: 14px; }
+}
 
 .ficha-pie {
   display: flex; align-items: center; justify-content: space-between;
@@ -623,8 +627,10 @@ html[data-theme="dark"] .marcador .nombre.yo { fill: var(--primary-light); }
 
 /* En pantallas angostas los tres datos no caben en una fila legible:
    el tiempo queda arriba, ocupando todo el ancho, y abajo los otros dos. */
+/* En pantalla angosta, el tiempo es el dato que mas importa: ocupa la
+   fila entera y el resto se reparte abajo. */
 @media (max-width: 420px) {
   .ficha-datos { grid-template-columns: repeat(2, 1fr); }
-  .ficha-datos > :first-child { grid-column: 1 / -1; }
+  .ficha-datos > :nth-child(2) { grid-column: 1 / -1; order: -1; }
   .ficha-datos .dato-grande { font-size: 19px; }
 }

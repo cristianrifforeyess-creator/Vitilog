@@ -213,6 +213,10 @@ const Ficha = {
 
         <div class="ficha-datos">
           <div>
+            <div class="dato-grande">${ruta ? ruta.km + ' km' : '—'}</div>
+            <div class="dato-rotulo">Ruta óptima</div>
+          </div>
+          <div>
             <div class="dato-grande">${tiempo || '—'}</div>
             <div class="dato-rotulo">${obj.rotuloTiempo
               || (obj.tipo === 'viaje' ? 'Te falta' : 'Tiempo estimado')}</div>

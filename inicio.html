@@ -18,11 +18,7 @@
           <button title="Mi perfil" onclick="location.href='perfil.html'">👤</button>
         </div>
       </div>
-      <div class="content">
-        <!-- Resumen de la próxima ruta: la misma tarjeta de Rutas e Historial. -->
-        <div id="proxima-ruta"></div>
-        <div class="stagger" id="content"></div>
-      </div>
+      <div class="content stagger" id="content"></div>
     </main>
   </div>
   <nav class="bottom-nav" id="bottomnav"></nav>
@@ -40,14 +36,6 @@
     Shell.init('inicio', { rol: Store.ROL_VINATERO }).then(listo => { if (!listo) return;
       const user = Store.currentUser();
       const c = document.getElementById('content');
-
-      const statsHtml = DATA.statsInicio.map(s => `
-        <div class="card stat-card">
-          <div class="chip-ic" style="background:${s.color}22;color:${s.color}">${s.ic}</div>
-          <div class="val">${s.val}</div>
-          <div class="lbl">${s.lbl}</div>
-          <div class="sub">${s.sub}</div>
-        </div>`).join('');
 
       const alertasHtml = DATA.alertas.map((a, i) => `
         <div class="card list-item" onclick="Shell.toast('${Shell.escape(a.titulo)}')">
@@ -112,7 +100,8 @@
 
         <div class="section">
           <div class="section-title">Resumen de tu próxima ruta</div>
-          <div class="grid cols-4" style="margin-top:12px">${statsHtml}</div>
+          <!-- Lo llena Ficha con el calculo real; antes eran cuatro numeros fijos. -->
+          <div id="ficha-inicio"></div>
         </div>
 
         <div class="section">
@@ -149,8 +138,9 @@
       window.borrarCarga = (id) => { Store.removeCarga(id).then(() => location.reload()); };
 
       /* Resumen de la próxima ruta. Vive en Inicio, Rutas e Historial con
-         el mismo código: lo que muestra depende del perfil de quien mira. */
-      Ficha.montar(document.getElementById('proxima-ruta'));
+         el mismo código: lo que muestra depende del perfil de quien mira.
+         Va después de dibujar el contenido, porque su hueco está dentro. */
+      Ficha.montar(document.getElementById('ficha-inicio'));
     });
   </script>
 </body>
