@@ -228,22 +228,27 @@ const Shell = {
       titulo.textContent = usuario.etiqueta + (usuario.comuna ? ' · ' + usuario.comuna : '');
       g.appendChild(titulo);
 
+      /* Este marcador suele caer sobre los de su propia comuna, así que va
+         deliberadamente discreto: más chico que los demás y con el rótulo
+         ABAJO, porque el nombre de la comuna ya ocupa el espacio de arriba.
+         Antes se tapaban entre ellos. */
       const halo = nuevo('circle');
       halo.setAttribute('class', 'halo-yo');
-      halo.setAttribute('r', 26 * escala);
+      halo.setAttribute('r', 17 * escala);
       g.appendChild(halo);
 
       const casa = nuevo('text');
       casa.setAttribute('class', 'icono-yo');
-      casa.setAttribute('y', 9 * escala);
-      if (escala !== 1) casa.setAttribute('font-size', 30 * escala);
+      casa.setAttribute('y', 7 * escala);
+      // En línea: una regla de la hoja de estilos le ganaría al atributo.
+      casa.style.fontSize = (21 * escala) + 'px';
       casa.textContent = usuario.origen === 'gps' ? '🎯' : '🏠';
       g.appendChild(casa);
 
       const t = nuevo('text');
       t.setAttribute('class', 'nombre yo');
-      t.setAttribute('y', -32 * escala);
-      if (escala !== 1) t.setAttribute('font-size', 22 * escala);
+      t.setAttribute('y', 30 * escala);
+      t.style.fontSize = (16 * escala) + 'px';
       t.textContent = usuario.etiqueta;
       g.appendChild(t);
 

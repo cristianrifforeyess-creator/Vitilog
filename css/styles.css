@@ -346,9 +346,10 @@ html[data-theme="dark"] .brand b { color: var(--primary-light); }
 
 /* Marcador del propio usuario */
 .marcador.yo { cursor: default; }
-.marcador.yo .halo-yo { fill: var(--primary); opacity: .28; }
-.marcador.yo .icono-yo { font-size: 30px; text-anchor: middle; }
-.marcador .nombre.yo { fill: var(--primary-dark); }
+.marcador.yo .halo-yo { fill: var(--primary); opacity: .2; }
+.marcador.yo .icono-yo { font-size: 21px; text-anchor: middle; }
+/* Mas liviano que los nombres de comuna: es una referencia, no un titulo. */
+.marcador .nombre.yo { fill: var(--primary-dark); font-size: 16px; font-weight: 600; stroke-width: 4px; }
 html[data-theme="dark"] .marcador .nombre.yo { fill: var(--primary-light); }
 
 .map-sim .grid-lines { display: none; }
@@ -371,10 +372,13 @@ html[data-theme="dark"] .marcador .nombre.yo { fill: var(--primary-light); }
 .map-geo.con-mosaico .geo-ruta,
 .map-geo.con-mosaico .geo-texto { display: none; }
 
-/* Los nombres de los marcadores necesitan mas contraste sobre una foto de
-   mapa que sobre el dibujo plano. */
-.map-geo.con-mosaico .nombre {
-  paint-order: stroke; stroke: var(--surface); stroke-width: 3.5px;
+/* Con los mosaicos puestos, OpenStreetMap ya imprime los nombres de los
+   pueblos: repetirlos encima solo amontona el mapa. Se esconden los de las
+   comunas y se deja el del propio usuario, que el mapa real no sabe. */
+.map-geo.con-mosaico .nombre:not(.yo) { display: none; }
+
+.map-geo.con-mosaico .nombre.yo {
+  paint-order: stroke; stroke: var(--surface); stroke-width: 4px;
   stroke-linejoin: round;
 }
 
