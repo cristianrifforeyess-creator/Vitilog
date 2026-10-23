@@ -1113,6 +1113,34 @@ const Store = {
     return m;
   },
 
+  /* Borrar un movimiento. Solo la administracion, y a conciencia: el
+     libro es el respaldo de lo que paso, y una linea que desaparece
+     descuadra todo lo que venia despues. Existe porque en un prototipo
+     se hacen pruebas, y quedarse con basura en el libro es peor. */
+  async borrarMovimiento(id) {
+    if (this.rolActual() !== this.ROL_ADMIN) return 'Solo la administración';
+    this._cache.movimientos = this._cache.movimientos.filter(m => m.id !== id);
+    if (this.enNube()) {
+      await Nube.borrar('movimientos', 'id=eq.' + encodeURIComponent(id));
+    } else {
+      this._write(this.K_MOVIMIENTOS, this._cache.movimientos);
+    }
+    return null;
+  },
+
+  /* Deja una cuenta sin membresia y sin rastro de ella. Util cuando un
+     estado quedo a medias, como pagado pero sin acceso. */
+  async limpiarMembresia(email) {
+    if (this.rolActual() !== this.ROL_ADMIN) return 'Solo la administración';
+    const cuenta = this.accountByEmail(email);
+    if (!cuenta) return 'Esa cuenta no existe';
+    await this.upsertAccount({
+      ...cuenta, plan: 'ninguno', plan_estado: 'ninguno',
+      plan_hasta: null, plan_pedido_at: null,
+    });
+    return null;
+  },
+
   /* Lo que esta cuenta tiene a su favor: lo abonado menos lo gastado. */
   saldo(email) {
     const correo = (email || this.currentEmail() || '').toLowerCase();
@@ -1230,9 +1258,13 @@ const Store = {
     return this._cache.cuentas.filter(a => a.plan_estado === 'pendiente');
   },
 
+  /* Cuentas con algo de membresia encima: activas, canceladas y tambien
+     las que quedaron a medias (con fecha pero sin estado). Esas ultimas
+     hay que poder verlas para arreglarlas. */
   suscripcionesActivas() {
     return this._cache.cuentas.filter(a =>
-      a.plan_estado === 'activa' || a.plan_estado === 'cancelada');
+      a.plan_estado === 'activa' || a.plan_estado === 'cancelada'
+      || (a.plan_hasta && a.plan_estado !== 'pendiente'));
   },
 
   /* La administración aprueba: ahí se cobra y empieza a correr. */

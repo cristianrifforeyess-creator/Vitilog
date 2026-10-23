@@ -262,6 +262,7 @@
                     ${cancelada ? '' :
                       `<button class="link-btn" style="color:var(--danger)"
                                data-cancelar-ajeno="${Shell.escape(c.email)}">Cancelar</button>`}
+                    <button class="link-btn" data-limpiar-plan="${Shell.escape(c.email)}">Borrar</button>
                   </div>`;
               }).join('')}
             </div>` : ''}
@@ -307,9 +308,11 @@
                           { day: '2-digit', month: '2-digit', year: 'numeric' })}
                       </div>
                     </div>
-                    <b style="color:${m.monto < 0 ? 'var(--danger)' : 'var(--primary)'}">
+                    <b style="color:${m.monto < 0 ? 'var(--danger)' : 'var(--leaf)'}">
                       ${m.monto < 0 ? '' : '+'}${Finanzas.pesos(m.monto)}
                     </b>
+                    <button class="link-btn" style="color:var(--danger)"
+                            data-borrar-mov="${Shell.escape(m.id)}">Eliminar</button>
                   </div>`).join('')}
               </div>`}`;
 
@@ -325,6 +328,16 @@
         });
         panel.querySelectorAll('[data-rechazar-plan]').forEach(b => {
           b.onclick = () => resolver(e => Store.rechazarPlan(e), b.dataset.rechazarPlan, 'Solicitud rechazada');
+        });
+        panel.querySelectorAll('[data-borrar-mov]').forEach(b => {
+          b.onclick = () => confirmar('Eliminar movimiento',
+            'Desaparece del libro y de los totales. No se puede deshacer.',
+            () => resolver(id => Store.borrarMovimiento(id), b.dataset.borrarMov, 'Movimiento eliminado'));
+        });
+        panel.querySelectorAll('[data-limpiar-plan]').forEach(b => {
+          b.onclick = () => confirmar('Borrar la membresía',
+            'La cuenta queda sin plan y sin fecha, como si nunca hubiera contratado. Los cargos ya registrados no se tocan.',
+            () => resolver(e => Store.limpiarMembresia(e), b.dataset.limpiarPlan, 'Membresía borrada'));
         });
         panel.querySelectorAll('[data-cancelar-ajeno]').forEach(b => {
           b.onclick = () => confirmar('Cancelar membresía',
