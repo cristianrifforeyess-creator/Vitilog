@@ -186,6 +186,17 @@
       }
 
       /* Una carga que se puede aceptar. */
+      /* ¿Le sirve esta carga a su camión? El aviso no bloquea: el que
+         conoce el campo puede saber que sí entra, y decidir él. */
+      function compat(carga) {
+        return Store.compatibilidad(carga, u.vehiculo);
+      }
+
+      /* Quién cargaría el camión si esta carga pide cuadrilla. */
+      function cuadrillaPara(carga) {
+        return Store.asignarCuadrilla(carga, u);
+      }
+
       /* Una carga dentro de la tarjeta de su productor. */
       function filaCarga(carga, i) {
         const color = tipoColor(carga.destino);
@@ -198,9 +209,15 @@
                 ${carga.km != null ? Shell.badge('a ' + carga.km + ' km', '#1976D2', '📍') : ''}
               </div>
               <div class="li-sub">♻️ ${Shell.escape(carga.destino)} · 📅 ${Shell.escape(carga.fecha || 'Por confirmar')}</div>
+              ${carga.manoObra === 'solicita'
+                ? `<div class="li-sub">🙋 Pide cuadrilla${cuadrillaPara(carga) ? ' · ' + Shell.escape(cuadrillaPara(carga).nombre) : ': no hay disponible'}</div>`
+                : ''}
               ${carga.notas ? `<div class="li-sub">📝 ${Shell.escape(carga.notas)}</div>` : ''}
+              ${compat(carga).puede ? '' :
+                `<div class="li-sub" style="color:var(--warning)">⚠️ ${Shell.escape(compat(carga).motivo)}</div>`}
             </div>
-            <button class="btn" style="padding:10px 14px;font-size:13.5px" data-aceptar="${i}">✋ Aceptar</button>
+            <button class="btn ${compat(carga).puede ? '' : 'ghost'}"
+                    style="padding:10px 14px;font-size:13.5px" data-aceptar="${i}">✋ Aceptar</button>
           </div>`;
       }
 
@@ -327,6 +344,17 @@
                 : '📏 El servicio de rutas no respondió: son estimaciones en línea recta.'}
             </div>
           </div>
+          ${carga.manoObra === 'solicita' ? `
+            <div class="card pad" style="background:var(--surface-alt);margin-bottom:14px">
+              <b>🙋 Esta viña pide cuadrilla</b>
+              <div class="li-sub" style="margin-top:4px">
+                ${cuadrillaPara(carga)
+                  ? (cuadrillaPara(carga).propia
+                      ? 'La haces tú: quedará anotada como tu estiba.'
+                      : 'Se asignará <b>' + Shell.escape(cuadrillaPara(carga).nombre) + '</b>, de la red.')
+                  : 'No hay cuadrillas disponibles ahora. Puedes tomarla igual, pero tendrás que resolver la carga.'}
+              </div>
+            </div>` : ''}
           <div class="err" id="a-err"></div>
           <div class="field-row">
             <button class="btn ghost" style="flex:1" onclick="Shell.closeModal()">Cancelar</button>
@@ -345,6 +373,7 @@
           if (!planta) return ($('a-err').textContent = 'Elige la planta de destino.');
           if (!min || min < 1) return ($('a-err').textContent = 'Ingresa un tiempo válido.');
 
+          const cuadrilla = cuadrillaPara(carga);
           const envio = await Store.addEnvio({
             id: 'env-' + Date.now(),
             cargaId: carga.id || null,
@@ -363,11 +392,15 @@
             progreso: 0, vehLat: null, vehLng: null, posicionAt: null,
             volumenDeclarado: carga.volumen,
             volumenRecibido: null, pesoRecibido: null, observaciones: '',
+            // Si la carga pedia cuadrilla, queda asignada al tomar el servicio.
+            cuadrillaEmail: cuadrilla ? cuadrilla.email : '',
+            cuadrillaNombre: cuadrilla ? cuadrilla.nombre : '',
             creado: new Date().toISOString(),
           });
 
           Shell.closeModal();
-          Shell.notificar('Servicio aceptado', `${carga.comuna} → ${planta.nombre}`);
+          Shell.notificar('Servicio aceptado',
+            `${carga.comuna} → ${planta.nombre}` + (cuadrilla ? ` · Estiba: ${cuadrilla.nombre}` : ''));
           location.href = 'viaje.html?iniciar=1';
         };
       }

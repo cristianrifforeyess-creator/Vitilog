@@ -156,6 +156,30 @@ alter table envios add constraint envios_estado_check
 alter table envios add column if not exists paradas jsonb not null default '[]'::jsonb;
 
 -- ---------------------------------------------------------------------
+-- Estiba y desestiba: quien sube la carga al camion y quien la valida
+-- al llegar. Todo opcional a proposito: el que ya tiene resuelta su
+-- cuadrilla no tiene que declarar nada.
+-- ---------------------------------------------------------------------
+
+-- La vina dice si carga con su propia gente o pide cuadrilla por la app.
+alter table cargas add column if not exists mano_obra text default 'propia';
+-- Como es el acceso al campo. Define que camiones pueden entrar.
+alter table cargas add column if not exists acceso text default 'normal';
+
+-- El transportista declara su vehiculo, y si ademas ofrece estiba.
+alter table cuentas add column if not exists vehiculo text;
+alter table cuentas add column if not exists estiba text default 'no';
+alter table cuentas add column if not exists cuadrilla_nombre text default '';
+alter table cuentas add column if not exists cuadrilla_personas integer default 0;
+
+-- Quien quedo a cargo de la estiba de un envio, y la validacion oficial
+-- de descarga y pesaje que hace el operador de patio de la planta.
+alter table envios add column if not exists cuadrilla_email text;
+alter table envios add column if not exists cuadrilla_nombre text default '';
+alter table envios add column if not exists validado_por text;
+alter table envios add column if not exists validado_at timestamptz;
+
+-- ---------------------------------------------------------------------
 -- Mensajes: el chat de cada envío
 -- ---------------------------------------------------------------------
 create table if not exists mensajes (

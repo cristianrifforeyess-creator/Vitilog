@@ -140,6 +140,19 @@
           </form>`;
       }
 
+      /* Quién puede dar por recibida la carga.
+
+         Antes podía cerrarla cualquiera que abriera la pantalla. Ahora es
+         la planta: es la que tiene la balanza y la que ve el material
+         bajar del camión. Que lo confirme el que recibe, y no el que
+         entrega, es lo que hace que el registro valga para algo. */
+      function puedeValidar() {
+        if (Store.rolActual() !== Store.ROL_EMPRESA) return false;
+        // Si el envío está asignado a una planta concreta, solo esa.
+        if (envio.empresaEmail) return envio.empresaEmail === yo;
+        return true;
+      }
+
       function entregaHtml(seg) {
         if (seg.estado === 'entregado') {
           return `
@@ -157,12 +170,27 @@
                 ${envio.pesoRecibido != null ? `<span class="info-line">⚖️ Peso: <b>${envio.pesoRecibido} kg</b></span>` : ''}
               </div>
               ${envio.observaciones ? `<p class="section-sub" style="margin-top:10px">📝 ${Shell.escape(envio.observaciones)}</p>` : ''}
+              ${envio.validadoPor ? `
+                <p class="section-sub" style="margin-top:10px">
+                  🏭 Validado por ${Shell.escape(envio.validadoPor)}${
+                    envio.validadoAt ? ' · ' + new Date(envio.validadoAt).toLocaleString('es-CL',
+                      { day: '2-digit', month: '2-digit', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit' }) : ''}
+                </p>
+                <p class="section-sub">🚚 Transportista liberado para su siguiente ruta.</p>` : ''}
             </div>`;
         }
 
         if (seg.estado !== 'en_destino') {
           return `<div class="chat-bloqueado" style="margin-top:12px">
                     El pesaje se registra cuando el camión llegue a la planta.
+                  </div>`;
+        }
+
+        if (!puedeValidar()) {
+          return `<div class="chat-bloqueado" style="margin-top:12px">
+                    ⏳ El camión llegó. Esperando que la planta valide la descarga y el pesaje.<br>
+                    <span style="font-size:12.5px">Hasta entonces el transportista sigue asignado a este retiro.</span>
                   </div>`;
         }
 
@@ -184,9 +212,10 @@
               <textarea id="observaciones" rows="2" placeholder="Humedad, presencia de otros restos, etc.">${Shell.escape(envio.observaciones || '')}</textarea>
             </div>
             <div class="err" id="err-entrega"></div>
-            <button class="btn block" id="btn-cerrar">✅ Confirmar entrega y cerrar</button>
+            <button class="btn block" id="btn-cerrar">✅ Validar recepción y liberar al transportista</button>
             <p class="section-sub" style="margin-top:9px;text-align:center">
-              Al confirmar, el retiro queda cerrado y pasa al historial.
+              Queda registrado quién validó y a qué hora. El transportista
+              queda libre para tomar su siguiente ruta.
             </p>
           </div>`;
       }
@@ -253,6 +282,8 @@
                 <div class="li-title">${Shell.escape(envio.chofer)}</div>
                 <div class="li-sub">${envio.patente ? 'Patente ' + Shell.escape(envio.patente) + ' · ' : ''}${Shell.escape(envio.choferTelefono)}</div>
                 ${modalidadChofer ? `<div class="li-sub">${Shell.escape(modalidadChofer)}</div>` : ''}
+                ${envio.cuadrillaNombre
+                  ? `<div class="li-sub">👥 Estiba: ${Shell.escape(envio.cuadrillaNombre)}</div>` : ''}
               </div>
               <a class="btn ghost" style="padding:10px 14px;font-size:13.5px"
                  href="tel:${envio.choferTelefono.replace(/\s/g, '')}">📞 Llamar</a>
@@ -272,8 +303,8 @@
 
           <!-- Cierre del servicio -->
           <div class="section">
-            <div class="section-title">Cierre del servicio</div>
-            <div class="section-sub">Pesaje y confirmación final</div>
+            <div class="section-title">Descarga y Pesaje Oficial</div>
+            <div class="section-sub">Lo valida el operador de patio de la planta</div>
             ${entregaHtml(seg)}
           </div>`;
 
@@ -330,8 +361,12 @@
               volumenRecibido: vol,
               pesoRecibido: isNaN(peso) ? null : peso,
               observaciones: $('observaciones').value.trim(),
+              // Firma de quien recibe: sin esto el registro no es trazable.
+              validadoPor: yo,
+              validadoAt: new Date().toISOString(),
             });
-            Shell.notificar('Entrega confirmada', `${vol} m³ recibidos en ${envio.destinoNombre}`);
+            Shell.notificar('Recepción validada',
+              `${vol} m³ recibidos en ${envio.destinoNombre}. Transportista liberado.`);
             detenerReloj();
             render();
           };

@@ -93,6 +93,52 @@ const DATA = {
       desc: 'Pesaje confirmado y servicio cerrado' },
   ],
 
+  /* -------- Estiba: quién sube la carga al camión --------
+     Es una decisión del viñatero al publicar, no una obligación: el que ya
+     tiene gente no necesita pedir nada. */
+  manoObra: [
+    { id: 'propia', label: 'Tengo mi propia gente', ic: '👷',
+      desc: 'Mi cuadrilla carga el camión' },
+    { id: 'solicita', label: 'Necesito cuadrilla', ic: '🙋',
+      desc: 'Que la plataforma me asigne cargadores' },
+  ],
+
+  /* Cómo se llega al campo. Define qué camiones pueden entrar, que es un
+     problema real en los caminos interiores del Maule. */
+  accesos: [
+    { id: 'normal', label: 'Entra camión grande', ic: '🛣️',
+      desc: 'Camino firme hasta el parrón', maxVolumen: Infinity },
+    { id: 'estrecho', label: 'Camino estrecho', ic: '🚜',
+      desc: 'Solo camiones medianos o chicos', maxVolumen: 25 },
+    { id: 'dificil', label: 'Acceso difícil', ic: '⛰️',
+      desc: 'Terreno irregular, hay que acarrear hasta el camino', maxVolumen: 12 },
+  ],
+
+  /* Tipos de vehículo del transportista. La rampla plana carga más pero
+     necesita buen acceso; la tolva descarga sola y entra donde otras no. */
+  vehiculos: [
+    { id: 'rampla_plana', label: 'Rampla plana', ic: '🚛',
+      desc: 'Mayor volumen; necesita camino firme',
+      capacidadTipica: 45, accesos: ['normal'] },
+    { id: 'barandas', label: 'Barandas desmontables', ic: '🚚',
+      desc: 'Versátil: se carga por los lados',
+      capacidadTipica: 25, accesos: ['normal', 'estrecho'] },
+    { id: 'tolva', label: 'Tolva volteadora', ic: '🛻',
+      desc: 'Descarga sola; entra donde otros no llegan',
+      capacidadTipica: 14, accesos: ['normal', 'estrecho', 'dificil'] },
+  ],
+
+  /* El transportista puede además ofrecer estiba, por su cuenta o con
+     equipo. Es opcional: conducir y cargar son oficios distintos. */
+  estibaChofer: [
+    { id: 'no', label: 'Solo conduzco', ic: '🚚',
+      desc: 'No hago carga ni descarga' },
+    { id: 'propio', label: 'Cargo yo mismo', ic: '💪',
+      desc: 'Ayudo a subir la carga' },
+    { id: 'cuadrilla', label: 'Tengo tropa de estiba', ic: '👥',
+      desc: 'Llevo mi propio equipo de cargadores' },
+  ],
+
   /* Choferes de ejemplo, para los envíos de demostración. */
   choferesDemo: [
     { nombre: 'Marco Villalobos', telefono: '+56 9 7745 2210', patente: 'KDJS-42' },

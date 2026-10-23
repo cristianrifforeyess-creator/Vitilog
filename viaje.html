@@ -134,6 +134,17 @@
             </div>
           </div>
 
+          ${envio.cuadrillaNombre ? `
+            <div class="card pad" style="margin-top:14px;background:var(--surface-alt)">
+              <div class="list-item" style="padding:0">
+                <div class="li-ic" style="background:rgba(25,118,210,.12);color:var(--info)">👥</div>
+                <div class="li-body">
+                  <div class="li-title">Estiba: ${Shell.escape(envio.cuadrillaNombre)}</div>
+                  <div class="li-sub">Esta viña pidió cuadrilla para cargar</div>
+                </div>
+              </div>
+            </div>` : ''}
+
           <!-- Mapa -->
           <div class="section">
             <div class="section-title">Recorrido</div>

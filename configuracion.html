@@ -46,6 +46,30 @@
           </div>
           <div class="field" id="f-patente" style="display:none"><label>Patente del camión</label><input class="input" id="patente" style="text-transform:uppercase"></div>
           <div class="field" id="f-capacidad" style="display:none"><label>Capacidad de carga (m³)</label><input class="input" id="capacidad" type="number" min="1"></div>
+
+          <div class="field" id="f-vehiculo" style="display:none">
+            <label id="l-vehiculo">Tipo de vehículo</label>
+            <div class="rol-opciones" id="vehiculos" role="radiogroup"
+                 aria-labelledby="l-vehiculo" style="margin-bottom:8px"></div>
+            <div class="section-sub">
+              Define a qué campos puedes entrar. Las cargas que no te sirvan quedan avisadas.
+            </div>
+          </div>
+
+          <div class="field" id="f-estiba" style="display:none">
+            <label id="l-estiba">¿Haces estiba?</label>
+            <div class="rol-opciones" id="estibas" role="radiogroup"
+                 aria-labelledby="l-estiba" style="margin-bottom:8px"></div>
+            <div class="section-sub">
+              Opcional. Si la haces, se te asignan las cargas que pidan cuadrilla.
+            </div>
+            <div id="f-cuadrilla" style="display:none;margin-top:12px">
+              <label for="cuadrilla-nombre">Nombre de tu tropa</label>
+              <input class="input" id="cuadrilla-nombre" placeholder="Ej: Tropa Los Maitenes">
+              <label for="cuadrilla-personas" style="margin-top:10px">Cuántos son</label>
+              <input class="input" id="cuadrilla-personas" type="number" min="1" max="20" placeholder="Ej: 4">
+            </div>
+          </div>
           <div class="card pad" id="f-disponible" style="display:none;margin-bottom:14px">
             <div class="list-item" style="padding:0">
               <div class="li-ic">🟢</div>
@@ -147,6 +171,8 @@
       // Modalidad elegida en pantalla; se guarda al presionar "Guardar cambios".
       let modalidad = u.modalidad || 'independiente';
       let empresaEmail = u.empresa_email || '';
+      let vehiculo = u.vehiculo || '';
+      let estiba = u.estiba || 'no';
 
       $('nombre').value = u.nombre;
       $('email').value = u.email;
@@ -168,13 +194,17 @@
       $('l-alerta').textContent = esEmpresa ? 'Avisos de nuevas cargas' : 'Alertas de recolección';
 
       // Campos del transportista
-      ['f-modalidad', 'f-patente', 'f-capacidad', 'f-disponible'].forEach(i =>
-        $(i).style.display = esChofer ? 'block' : 'none');
+      ['f-modalidad', 'f-patente', 'f-capacidad', 'f-vehiculo', 'f-estiba', 'f-disponible']
+        .forEach(i => $(i).style.display = esChofer ? 'block' : 'none');
       if (esChofer) {
         $('f-vinatero').style.display = 'none';
         $('patente').value = u.patente || '';
         $('capacidad').value = u.capacidad || '';
         pintarModalidades();
+        pintarVehiculos();
+        pintarEstibas();
+        $('cuadrilla-nombre').value = u.cuadrilla_nombre || '';
+        $('cuadrilla-personas').value = u.cuadrilla_personas || '';
         $('empresa-nombre').value = u.empresa_nombre || '';
         pintarEmpresas();
         $('empresa-sel').onchange = () => {
@@ -206,6 +236,41 @@
           empresas.map(e => `<option value="${Shell.escape(e.email)}" ${
             e.email === empresaEmail ? 'selected' : ''}>${Shell.escape(e.nombre)}</option>`).join('');
         $('empresa-nombre').style.display = empresaEmail ? 'none' : 'block';
+      }
+
+      /* Vehiculo: lo que define a que campos puede entrar. */
+      function pintarVehiculos() {
+        $('vehiculos').innerHTML = DATA.vehiculos.map(v => `
+          <button type="button" class="rol-opcion ${v.id === vehiculo ? 'activa' : ''}"
+                  data-v="${v.id}" role="radio" aria-checked="${v.id === vehiculo}">
+            <span class="ic" aria-hidden="true">${v.ic}</span>
+            <span class="texto"><b>${v.label}</b><span>${v.desc}</span></span>
+            <span class="marca" aria-hidden="true">${v.id === vehiculo ? '●' : '○'}</span>
+          </button>`).join('');
+        $('vehiculos').querySelectorAll('.rol-opcion').forEach(b => {
+          b.onclick = () => {
+            vehiculo = b.dataset.v;
+            // Si no habia capacidad escrita, se propone la tipica del tipo.
+            const v = DATA.vehiculos.find(x => x.id === vehiculo);
+            if (v && !$('capacidad').value) $('capacidad').value = v.capacidadTipica;
+            pintarVehiculos();
+          };
+        });
+      }
+
+      /* Estiba: opcional, y con equipo propio si corresponde. */
+      function pintarEstibas() {
+        $('estibas').innerHTML = DATA.estibaChofer.map(e => `
+          <button type="button" class="rol-opcion ${e.id === estiba ? 'activa' : ''}"
+                  data-e="${e.id}" role="radio" aria-checked="${e.id === estiba}">
+            <span class="ic" aria-hidden="true">${e.ic}</span>
+            <span class="texto"><b>${e.label}</b><span>${e.desc}</span></span>
+            <span class="marca" aria-hidden="true">${e.id === estiba ? '●' : '○'}</span>
+          </button>`).join('');
+        $('estibas').querySelectorAll('.rol-opcion').forEach(b => {
+          b.onclick = () => { estiba = b.dataset.e; pintarEstibas(); };
+        });
+        $('f-cuadrilla').style.display = estiba === 'cuadrilla' ? 'block' : 'none';
       }
 
       /* Dibuja las dos modalidades como tarjetas, igual que en el acceso. */
@@ -334,6 +399,12 @@
         } else if (esChofer) {
           cambios.patente = $('patente').value.trim().toUpperCase();
           cambios.capacidad = parseFloat($('capacidad').value) || 0;
+          cambios.vehiculo = vehiculo;
+          cambios.estiba = estiba;
+          cambios.cuadrilla_nombre = estiba === 'cuadrilla'
+            ? $('cuadrilla-nombre').value.trim() : '';
+          cambios.cuadrilla_personas = estiba === 'cuadrilla'
+            ? (parseInt($('cuadrilla-personas').value, 10) || 2) : 0;
           cambios.modalidad = modalidad;
           cambios.empresa_email = modalidad === 'empresa' ? empresaEmail : '';
           cambios.empresa_nombre = modalidad === 'empresa'

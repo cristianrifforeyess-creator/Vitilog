@@ -38,6 +38,20 @@
           <input class="input" id="fecha" type="date">
         </div>
         <div class="field">
+          <label id="l-acceso">¿Cómo se llega al parrón?</label>
+          <div class="chip-select" id="accesos" role="radiogroup" aria-labelledby="l-acceso"></div>
+          <div class="section-sub" style="margin-top:6px">
+            Sirve para que no te manden un camión que no entra.
+          </div>
+        </div>
+
+        <div class="field">
+          <label id="l-mano">¿Quién carga el camión?</label>
+          <div class="rol-opciones" id="mano-obra" role="radiogroup"
+               aria-labelledby="l-mano" style="margin-bottom:0"></div>
+        </div>
+
+        <div class="field">
           <label>Notas (opcional)</label>
           <textarea id="notas" rows="3" placeholder="Acceso al predio, referencias, etc."></textarea>
         </div>
@@ -73,6 +87,35 @@
       window.setDestino = d => { destino = d; renderChips(); };
       renderChips();
 
+      /* Acceso al campo: decide que camiones pueden entrar. */
+      let acceso = 'normal';
+      function renderAccesos() {
+        $('accesos').innerHTML = DATA.accesos.map(a => `
+          <button type="button" class="chip ${a.id === acceso ? 'active' : ''}"
+                  data-a="${a.id}" role="radio" aria-checked="${a.id === acceso}"
+                  title="${Shell.escape(a.desc)}">${a.ic} ${a.label}</button>`).join('');
+        $('accesos').querySelectorAll('.chip').forEach(b => {
+          b.onclick = () => { acceso = b.dataset.a; renderAccesos(); };
+        });
+      }
+      renderAccesos();
+
+      /* Estiba: con gente propia o pidiendo cuadrilla por la aplicacion. */
+      let manoObra = 'propia';
+      function renderManoObra() {
+        $('mano-obra').innerHTML = DATA.manoObra.map(m => `
+          <button type="button" class="rol-opcion ${m.id === manoObra ? 'activa' : ''}"
+                  data-m="${m.id}" role="radio" aria-checked="${m.id === manoObra}">
+            <span class="ic" aria-hidden="true">${m.ic}</span>
+            <span class="texto"><b>${m.label}</b><span>${m.desc}</span></span>
+            <span class="marca" aria-hidden="true">${m.id === manoObra ? '●' : '○'}</span>
+          </button>`).join('');
+        $('mano-obra').querySelectorAll('.rol-opcion').forEach(b => {
+          b.onclick = () => { manoObra = b.dataset.m; renderManoObra(); };
+        });
+      }
+      renderManoObra();
+
       // Fecha mínima = mañana
       const t = new Date(); t.setDate(t.getDate() + 1);
       $('fecha').value = t.toISOString().slice(0, 10);
@@ -93,6 +136,8 @@
           comuna, volumen, destino,
           fecha: `${d}/${m}/${y}`,
           notas: $('notas').value.trim(),
+          acceso,
+          manoObra,
           ownerEmail: Store.currentEmail(),
         }).then(() => {
           // Se informa a cuántos transportistas quedó visible la carga.

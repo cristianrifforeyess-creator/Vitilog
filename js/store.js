@@ -65,6 +65,7 @@ const Store = {
           Nube.listar('mensajes'),
         ]);
         this._recordarColumnas('cuentas', cuentas);
+        this._recordarColumnas('cargas', cargas);
         this._recordarColumnas('envios', envios);
         this._cache.cuentas = (cuentas || []).map(this._cuentaDesdeNube);
         this._cache.cargas = (cargas || []).map(this._cargaDesdeNube);
@@ -162,6 +163,10 @@ const Store = {
       modalidad: f.modalidad === 'empresa' ? 'empresa' : 'independiente',
       empresa_nombre: f.empresa_nombre || '',
       empresa_email: f.empresa_email || '',
+      vehiculo: f.vehiculo || '',
+      estiba: f.estiba || 'no',
+      cuadrilla_nombre: f.cuadrilla_nombre || '',
+      cuadrilla_personas: Number(f.cuadrilla_personas) || 0,
       disponible: f.disponible !== false,
       activa: f.activa !== false, creada: f.creada,
       ultimo_acceso: f.ultimo_acceso || null,
@@ -173,6 +178,8 @@ const Store = {
       id: f.id, ownerEmail: f.owner_email, comuna: f.comuna,
       volumen: Number(f.volumen), destino: f.destino, fecha: f.fecha,
       notas: f.notas || '', estado: f.estado || 'publicada', creada: f.creada,
+      manoObra: f.mano_obra || 'propia',
+      acceso: f.acceso || 'normal',
     };
   },
   _puntoDesdeNube(f) {
@@ -187,6 +194,8 @@ const Store = {
       id: c.id, owner_email: c.ownerEmail, comuna: c.comuna, volumen: c.volumen,
       destino: c.destino, fecha: c.fecha, notas: c.notas || '',
       estado: c.estado || 'publicada',
+      mano_obra: c.manoObra || 'propia',
+      acceso: c.acceso || 'normal',
     };
   },
   _puntoHaciaNube(p) {
@@ -217,6 +226,10 @@ const Store = {
       observaciones: f.observaciones || '', creado: f.creado,
       /* Paradas extra del viaje consolidado. Llegan como JSON desde la base. */
       paradas: Array.isArray(f.paradas) ? f.paradas : [],
+      cuadrillaEmail: f.cuadrilla_email || '',
+      cuadrillaNombre: f.cuadrilla_nombre || '',
+      validadoPor: f.validado_por || '',
+      validadoAt: f.validado_at || null,
     };
   },
   _envioHaciaNube(e) {
@@ -236,6 +249,10 @@ const Store = {
       volumen_recibido: e.volumenRecibido, peso_recibido: e.pesoRecibido,
       observaciones: e.observaciones || '',
       paradas: Array.isArray(e.paradas) ? e.paradas : [],
+      cuadrilla_email: e.cuadrillaEmail || null,
+      cuadrilla_nombre: e.cuadrillaNombre || '',
+      validado_por: e.validadoPor || null,
+      validado_at: e.validadoAt || null,
     };
   },
   _mensajeDesdeNube(f) {
@@ -278,8 +295,10 @@ const Store = {
      Si aparece algo acá, falta correr sql/esquema.sql. */
   columnasQueFaltan() {
     const esperadas = {
-      cuentas: ['modalidad', 'empresa_nombre', 'empresa_email', 'ultimo_acceso', 'accesos'],
-      envios: ['paradas'],
+      cuentas: ['modalidad', 'empresa_nombre', 'empresa_email', 'ultimo_acceso',
+                'accesos', 'vehiculo', 'estiba', 'cuadrilla_nombre', 'cuadrilla_personas'],
+      cargas: ['mano_obra', 'acceso'],
+      envios: ['paradas', 'cuadrilla_email', 'cuadrilla_nombre', 'validado_por', 'validado_at'],
     };
     const faltan = [];
     for (const [tabla, cols] of Object.entries(esperadas)) {
@@ -305,6 +324,10 @@ const Store = {
       modalidad: a.modalidad === 'empresa' ? 'empresa' : 'independiente',
       empresa_nombre: a.empresa_nombre || '',
       empresa_email: a.empresa_email || '',
+      vehiculo: a.vehiculo || null,
+      estiba: a.estiba || 'no',
+      cuadrilla_nombre: a.cuadrilla_nombre || '',
+      cuadrilla_personas: Number(a.cuadrilla_personas) || 0,
       disponible: a.disponible !== false,
       activa: a.activa !== false,
       ultimo_acceso: a.ultimo_acceso || null,
@@ -509,8 +532,11 @@ const Store = {
 
   async addCarga(carga) {
     this._cache.cargas.unshift(carga);
-    if (this.enNube()) await Nube.guardar('cargas', this._cargaHaciaNube(carga));
-    else this._write(this.K_CARGAS, this._cache.cargas);
+    if (this.enNube()) {
+      await Nube.guardar('cargas', this._soloColumnasConocidas('cargas', this._cargaHaciaNube(carga)));
+    } else {
+      this._write(this.K_CARGAS, this._cache.cargas);
+    }
   },
 
   async removeCarga(id) {
@@ -565,6 +591,78 @@ const Store = {
   choferesDisponibles() {
     return this._cache.cuentas.filter(a =>
       this.rolDe(a) === this.ROL_CHOFER && a.activa !== false && a.disponible !== false);
+  },
+
+  /* =====================================================================
+     Estiba: quien sube la carga, y que camion puede entrar
+     ===================================================================== */
+  /* Transportistas que ademas ofrecen estiba: ellos mismos o con equipo.
+     Si se pasa una carga, se ordenan dejando primero a los que trabajan
+     para la misma planta de destino. */
+  cuadrillasDisponibles() {
+    return this._cache.cuentas.filter(a =>
+      this.rolDe(a) === this.ROL_CHOFER
+      && a.activa !== false
+      && a.disponible !== false
+      && (a.estiba === 'propio' || a.estiba === 'cuadrilla'));
+  },
+
+  /* Cuantas personas pone esa cuenta para cargar. */
+  personasDeEstiba(cuenta) {
+    if (!cuenta) return 0;
+    if (cuenta.estiba === 'cuadrilla') return Number(cuenta.cuadrilla_personas) || 2;
+    if (cuenta.estiba === 'propio') return 1;
+    return 0;
+  },
+
+  /* Como se llama la estiba de esa cuenta, para mostrarla. */
+  nombreDeEstiba(cuenta) {
+    if (!cuenta) return '';
+    if (cuenta.estiba === 'cuadrilla') {
+      return (cuenta.cuadrilla_nombre || '').trim() || ('Tropa de ' + cuenta.nombre);
+    }
+    if (cuenta.estiba === 'propio') return cuenta.nombre;
+    return '';
+  },
+
+  /* El transportista toma una carga que pide cuadrilla: si el ofrece
+     estiba, se asigna solo. Si no, se busca una en la red.
+
+     La asignacion es automatica a proposito, pero no obligatoria: si no
+     hay nadie disponible la carga igual se puede tomar, y queda anotado
+     que va sin cuadrilla en vez de bloquear el retiro. */
+  asignarCuadrilla(carga, chofer) {
+    if (!carga || carga.manoObra !== 'solicita') return null;
+
+    // Primero el propio transportista: ya va al campo de todas formas.
+    if (chofer && (chofer.estiba === 'propio' || chofer.estiba === 'cuadrilla')) {
+      return { email: chofer.email, nombre: this.nombreDeEstiba(chofer), propia: true };
+    }
+
+    // Si no, alguien de la red, empezando por el equipo mas grande.
+    const otras = this.cuadrillasDisponibles()
+      .filter(a => !chofer || a.email !== chofer.email)
+      .sort((a, b) => this.personasDeEstiba(b) - this.personasDeEstiba(a));
+    if (!otras.length) return null;
+    return { email: otras[0].email, nombre: this.nombreDeEstiba(otras[0]), propia: false };
+  },
+
+  /* Que vehiculos pueden entrar a ese campo y llevarse esa carga.
+     Devuelve { puede, motivo } para un vehiculo concreto. */
+  compatibilidad(carga, vehiculoId) {
+    const v = (typeof DATA !== 'undefined' ? DATA.vehiculos : []).find(x => x.id === vehiculoId);
+    if (!v) return { puede: true, motivo: '' };   // sin vehiculo declarado no se estorba
+
+    const acc = (typeof DATA !== 'undefined' ? DATA.accesos : [])
+      .find(x => x.id === (carga.acceso || 'normal'));
+
+    if (acc && !v.accesos.includes(acc.id)) {
+      return { puede: false, motivo: `Tu ${v.label.toLowerCase()} no entra: ${acc.desc.toLowerCase()}` };
+    }
+    if (acc && carga.volumen > acc.maxVolumen) {
+      return { puede: false, motivo: `${carga.volumen} m³ es mucho para ese acceso` };
+    }
+    return { puede: true, motivo: '' };
   },
 
   /* =====================================================================
