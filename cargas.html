@@ -172,11 +172,15 @@
         const km = base ? Shell.distanciaKm(origen, base) : 40;
         const minutos = Math.max(6, Math.round(km * 1.4));
 
-        // Transportistas vinculados a esta planta: a ellos se les puede encargar
-
-        // el retiro directamente, sin escribir nada a mano.
-
+        // Transportistas vinculados a esta planta: a ellos se les puede
+        // encargar el retiro directamente, sin escribir nada a mano.
         const flota = Store.miFlota();
+
+        /* Quién puede hacer la estiba: transportistas que declararon el
+           servicio de cargador en su perfil. La administración deriva a uno
+           de ellos cuando la viña pidió cargadores. */
+        const estibas = Store.cuadrillasDisponibles()
+          .sort((a, b) => Store.personasDeEstiba(b) - Store.personasDeEstiba(a));
 
         Shell.openModal(`
           <div class="handle"></div>
@@ -198,6 +202,22 @@
                 : 'Todavía no tienes transportistas vinculados: cada uno se vincula desde su propio perfil, en Ajustes.'}
             </div>
           </div>
+          ${carga.manoObra === 'solicita' ? `
+            <div class="field">
+              <label for="r-estiba">Cargadores para esta viña</label>
+              <select id="r-estiba">
+                ${estibas.map(e => `<option value="${Shell.escape(e.email)}">${
+                  Shell.escape(Store.nombreDeEstiba(e))} · ${Store.personasDeEstiba(e)} persona(s)${
+                  e.comuna ? ' · ' + Shell.escape(e.comuna) : ''}</option>`).join('')}
+                <option value="">Sin cuadrilla (lo resuelve el transportista)</option>
+              </select>
+              <div class="section-sub" style="margin-top:6px">
+                🙋 Esta viña pidió cargadores. ${estibas.length
+                  ? 'Elige a quién deriva la administración.'
+                  : 'Nadie ofrece el servicio ahora mismo.'}
+              </div>
+            </div>` : ''}
+
           <div class="field" id="r-manual" style="display:none">
             <label for="r-chofer">Nombre del transportista</label>
             <input class="input" id="r-chofer" placeholder="Nombre del transportista">
@@ -239,6 +259,11 @@
           if (!tel) return ($('r-err').textContent = 'Escribe el teléfono del transportista.');
           if (!min || min < 1) return ($('r-err').textContent = 'Ingresa un tiempo válido.');
 
+          // A quién derivó la administración para cargar, si aplica.
+          const campoEstiba = $('r-estiba');
+          const estiba = (campoEstiba && campoEstiba.value)
+            ? Store.accountByEmail(campoEstiba.value) : null;
+
           $('r-ok').disabled = true;
           const destino = base && base.lat ? base : origen;
           let envio;
@@ -250,6 +275,8 @@
               empresaEmail: Store.currentEmail(),
               choferEmail: elegido ? elegido.email : null,
               chofer, choferTelefono: tel, patente,
+              cuadrillaEmail: estiba ? estiba.email : '',
+              cuadrillaNombre: estiba ? Store.nombreDeEstiba(estiba) : '',
               origenComuna: carga.comuna, origenLat: origen.lat, origenLng: origen.lng,
               destinoId: null, destinoNombre: u.nombre,
               destinoLat: destino.lat, destinoLng: destino.lng,
@@ -269,7 +296,8 @@
 
           Shell.closeModal();
           if (elegido) {
-            Shell.toast(`Encargo enviado a ${elegido.nombre}`);
+            Shell.toast(`Encargo enviado a ${elegido.nombre}`
+              + (estiba ? ` · Estiba: ${Store.nombreDeEstiba(estiba)}` : ''));
           }
           location.href = 'seguimiento.html?id=' + encodeURIComponent(envio.id);
         };

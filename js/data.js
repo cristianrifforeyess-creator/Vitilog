@@ -133,8 +133,8 @@ const DATA = {
   estibaChofer: [
     { id: 'no', label: 'Solo conduzco', ic: '🚚',
       desc: 'No hago carga ni descarga' },
-    { id: 'propio', label: 'Cargo yo mismo', ic: '💪',
-      desc: 'Ayudo a subir la carga' },
+    { id: 'propio', label: 'Cargador individual', ic: '💪',
+      desc: 'Además de conducir, yo subo la carga' },
     { id: 'cuadrilla', label: 'Tengo tropa de estiba', ic: '👥',
       desc: 'Llevo mi propio equipo de cargadores' },
   ],

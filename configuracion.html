@@ -57,11 +57,12 @@
           </div>
 
           <div class="field" id="f-estiba" style="display:none">
-            <label id="l-estiba">¿Haces estiba?</label>
+            <label id="l-estiba">Servicio de estiba (opcional)</label>
             <div class="rol-opciones" id="estibas" role="radiogroup"
                  aria-labelledby="l-estiba" style="margin-bottom:8px"></div>
             <div class="section-sub">
-              Opcional. Si la haces, se te asignan las cargas que pidan cuadrilla.
+              Declararlo te suma trabajo: la administración te deriva las viñas
+              que piden cargadores, aparte de tus viajes.
             </div>
             <div id="f-cuadrilla" style="display:none;margin-top:12px">
               <label for="cuadrilla-nombre">Nombre de tu tropa</label>
@@ -168,7 +169,6 @@
       const u = Store.currentUser();
       const esEmpresa = Store.rolDe(u) === Store.ROL_EMPRESA;
       const esChofer = Store.rolDe(u) === Store.ROL_CHOFER;
-      const esCargador = Store.rolDe(u) === Store.ROL_CARGADOR;
       // Modalidad elegida en pantalla; se guarda al presionar "Guardar cambios".
       let modalidad = u.modalidad || 'independiente';
       let empresaEmail = u.empresa_email || '';
@@ -195,28 +195,8 @@
       $('l-alerta').textContent = esEmpresa ? 'Avisos de nuevas cargas' : 'Alertas de recolección';
 
       // Campos del transportista
-      /* El cargador comparte la estiba y la disponibilidad con el
-         transportista, pero no tiene vehículo ni patente que declarar. */
-      ['f-modalidad', 'f-patente', 'f-capacidad', 'f-vehiculo']
+      ['f-modalidad', 'f-patente', 'f-capacidad', 'f-vehiculo', 'f-estiba', 'f-disponible']
         .forEach(i => $(i).style.display = esChofer ? 'block' : 'none');
-      ['f-estiba', 'f-disponible']
-        .forEach(i => $(i).style.display = (esChofer || esCargador) ? 'block' : 'none');
-      if (esCargador) {
-        $('f-vinatero').style.display = 'none';
-        pintarEstibas();
-        $('cuadrilla-nombre').value = u.cuadrilla_nombre || '';
-        $('cuadrilla-personas').value = u.cuadrilla_personas || '';
-        $('disponible').checked = u.disponible !== false;
-        $('disp-sub').textContent = u.disponible !== false
-          ? 'Se te pueden asignar cargas nuevas' : 'No se te asignarán cargas';
-        $('disponible').onchange = async () => {
-          await Store.updateAccount({ disponible: $('disponible').checked });
-          $('disp-sub').textContent = $('disponible').checked
-            ? 'Se te pueden asignar cargas nuevas' : 'No se te asignarán cargas';
-          Shell.toast($('disponible').checked ? 'Disponible' : 'No disponible');
-        };
-      }
-
       if (esChofer) {
         $('f-vinatero').style.display = 'none';
         $('patente').value = u.patente || '';
@@ -281,14 +261,7 @@
 
       /* Estiba: opcional, y con equipo propio si corresponde. */
       function pintarEstibas() {
-        /* "Solo conduzco" no tiene sentido para quien vino justamente a
-           cargar: a un cargador se le ofrece solo o con tropa. */
-        const opciones = esCargador
-          ? DATA.estibaChofer.filter(e => e.id !== 'no')
-          : DATA.estibaChofer;
-        if (esCargador && estiba === 'no') estiba = 'propio';
-        $('l-estiba').textContent = esCargador ? '¿Trabajas solo o con tropa?' : '¿Haces estiba?';
-        $('estibas').innerHTML = opciones.map(e => `
+        $('estibas').innerHTML = DATA.estibaChofer.map(e => `
           <button type="button" class="rol-opcion ${e.id === estiba ? 'activa' : ''}"
                   data-e="${e.id}" role="radio" aria-checked="${e.id === estiba}">
             <span class="ic" aria-hidden="true">${e.ic}</span>
@@ -320,7 +293,7 @@
         $('tipo').innerHTML = DATA.tiposEmpresa.map(t =>
           `<option ${t === u.tipo ? 'selected' : ''}>${t}</option>`).join('');
         $('encargado').value = u.encargado || '';
-      } else if (!esChofer && !esCargador) {
+      } else if (!esChofer) {
         $('hectareas').value = u.hectareas ? u.hectareas : '';
       }
 
@@ -437,12 +410,6 @@
           cambios.empresa_email = modalidad === 'empresa' ? empresaEmail : '';
           cambios.empresa_nombre = modalidad === 'empresa'
             ? $('empresa-nombre').value.trim() : '';
-        } else if (esCargador) {
-          cambios.estiba = estiba;
-          cambios.cuadrilla_nombre = estiba === 'cuadrilla'
-            ? $('cuadrilla-nombre').value.trim() : '';
-          cambios.cuadrilla_personas = estiba === 'cuadrilla'
-            ? (parseInt($('cuadrilla-personas').value, 10) || 2) : 1;
         } else {
           cambios.hectareas = parseFloat(($('hectareas').value || '0').replace(',', '.')) || 0;
         }

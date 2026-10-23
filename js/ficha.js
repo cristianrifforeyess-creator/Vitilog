@@ -91,21 +91,6 @@ const Ficha = {
       };
     }
 
-    if (rol === Store.ROL_CARGADOR) {
-      const mias = Store.misEstibas();
-      const hechas = mias.filter(entregado);
-      const m3 = hechas.reduce((t, e) => t + m3De(e), 0);
-      return {
-        titulo: 'Lo que has cargado',
-        datos: [
-          { val: hechas.length, lbl: 'Estibas completadas' },
-          { val: Math.round(m3 * 10) / 10 + ' m³', lbl: 'Volumen cargado' },
-          { val: this.energia(m3) + ' MWh', lbl: 'Energía movida', color: 'var(--warning)' },
-          { val: mias.length - hechas.length, lbl: 'Pendientes' },
-        ],
-      };
-    }
-
     if (rol === Store.ROL_EMPRESA) {
       const mios = Store.envios().filter(e => e.empresaEmail === yo);
       const recibidos = mios.filter(entregado);
@@ -186,9 +171,6 @@ const Ficha = {
         href: 'viaje.html',
       };
     }
-
-    // El cargador no tiene ruta propia: su trabajo es en la viña.
-    if (rol === Store.ROL_CARGADOR) return null;
 
     // Viñatero y planta: primero un camión en movimiento, si lo hay.
     const activos = Store.enviosActivos ? Store.enviosActivos() : [];

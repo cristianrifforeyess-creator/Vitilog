@@ -28,14 +28,6 @@ const NAV_CHOFER = [
 ];
 
 /* Menú de la administración de VITILOG. */
-/* Menú del cargador. Su trabajo es la estiba, no el traslado: no tiene
-   viaje ni ruta que seguir, solo los trabajos que le asignaron. */
-const NAV_CARGADOR = [
-  { key: 'inicio', label: 'Mis estibas', ic: '👷', href: 'inicio-cargador.html' },
-  { key: 'mapa', label: 'Mapa', ic: '🗺️', href: 'mapa.html' },
-  { key: 'config', label: 'Ajustes', ic: '⚙️', href: 'configuracion.html' },
-];
-
 const NAV_ADMIN = [
   { key: 'admin', label: 'Panel', ic: '🛠️', href: 'admin.html' },
   { key: 'mapa', label: 'Mapa', ic: '🗺️', href: 'mapa.html' },
@@ -103,13 +95,11 @@ const Shell = {
   navFor(rol) {
     if (rol === Store.ROL_ADMIN) return NAV_ADMIN;
     if (rol === Store.ROL_CHOFER) return NAV_CHOFER;
-    if (rol === Store.ROL_CARGADOR) return NAV_CARGADOR;
     return rol === Store.ROL_EMPRESA ? NAV_EMPRESA : NAV_VINATERO;
   },
   homeFor(rol) {
     if (rol === Store.ROL_ADMIN) return 'admin.html';
     if (rol === Store.ROL_CHOFER) return 'inicio-chofer.html';
-    if (rol === Store.ROL_CARGADOR) return 'inicio-cargador.html';
     return rol === Store.ROL_EMPRESA ? 'inicio-empresa.html' : 'inicio.html';
   },
 
@@ -1007,7 +997,6 @@ const Shell = {
     const etiquetaRol = rol === Store.ROL_ADMIN ? '🛠️ Administración AgroConecta'
       : rol === Store.ROL_EMPRESA ? '🏭 Cuenta de planta receptora'
       : rol === Store.ROL_CHOFER ? '🚚 Cuenta de transportista'
-      : rol === Store.ROL_CARGADOR ? '👷 Cuenta de cargador'
       : '🍇 Cuenta de viñatero';
     const links = nav.map(n => `
       <a class="nav-link ${n.key === active ? 'active' : ''}" href="${n.href}">

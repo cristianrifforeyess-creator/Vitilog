@@ -24,10 +24,6 @@ const Store = {
   ROL_VINATERO: 'vinatero',
   ROL_EMPRESA: 'empresa',
   ROL_CHOFER: 'chofer',
-  /* El que solo carga: no tiene camion ni transporta, su oficio es subir
-     el sarmiento al camion. Antes solo existia pegado al transportista, y
-     dejaba fuera a quien se dedica unicamente a esto. */
-  ROL_CARGADOR: 'cargador',
   ROL_ADMIN: 'admin',
 
   /* Datos en memoria. Los llena sincronizar() al abrir cada página. */
@@ -400,7 +396,6 @@ const Store = {
     if (!acc) return this.ROL_VINATERO;
     if (acc.rol === this.ROL_EMPRESA) return this.ROL_EMPRESA;
     if (acc.rol === this.ROL_CHOFER) return this.ROL_CHOFER;
-    if (acc.rol === this.ROL_CARGADOR) return this.ROL_CARGADOR;
     if (acc.rol === this.ROL_ADMIN) return this.ROL_ADMIN;
     return this.ROL_VINATERO;
   },
@@ -414,7 +409,6 @@ const Store = {
   nombreRol(rol) {
     if (rol === this.ROL_EMPRESA) return 'Planta receptora';
     if (rol === this.ROL_CHOFER) return 'Transportista';
-    if (rol === this.ROL_CARGADOR) return 'Cargador';
     if (rol === this.ROL_ADMIN) return 'Administración';
     return 'Viñatero';
   },
@@ -489,32 +483,9 @@ const Store = {
     return null;
   },
 
-  /* Cuenta de cargador. No se le piden datos de vehiculo porque no tiene:
-     lo suyo es la estiba, solo o con tropa. */
-  async registerCargador({ nombre, email, password, comuna, telefono, cuadrilla, personas }) {
-    email = (email || '').trim();
-    if (this.accountByEmail(email)) return 'Ya existe una cuenta con ese correo';
-    const { hash, sal } = await this._cifrar(password);
-    const conTropa = !!(cuadrilla || '').trim();
-    await this.upsertAccount({
-      rol: this.ROL_CARGADOR,
-      nombre: (nombre || '').trim() || 'Cargador',
-      email, clave_hash: hash, clave_sal: sal,
-      comuna: (comuna || '').trim() || 'Región del Maule',
-      telefono: (telefono || '').trim(),
-      estiba: conTropa ? 'cuadrilla' : 'propio',
-      cuadrilla_nombre: (cuadrilla || '').trim(),
-      cuadrilla_personas: conTropa ? (Number(personas) || 2) : 1,
-      disponible: true, activa: true,
-    });
-    this.setSession(email);
-    return null;
-  },
-
   register(datos) {
     if (datos.rol === this.ROL_EMPRESA) return this.registerEmpresa(datos);
     if (datos.rol === this.ROL_CHOFER) return this.registerChofer(datos);
-    if (datos.rol === this.ROL_CARGADOR) return this.registerCargador(datos);
     return this.registerVinatero(datos);
   },
 
@@ -658,7 +629,7 @@ const Store = {
       }
     }
 
-    if (rol === this.ROL_CARGADOR && u.estiba === 'cuadrilla' && !hay(u.cuadrilla_personas)) {
+    if (rol === this.ROL_CHOFER && u.estiba === 'cuadrilla' && !hay(u.cuadrilla_personas)) {
       falta.push({ campo: 'Cuántos son en tu tropa', porque: 'se asignan primero los equipos más grandes' });
     }
 
@@ -672,16 +643,15 @@ const Store = {
      Si se pasa una carga, se ordenan dejando primero a los que trabajan
      para la misma planta de destino. */
   cuadrillasDisponibles() {
-    return this._cache.cuentas.filter(a => {
-      const rol = this.rolDe(a);
-      if (rol !== this.ROL_CHOFER && rol !== this.ROL_CARGADOR) return false;
-      if (a.activa === false || a.disponible === false) return false;
-      return a.estiba === 'propio' || a.estiba === 'cuadrilla';
-    });
+    return this._cache.cuentas.filter(a =>
+      this.rolDe(a) === this.ROL_CHOFER
+      && a.activa !== false
+      && a.disponible !== false
+      && (a.estiba === 'propio' || a.estiba === 'cuadrilla'));
   },
 
-  /* Los trabajos de estiba asignados a esta cuenta. Es lo que ve el
-     cargador en su panel. */
+  /* Los trabajos de estiba asignados a esta cuenta, para que el
+     transportista que ademas carga vea lo que le derivaron. */
   misEstibas() {
     const correo = this.currentEmail();
     return this._cache.envios

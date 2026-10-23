@@ -28,7 +28,7 @@ create extension if not exists pgcrypto;
 create table if not exists cuentas (
   email       text primary key,
   rol         text not null default 'vinatero'
-              check (rol in ('vinatero', 'empresa', 'chofer', 'cargador', 'admin')),
+              check (rol in ('vinatero', 'empresa', 'chofer', 'admin')),
   nombre      text not null,
   clave_hash  text not null,
   clave_sal   text not null,
@@ -178,12 +178,6 @@ alter table envios add column if not exists cuadrilla_email text;
 alter table envios add column if not exists cuadrilla_nombre text default '';
 alter table envios add column if not exists validado_por text;
 alter table envios add column if not exists validado_at timestamptz;
-
--- Para bases creadas antes del perfil de cargador: el que solo hace
--- estiba, sin camion ni transporte.
-alter table cuentas drop constraint if exists cuentas_rol_check;
-alter table cuentas add constraint cuentas_rol_check
-  check (rol in ('vinatero', 'empresa', 'chofer', 'cargador', 'admin'));
 
 -- ---------------------------------------------------------------------
 -- Mensajes: el chat de cada envío
