@@ -628,6 +628,9 @@ const Store = {
     }
 
     if (rol === this.ROL_CHOFER) {
+      if (u.estiba === 'cuadrilla' && !hay(u.cuadrilla_personas)) {
+        falta.push({ campo: 'Cuántos son en tu tropa', porque: 'se asignan primero los equipos más grandes' });
+      }
       if (!hay(u.patente)) {
         falta.push({ campo: 'Patente', porque: 'el viñatero la ve para reconocer tu camión' });
       }
@@ -652,7 +655,12 @@ const Store = {
   /* Quien puede hacer la estiba. Son siempre cargadores individuales:
      el transportista conduce y no carga. */
   cuadrillasDisponibles() {
-    return this.cargadoresIndividuales();
+    return this._cache.cuentas.filter(a => {
+      if (this.rolDe(a) !== this.ROL_CHOFER) return false;
+      if (a.activa === false || a.disponible === false) return false;
+      // El cargador individual, y el transportista que lleva su tropa.
+      return this.esSoloCargador(a) ? a.estiba !== 'no' : a.estiba === 'cuadrilla';
+    });
   },
 
   /* Los trabajos de estiba asignados a esta cuenta, para que el
@@ -668,7 +676,8 @@ const Store = {
   personasDeEstiba(cuenta) {
     if (!cuenta) return 0;
     if (cuenta.estiba === 'cuadrilla') return Number(cuenta.cuadrilla_personas) || 2;
-    return 1;
+    if (cuenta.estiba === 'propio') return 1;
+    return 0;
   },
 
   /* Como se llama la estiba de esa cuenta, para mostrarla. */
@@ -677,7 +686,8 @@ const Store = {
     if (cuenta.estiba === 'cuadrilla') {
       return (cuenta.cuadrilla_nombre || '').trim() || ('Tropa de ' + cuenta.nombre);
     }
-    return cuenta.nombre;
+    if (cuenta.estiba === 'propio') return cuenta.nombre;
+    return '';
   },
 
   /* El transportista toma una carga que pide cuadrilla: si el ofrece
@@ -689,10 +699,16 @@ const Store = {
   asignarCuadrilla(carga, chofer) {
     if (!carga || carga.manoObra !== 'solicita') return null;
 
-    /* La cuadrilla sale siempre de los cargadores individuales. El
-       transportista no entra en el reparto: conducir y cargar son
-       oficios distintos y nadie hace los dos en el mismo viaje. */
-    const libres = this.cargadoresIndividuales()
+    /* Si el transportista lleva su propia tropa, se usa esa: ya va al
+       campo con ellos. El transportista no carga el mismo —conduce— pero
+       su equipo si. */
+    if (chofer && !this.esSoloCargador(chofer) && chofer.estiba === 'cuadrilla') {
+      return { email: chofer.email, nombre: this.nombreDeEstiba(chofer), propia: true };
+    }
+
+    // Si no, un cargador de la red, empezando por el equipo mas grande.
+    const libres = this.cuadrillasDisponibles()
+      .filter(a => !chofer || a.email !== chofer.email)
       .sort((a, b) => this.personasDeEstiba(b) - this.personasDeEstiba(a));
     if (!libres.length) return null;
     return { email: libres[0].email, nombre: this.nombreDeEstiba(libres[0]), propia: false };
