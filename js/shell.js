@@ -28,6 +28,14 @@ const NAV_CHOFER = [
 ];
 
 /* Menú de la administración de VITILOG. */
+/* Menú del cargador. Su trabajo es la estiba, no el traslado: no tiene
+   viaje ni ruta que seguir, solo los trabajos que le asignaron. */
+const NAV_CARGADOR = [
+  { key: 'inicio', label: 'Mis estibas', ic: '👷', href: 'inicio-cargador.html' },
+  { key: 'mapa', label: 'Mapa', ic: '🗺️', href: 'mapa.html' },
+  { key: 'config', label: 'Ajustes', ic: '⚙️', href: 'configuracion.html' },
+];
+
 const NAV_ADMIN = [
   { key: 'admin', label: 'Panel', ic: '🛠️', href: 'admin.html' },
   { key: 'mapa', label: 'Mapa', ic: '🗺️', href: 'mapa.html' },
@@ -95,11 +103,13 @@ const Shell = {
   navFor(rol) {
     if (rol === Store.ROL_ADMIN) return NAV_ADMIN;
     if (rol === Store.ROL_CHOFER) return NAV_CHOFER;
+    if (rol === Store.ROL_CARGADOR) return NAV_CARGADOR;
     return rol === Store.ROL_EMPRESA ? NAV_EMPRESA : NAV_VINATERO;
   },
   homeFor(rol) {
     if (rol === Store.ROL_ADMIN) return 'admin.html';
     if (rol === Store.ROL_CHOFER) return 'inicio-chofer.html';
+    if (rol === Store.ROL_CARGADOR) return 'inicio-cargador.html';
     return rol === Store.ROL_EMPRESA ? 'inicio-empresa.html' : 'inicio.html';
   },
 
@@ -456,6 +466,32 @@ const Shell = {
     };
     const [color, ic, texto] = mapa[estado] || mapa.apagado;
     return this.badge(texto, color, ic);
+  },
+
+  /* Tarjeta que recuerda completar el perfil. Devuelve '' si no falta
+     nada, para poder incrustarla sin condicionales en cada pantalla.
+
+     Dice POR QUE hace falta cada dato, no solo que falta: un aviso que
+     solo reclama se ignora, uno que explica se atiende. */
+  avisoPerfil() {
+    const falta = Store.perfilIncompleto();
+    if (!falta.length) return '';
+    return `
+      <div class="card pad" style="border:1.5px dashed var(--warning);margin-top:4px">
+        <div class="list-item" style="padding:0">
+          <div class="li-ic" style="background:rgba(249,168,37,.15);color:var(--warning)">📋</div>
+          <div class="li-body">
+            <div class="li-title">Completa tu perfil</div>
+            <div class="li-sub">Te falta ${falta.length} dato(s) y te están restando trabajo</div>
+          </div>
+          <button class="btn" style="padding:10px 14px;font-size:13.5px"
+                  onclick="location.href='configuracion.html'">Ir a Ajustes</button>
+        </div>
+        <div style="margin-top:12px;display:grid;gap:6px">
+          ${falta.map(f => `
+            <div class="li-sub">• <b>${this.escape(f.campo)}</b>: ${this.escape(f.porque)}</div>`).join('')}
+        </div>
+      </div>`;
   },
 
   /* Junta las cargas por quien las publicó.
@@ -971,6 +1007,7 @@ const Shell = {
     const etiquetaRol = rol === Store.ROL_ADMIN ? '🛠️ Administración AgroConecta'
       : rol === Store.ROL_EMPRESA ? '🏭 Cuenta de planta receptora'
       : rol === Store.ROL_CHOFER ? '🚚 Cuenta de transportista'
+      : rol === Store.ROL_CARGADOR ? '👷 Cuenta de cargador'
       : '🍇 Cuenta de viñatero';
     const links = nav.map(n => `
       <a class="nav-link ${n.key === active ? 'active' : ''}" href="${n.href}">

@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AgroConecta · Mis estibas</title>
+  <link rel="icon" type="image/svg+xml" href="img/logo.svg">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main">
+      <div class="topbar">
+        <img class="tb-logo" src="img/logo-claro.svg" alt="AgroConecta" width="38" height="38">
+        <div><h1>Mis estibas</h1><p id="tb-sub">Región del Maule</p></div>
+        <div class="tb-actions">
+          <button title="Actualizar" id="btn-refrescar" aria-label="Actualizar">🔄</button>
+          <button title="Ajustes" onclick="location.href='configuracion.html'" aria-label="Ajustes">⚙️</button>
+        </div>
+      </div>
+      <div class="content">
+        <div id="aporte-inicio"></div>
+        <div class="stagger" id="content"></div>
+      </div>
+    </main>
+  </div>
+  <nav class="bottom-nav" id="bottomnav"></nav>
+
+  <script src="js/config.js"></script>
+  <script src="js/nube.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/vivo.js"></script>
+  <script src="js/ruteo.js"></script>
+  <script src="js/mosaico.js"></script>
+  <script src="js/ficha.js"></script>
+  <script src="js/shell.js"></script>
+  <script>
+    /* Panel del cargador.
+
+       Es el perfil de quien sube el sarmiento al camión y nada más: no
+       tiene vehículo, no conduce y no sigue una ruta. Por eso esta
+       pantalla no se parece a la del transportista: no hay viaje, hay
+       trabajos de estiba con una dirección y una hora. */
+    Shell.init('inicio', { rol: Store.ROL_CARGADOR }).then(listo => { if (!listo) return;
+      const $ = id => document.getElementById(id);
+      const c = $('content');
+      const u = Store.currentUser();
+
+      function render() {
+        const estibas = Store.misEstibas();
+        const pendientes = estibas.filter(e => e.estado !== 'entregado');
+        const hechas = estibas.filter(e => e.estado === 'entregado');
+
+        const equipo = u.estiba === 'cuadrilla'
+          ? `${Store.nombreDeEstiba(u)} · ${Store.personasDeEstiba(u)} personas`
+          : 'Cargador independiente';
+        $('tb-sub').textContent = `${equipo}${u.comuna ? ' · ' + u.comuna : ''}`;
+
+        c.innerHTML = `
+          ${Shell.avisoPerfil()}
+
+          <div class="section" style="margin-top:4px">
+            <div class="section-title">Trabajos asignados</div>
+            <div class="section-sub">
+              ${pendientes.length === 0
+                ? 'Ninguno por ahora'
+                : `${pendientes.length} viña(s) esperando carga`}
+            </div>
+          </div>
+
+          ${pendientes.length === 0
+            ? `<div class="empty">
+                 <div class="ic">👷</div>
+                 <p>No tienes estibas asignadas.</p>
+                 <p style="font-size:13px">
+                   Cuando un viñatero publique una carga pidiendo cuadrilla y un
+                   transportista la tome, si te toca a ti aparecerá acá.
+                 </p>
+               </div>`
+            : `<div class="grid" style="margin-top:12px">${pendientes.map(tarjeta).join('')}</div>`}
+
+          ${hechas.length ? `
+            <div class="section">
+              <div class="section-title">Estibas completadas</div>
+              <div class="section-sub">${hechas.length} trabajo(s)</div>
+            </div>
+            <div class="grid" style="margin-top:12px">
+              ${hechas.map(e => `
+                <div class="card list-item">
+                  <div class="li-ic" style="background:rgba(46,125,50,.13);color:var(--primary)">✅</div>
+                  <div class="li-body">
+                    <div class="li-title">${Shell.escape(e.origenComuna)} → ${Shell.escape(e.destinoNombre)}</div>
+                    <div class="li-sub">${e.volumenRecibido ?? e.volumenDeclarado} m³ cargados</div>
+                  </div>
+                </div>`).join('')}
+            </div>` : ''}
+
+          <div class="section">
+            <div class="section-title">Tu disponibilidad</div>
+            <div class="section-sub">Apágala si no estás tomando trabajos</div>
+            <div class="card pad" style="margin-top:12px">
+              <div class="list-item" style="padding:0">
+                <div class="li-ic">${u.disponible !== false ? '🟢' : '⚪'}</div>
+                <div class="li-body">
+                  <div class="li-title">${u.disponible !== false ? 'Disponible' : 'No disponible'}</div>
+                  <div class="li-sub" id="disp-sub">
+                    ${u.disponible !== false
+                      ? 'Se te pueden asignar cargas nuevas'
+                      : 'No se te asignarán cargas'}
+                  </div>
+                </div>
+                <input type="checkbox" id="disponible" class="toggle"
+                       ${u.disponible !== false ? 'checked' : ''}>
+              </div>
+            </div>
+          </div>`;
+
+        conectar();
+      }
+
+      /* Un trabajo de estiba. Lo que necesita saber quien carga: dónde es,
+         cuánto hay que subir y a quién llamar si no encuentra el portón. */
+      function tarjeta(envio) {
+        const est = estadoEnvio(Shell.calcularSeguimiento(envio).estado);
+        const volumen = (Number(envio.volumenDeclarado) || 0)
+          + (envio.paradas || []).reduce((t, p) => t + (Number(p.volumen) || 0), 0);
+        return `
+          <div class="card pad" style="border-left:4px solid ${est.color}">
+            <div class="list-item" style="padding:0">
+              <div class="li-ic" style="background:${est.color}22;color:${est.color}">👷</div>
+              <div class="li-body">
+                <div class="li-title">${Shell.escape(envio.origenComuna)}</div>
+                <div class="li-sub">${volumen} m³ para subir · hacia ${Shell.escape(envio.destinoNombre)}</div>
+                <div class="li-sub">🚚 Transportista: ${Shell.escape(envio.chofer || 'por asignar')}</div>
+              </div>
+              ${Shell.badge(est.label, est.color)}
+            </div>
+            <div class="field-row" style="margin-top:14px">
+              <button class="btn ghost" style="flex:1" data-llamar="${Shell.escape(envio.id)}">📞 Contactar</button>
+              <button class="btn" style="flex:1" data-ver="${Shell.escape(envio.id)}">Ver retiro</button>
+            </div>
+          </div>`;
+      }
+
+      function conectar() {
+        c.querySelectorAll('[data-ver]').forEach(b => {
+          b.onclick = () => {
+            location.href = 'seguimiento.html?id=' + encodeURIComponent(b.dataset.ver);
+          };
+        });
+
+        c.querySelectorAll('[data-llamar]').forEach(b => {
+          b.onclick = () => {
+            const e = Store.envioPorId(b.dataset.llamar);
+            if (!e) return;
+            const vinatero = Store.accountByEmail(e.vinateroEmail);
+            Shell.contactar(
+              vinatero ? vinatero.nombre : 'Productor',
+              `${e.origenComuna} · ${e.volumenDeclarado} m³`,
+              { tel: vinatero ? vinatero.telefono : '', email: e.vinateroEmail, ic: '🍇' });
+          };
+        });
+
+        const disp = $('disponible');
+        if (disp) {
+          disp.onchange = async () => {
+            await Store.updateAccount({ disponible: disp.checked });
+            Shell.toast(disp.checked ? 'Disponible' : 'No disponible');
+            render();
+          };
+        }
+      }
+
+      $('btn-refrescar').onclick = async () => {
+        await Store.sincronizar({ forzar: true });
+        render();
+        Shell.toast('Actualizado');
+      };
+
+      Shell.pedirPermisoNotificaciones();
+      render();
+
+      /* Los trabajos nuevos entran solos: a un cargador le asignan la
+         estiba cuando el transportista toma la carga, y hasta entonces no
+         hay nada que mirar. */
+      let vistos = new Set(Store.misEstibas().map(e => e.id));
+      Shell.enVivo(['envios'], () => {
+        const nuevos = Store.misEstibas().filter(e => !vistos.has(e.id));
+        nuevos.forEach(e => {
+          Shell.notificar('👷 Te asignaron una estiba',
+            `${e.origenComuna} · ${e.volumenDeclarado} m³`);
+        });
+        Store.misEstibas().forEach(e => vistos.add(e.id));
+        render();
+      });
+
+      Ficha.montarAporte(document.getElementById('aporte-inicio'));
+    });
+  </script>
+</body>
+</html>

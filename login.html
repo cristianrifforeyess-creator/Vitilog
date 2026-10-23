@@ -41,6 +41,11 @@
             <span class="texto"><b>Soy transportista</b><span>Retiro y traslado las cargas</span></span>
             <span class="marca" aria-hidden="true">○</span>
           </button>
+          <button type="button" class="rol-opcion" data-rol="cargador" role="radio" aria-checked="false">
+            <span class="ic" aria-hidden="true">👷</span>
+            <span class="texto"><b>Soy cargador</b><span>Subo la carga al camión</span></span>
+            <span class="marca" aria-hidden="true">○</span>
+          </button>
           <button type="button" class="rol-opcion" data-rol="empresa" role="radio" aria-checked="false">
             <span class="ic" aria-hidden="true">🏭</span>
             <span class="texto"><b>Soy planta receptora</b><span>Biomasa o compostaje</span></span>
@@ -89,6 +94,18 @@
             <label for="capacidad">Capacidad de carga (m³)</label>
             <input class="input" id="capacidad" name="capacidad" type="number" min="1"
                    inputmode="numeric" placeholder="Ej: 20">
+          </div>
+
+          <!-- Solo para el cargador -->
+          <div class="field" id="f-cuadrilla-reg" style="display:none">
+            <label for="cuadrilla">Nombre de tu tropa (opcional)</label>
+            <input class="input" id="cuadrilla" placeholder="Déjalo vacío si trabajas solo">
+            <label for="personas" style="margin-top:10px">Cuántos son</label>
+            <input class="input" id="personas" type="number" min="1" max="20"
+                   inputmode="numeric" placeholder="Ej: 4">
+            <div class="section-sub" style="margin-top:6px">
+              Si trabajas solo, no completes nada de esto.
+            </div>
           </div>
 
           <div class="field" id="f-comuna" style="display:none">
@@ -174,6 +191,13 @@
         subLogin: 'Entra para ver los servicios disponibles',
         subRegistro: 'Crea tu cuenta de transportista',
       },
+      [Store.ROL_CARGADOR]: {
+        titulo: 'Tu oficio es la estiba, y acá se paga por ella.',
+        texto: 'Sin camión ni papeleo: te avisamos cuándo y dónde hay que cargar sarmientos, solo o con tu tropa.',
+        pills: ['Trabajos cerca', 'Solo o con tropa', 'Tú decides cuándo'],
+        subLogin: 'Entra para ver tus estibas',
+        subRegistro: 'Crea tu cuenta de cargador',
+      },
       [Store.ROL_ADMIN]: {
         titulo: 'Administración de la plataforma AgroConecta.',
         texto: 'Gestiona las cuentas, revisa las cargas publicadas y mantiene el catálogo de plantas y centros de acopio.',
@@ -211,6 +235,7 @@
     function render() {
       const esEmpresa = rol === Store.ROL_EMPRESA;
       const esChofer = rol === Store.ROL_CHOFER;
+      const esCargador = rol === Store.ROL_CARGADOR;
       const esAdmin = rol === Store.ROL_ADMIN;
       if (esAdmin) isLogin = true;          // la administración no se registra
       const copy = COPY[rol];
@@ -241,15 +266,19 @@
       $('f-comuna').style.display = isLogin ? 'none' : 'block';
       $('f-tipo').style.display = (!isLogin && esEmpresa) ? 'block' : 'none';
       $('f-encargado').style.display = (!isLogin && esEmpresa) ? 'block' : 'none';
-      ['f-telefono', 'f-patente', 'f-capacidad'].forEach(i =>
+      ['f-patente', 'f-capacidad'].forEach(i =>
         $(i).style.display = (!isLogin && esChofer) ? 'block' : 'none');
+      // El teléfono se le pide también al cargador: sin él no lo ubican.
+      $('f-telefono').style.display = (!isLogin && (esChofer || esCargador)) ? 'block' : 'none';
+      $('f-cuadrilla-reg').style.display = (!isLogin && esCargador) ? 'block' : 'none';
       $('caja-recordar').style.display = isLogin ? 'flex' : 'none';
 
       $('l-nombre').textContent = esEmpresa ? 'Nombre de la empresa' : 'Nombre';
       $('nombre').placeholder = esEmpresa ? 'Ej: BioEnergía Maule'
-        : esChofer ? 'Tu nombre y apellido' : 'Tu nombre';
+        : (esChofer || esCargador) ? 'Tu nombre y apellido' : 'Tu nombre';
       $('l-comuna').textContent = esEmpresa ? 'Comuna de la planta o base'
-        : esChofer ? 'Comuna donde tienes tu base' : 'Comuna';
+        : esChofer ? 'Comuna donde tienes tu base'
+        : esCargador ? 'Comuna donde trabajas' : 'Comuna';
       $('comuna').options[0].textContent = (esEmpresa || esChofer)
         ? 'Selecciona la comuna de tu base' : 'Selecciona tu comuna';
       $('email').placeholder = esAdmin ? 'admin@vitilog.cl'
@@ -328,7 +357,8 @@
             boton.disabled = false; boton.textContent = textoOriginal;
             return mostrarError(error, 'comuna');
           }
-          if (rol === Store.ROL_CHOFER && !$('telefono').value.trim()) {
+          if ((rol === Store.ROL_CHOFER || rol === Store.ROL_CARGADOR)
+              && !$('telefono').value.trim()) {
             boton.disabled = false; boton.textContent = textoOriginal;
             return mostrarError('Escribe tu teléfono: el productor lo necesita para contactarte.', 'telefono');
           }
@@ -340,10 +370,17 @@
             telefono: $('telefono').value,
             patente: $('patente').value,
             capacidad: $('capacidad').value,
+            cuadrilla: $('cuadrilla').value,
+            personas: $('personas').value,
           });
         }
       } catch (err) {
-        error = 'No se pudo completar la operación: ' + err.message;
+        /* La base rechaza un rol que todavía no conoce. Pasa cuando el
+           esquema está desactualizado, y el mensaje crudo de Postgres no
+           le dice nada a quien solo quiere registrarse. */
+        error = String(err.message || '').includes('cuentas_rol_check')
+          ? 'Ese perfil aún no está habilitado en la base de datos. Avisa a la administración de AgroConecta.'
+          : 'No se pudo completar la operación: ' + err.message;
       } finally {
         boton.disabled = false;
         boton.textContent = textoOriginal;

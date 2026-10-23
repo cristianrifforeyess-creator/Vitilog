@@ -62,6 +62,7 @@
           : 'Elige tu comuna en Ajustes';
 
         c.innerHTML = `
+          ${Shell.avisoPerfil()}
           ${activo ? tarjetaActivo(activo) : ''}
 
           ${asignados.length ? `

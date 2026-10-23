@@ -24,6 +24,10 @@ const Store = {
   ROL_VINATERO: 'vinatero',
   ROL_EMPRESA: 'empresa',
   ROL_CHOFER: 'chofer',
+  /* El que solo carga: no tiene camion ni transporta, su oficio es subir
+     el sarmiento al camion. Antes solo existia pegado al transportista, y
+     dejaba fuera a quien se dedica unicamente a esto. */
+  ROL_CARGADOR: 'cargador',
   ROL_ADMIN: 'admin',
 
   /* Datos en memoria. Los llena sincronizar() al abrir cada página. */
@@ -396,6 +400,7 @@ const Store = {
     if (!acc) return this.ROL_VINATERO;
     if (acc.rol === this.ROL_EMPRESA) return this.ROL_EMPRESA;
     if (acc.rol === this.ROL_CHOFER) return this.ROL_CHOFER;
+    if (acc.rol === this.ROL_CARGADOR) return this.ROL_CARGADOR;
     if (acc.rol === this.ROL_ADMIN) return this.ROL_ADMIN;
     return this.ROL_VINATERO;
   },
@@ -409,6 +414,7 @@ const Store = {
   nombreRol(rol) {
     if (rol === this.ROL_EMPRESA) return 'Planta receptora';
     if (rol === this.ROL_CHOFER) return 'Transportista';
+    if (rol === this.ROL_CARGADOR) return 'Cargador';
     if (rol === this.ROL_ADMIN) return 'Administración';
     return 'Viñatero';
   },
@@ -483,9 +489,32 @@ const Store = {
     return null;
   },
 
+  /* Cuenta de cargador. No se le piden datos de vehiculo porque no tiene:
+     lo suyo es la estiba, solo o con tropa. */
+  async registerCargador({ nombre, email, password, comuna, telefono, cuadrilla, personas }) {
+    email = (email || '').trim();
+    if (this.accountByEmail(email)) return 'Ya existe una cuenta con ese correo';
+    const { hash, sal } = await this._cifrar(password);
+    const conTropa = !!(cuadrilla || '').trim();
+    await this.upsertAccount({
+      rol: this.ROL_CARGADOR,
+      nombre: (nombre || '').trim() || 'Cargador',
+      email, clave_hash: hash, clave_sal: sal,
+      comuna: (comuna || '').trim() || 'Región del Maule',
+      telefono: (telefono || '').trim(),
+      estiba: conTropa ? 'cuadrilla' : 'propio',
+      cuadrilla_nombre: (cuadrilla || '').trim(),
+      cuadrilla_personas: conTropa ? (Number(personas) || 2) : 1,
+      disponible: true, activa: true,
+    });
+    this.setSession(email);
+    return null;
+  },
+
   register(datos) {
     if (datos.rol === this.ROL_EMPRESA) return this.registerEmpresa(datos);
     if (datos.rol === this.ROL_CHOFER) return this.registerChofer(datos);
+    if (datos.rol === this.ROL_CARGADOR) return this.registerCargador(datos);
     return this.registerVinatero(datos);
   },
 
@@ -593,6 +622,49 @@ const Store = {
       this.rolDe(a) === this.ROL_CHOFER && a.activa !== false && a.disponible !== false);
   },
 
+  /* Que le falta por declarar a esta cuenta.
+
+     No se obliga a nada al registrarse —pedir diez datos de entrada
+     espanta a cualquiera— pero despues conviene recordarlo: un
+     transportista sin vehiculo declarado no aparece en los filtros de
+     compatibilidad, y uno sin telefono no puede ser contactado.
+
+     Devuelve una lista de { campo, por que } para poder explicar el
+     motivo y no solo pedir el dato. */
+  perfilIncompleto(cuenta) {
+    const u = cuenta || this.currentUser();
+    if (!u) return [];
+    const rol = this.rolDe(u);
+    const falta = [];
+
+    const hay = v => v != null && String(v).trim() !== '' && String(v) !== '0';
+
+    if (!hay(u.telefono)) {
+      falta.push({ campo: 'Teléfono', porque: 'sin él nadie puede llamarte para coordinar' });
+    }
+    if (!hay(u.comuna)) {
+      falta.push({ campo: 'Comuna', porque: 'se usa para calcular distancias y ordenar las cargas' });
+    }
+
+    if (rol === this.ROL_CHOFER) {
+      if (!hay(u.patente)) {
+        falta.push({ campo: 'Patente', porque: 'el viñatero la ve para reconocer tu camión' });
+      }
+      if (!hay(u.capacidad)) {
+        falta.push({ campo: 'Capacidad de carga', porque: 'sin ella no se puede sumar paradas a tu viaje' });
+      }
+      if (!hay(u.vehiculo)) {
+        falta.push({ campo: 'Tipo de vehículo', porque: 'define a qué campos puedes entrar' });
+      }
+    }
+
+    if (rol === this.ROL_CARGADOR && u.estiba === 'cuadrilla' && !hay(u.cuadrilla_personas)) {
+      falta.push({ campo: 'Cuántos son en tu tropa', porque: 'se asignan primero los equipos más grandes' });
+    }
+
+    return falta;
+  },
+
   /* =====================================================================
      Estiba: quien sube la carga, y que camion puede entrar
      ===================================================================== */
@@ -600,11 +672,21 @@ const Store = {
      Si se pasa una carga, se ordenan dejando primero a los que trabajan
      para la misma planta de destino. */
   cuadrillasDisponibles() {
-    return this._cache.cuentas.filter(a =>
-      this.rolDe(a) === this.ROL_CHOFER
-      && a.activa !== false
-      && a.disponible !== false
-      && (a.estiba === 'propio' || a.estiba === 'cuadrilla'));
+    return this._cache.cuentas.filter(a => {
+      const rol = this.rolDe(a);
+      if (rol !== this.ROL_CHOFER && rol !== this.ROL_CARGADOR) return false;
+      if (a.activa === false || a.disponible === false) return false;
+      return a.estiba === 'propio' || a.estiba === 'cuadrilla';
+    });
+  },
+
+  /* Los trabajos de estiba asignados a esta cuenta. Es lo que ve el
+     cargador en su panel. */
+  misEstibas() {
+    const correo = this.currentEmail();
+    return this._cache.envios
+      .filter(e => e.cuadrillaEmail === correo)
+      .sort((a, b) => (b.creado || '').localeCompare(a.creado || ''));
   },
 
   /* Cuantas personas pone esa cuenta para cargar. */
