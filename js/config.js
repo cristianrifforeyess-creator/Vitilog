@@ -122,7 +122,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
    se normaliza solo. Si queda vacío y la administración tampoco tiene
    teléfono, el botón de ayuda no aparece. */
 
-const SOPORTE_TELEFONO = '';
+const SOPORTE_TELEFONO = '+56 9 2196 5307';
 
 /* Origen de los datos:
      'auto'  -> usa la base compartida si está configurada; si no, la local.
