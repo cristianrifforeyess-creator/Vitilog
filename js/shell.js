@@ -533,6 +533,7 @@ const Shell = {
      para que el viñatero sepa con quién está tratando. */
   etiquetaModalidad(cuenta) {
     if (!cuenta) return '';
+    if (cuenta.modalidad === 'cargador') return 'Cargador individual';
     if (cuenta.modalidad === 'empresa') {
       const nombre = (cuenta.empresa_nombre || '').trim();
       return nombre ? 'Conduce para ' + nombre : 'Parte de una empresa de transporte';

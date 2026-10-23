@@ -495,7 +495,7 @@ const Store = {
     if (!await this._claveCoincide(acc, password)) return 'Contraseña incorrecta';
     if (acc.activa === false) return 'Esta cuenta está suspendida. Contacta a la administración.';
     if (rol && this.rolDe(acc) !== rol) {
-      const suyo = this.nombreRol(this.rolDe(acc));
+      const suyo = this.etiquetaCuenta(acc);
       return `Ese correo está registrado como ${suyo}. Usa la pestaña correspondiente.`;
     }
     this.setSession(acc.email);
@@ -649,15 +649,10 @@ const Store = {
   /* =====================================================================
      Estiba: quien sube la carga, y que camion puede entrar
      ===================================================================== */
-  /* Transportistas que ademas ofrecen estiba: ellos mismos o con equipo.
-     Si se pasa una carga, se ordenan dejando primero a los que trabajan
-     para la misma planta de destino. */
+  /* Quien puede hacer la estiba. Son siempre cargadores individuales:
+     el transportista conduce y no carga. */
   cuadrillasDisponibles() {
-    return this._cache.cuentas.filter(a =>
-      this.rolDe(a) === this.ROL_CHOFER
-      && a.activa !== false
-      && a.disponible !== false
-      && (a.estiba === 'propio' || a.estiba === 'cuadrilla'));
+    return this.cargadoresIndividuales();
   },
 
   /* Los trabajos de estiba asignados a esta cuenta, para que el
@@ -673,8 +668,7 @@ const Store = {
   personasDeEstiba(cuenta) {
     if (!cuenta) return 0;
     if (cuenta.estiba === 'cuadrilla') return Number(cuenta.cuadrilla_personas) || 2;
-    if (cuenta.estiba === 'propio') return 1;
-    return 0;
+    return 1;
   },
 
   /* Como se llama la estiba de esa cuenta, para mostrarla. */
@@ -683,8 +677,7 @@ const Store = {
     if (cuenta.estiba === 'cuadrilla') {
       return (cuenta.cuadrilla_nombre || '').trim() || ('Tropa de ' + cuenta.nombre);
     }
-    if (cuenta.estiba === 'propio') return cuenta.nombre;
-    return '';
+    return cuenta.nombre;
   },
 
   /* El transportista toma una carga que pide cuadrilla: si el ofrece
@@ -696,17 +689,13 @@ const Store = {
   asignarCuadrilla(carga, chofer) {
     if (!carga || carga.manoObra !== 'solicita') return null;
 
-    // Primero el propio transportista: ya va al campo de todas formas.
-    if (chofer && (chofer.estiba === 'propio' || chofer.estiba === 'cuadrilla')) {
-      return { email: chofer.email, nombre: this.nombreDeEstiba(chofer), propia: true };
-    }
-
-    // Si no, alguien de la red, empezando por el equipo mas grande.
-    const otras = this.cuadrillasDisponibles()
-      .filter(a => !chofer || a.email !== chofer.email)
+    /* La cuadrilla sale siempre de los cargadores individuales. El
+       transportista no entra en el reparto: conducir y cargar son
+       oficios distintos y nadie hace los dos en el mismo viaje. */
+    const libres = this.cargadoresIndividuales()
       .sort((a, b) => this.personasDeEstiba(b) - this.personasDeEstiba(a));
-    if (!otras.length) return null;
-    return { email: otras[0].email, nombre: this.nombreDeEstiba(otras[0]), propia: false };
+    if (!libres.length) return null;
+    return { email: libres[0].email, nombre: this.nombreDeEstiba(libres[0]), propia: false };
   },
 
   /* Que vehiculos pueden entrar a ese campo y llevarse esa carga.
@@ -742,6 +731,14 @@ const Store = {
   cargadoresIndividuales() {
     return this._cache.cuentas.filter(a =>
       this.esSoloCargador(a) && a.activa !== false && a.disponible !== false);
+  },
+
+  /* Como se llama esta cuenta en pantalla. Hace falta porque el cargador
+     individual se registra como transportista pero no lo es: mostrarle
+     "Transportista" seria confundirlo con quien conduce. */
+  etiquetaCuenta(cuenta) {
+    if (this.esSoloCargador(cuenta)) return 'Cargador';
+    return this.nombreRol(this.rolDe(cuenta));
   },
 
   /* La administracion deriva a un cargador a un retiro concreto: le da la

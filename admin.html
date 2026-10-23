@@ -268,7 +268,10 @@
           <div class="grid" style="margin-top:12px">
             ${lista.map(a => {
               const rol = Store.rolDe(a);
-              const ic = rol === Store.ROL_ADMIN ? '🛠️' : rol === Store.ROL_EMPRESA ? '🏭' : '🍇';
+              const ic = rol === Store.ROL_ADMIN ? '🛠️'
+                : rol === Store.ROL_EMPRESA ? '🏭'
+                : Store.esSoloCargador(a) ? '💪'
+                : rol === Store.ROL_CHOFER ? '🚚' : '🍇';
               const suspendida = a.activa === false;
               const esYo = a.email === Store.currentEmail();
               return `
@@ -276,7 +279,7 @@
                   <div class="li-ic" style="background:var(--surface-alt)">${ic}</div>
                   <div class="li-body">
                     <div class="li-title">${Shell.escape(a.nombre)} ${esYo ? '<span class="li-sub">(tu cuenta)</span>' : ''}</div>
-                    <div class="li-sub">${Shell.escape(a.email)} · ${Store.nombreRol(rol)}${a.comuna ? ' · ' + Shell.escape(a.comuna) : ''}</div>
+                    <div class="li-sub">${Shell.escape(a.email)} · ${Store.etiquetaCuenta(a)}${a.comuna ? ' · ' + Shell.escape(a.comuna) : ''}</div>
                     ${rol === Store.ROL_CHOFER
                       ? `<div class="li-sub">${Shell.escape(Shell.etiquetaModalidad(a))}</div>` : ''}
                     <div class="li-sub">${historialCuenta(a)}</div>

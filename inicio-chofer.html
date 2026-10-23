@@ -60,7 +60,8 @@
         /* Versión corta de la modalidad para el encabezado. Se cambia en
            Ajustes, dentro del propio perfil. */
         const quien = (u.modalidad === 'empresa' && (u.empresa_nombre || '').trim())
-          ? u.empresa_nombre.trim() : 'Independiente';
+          ? u.empresa_nombre.trim()
+          : u.modalidad === 'cargador' ? 'Cargador individual' : 'Independiente';
         $('tb-sub').textContent = base
           ? `${quien} · Base en ${base.comuna}${u.patente ? ' · ' + u.patente : ''}`
           : 'Elige tu comuna en Ajustes';

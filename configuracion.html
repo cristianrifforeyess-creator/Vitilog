@@ -57,12 +57,12 @@
           </div>
 
           <div class="field" id="f-estiba" style="display:none">
-            <label id="l-estiba">Servicio de estiba (opcional)</label>
+            <label id="l-estiba">¿Cargas solo o con tropa?</label>
             <div class="rol-opciones" id="estibas" role="radiogroup"
                  aria-labelledby="l-estiba" style="margin-bottom:8px"></div>
             <div class="section-sub">
-              Declararlo te suma trabajo: la administración te deriva las viñas
-              que piden cargadores, aparte de tus viajes.
+              La administración de AgroConecta te deriva a las viñas que piden
+              cargadores, con la ruta y el transportista al que asistes.
             </div>
             <div id="f-cuadrilla" style="display:none;margin-top:12px">
               <label for="cuadrilla-nombre">Nombre de tu tropa</label>
@@ -197,6 +197,7 @@
       // Campos del transportista
       ['f-modalidad', 'f-patente', 'f-capacidad', 'f-vehiculo', 'f-estiba', 'f-disponible']
         .forEach(i => $(i).style.display = esChofer ? 'block' : 'none');
+      // f-estiba se recoloca en aplicarModalidad: solo lo ve el cargador.
       if (esChofer) {
         $('f-vinatero').style.display = 'none';
         $('patente').value = u.patente || '';
@@ -262,11 +263,7 @@
 
       /* Estiba: opcional, y con equipo propio si corresponde. */
       function pintarEstibas() {
-        /* "Solo conduzco" no se le ofrece a quien vino justamente a cargar. */
-        const opciones = modalidad === 'cargador'
-          ? DATA.estibaChofer.filter(e => e.id !== 'no')
-          : DATA.estibaChofer;
-        $('estibas').innerHTML = opciones.map(e => `
+        $('estibas').innerHTML = DATA.estibaChofer.map(e => `
           <button type="button" class="rol-opcion ${e.id === estiba ? 'activa' : ''}"
                   data-e="${e.id}" role="radio" aria-checked="${e.id === estiba}">
             <span class="ic" aria-hidden="true">${e.ic}</span>
@@ -300,13 +297,15 @@
         const soloCarga = modalidad === 'cargador';
         ['f-patente', 'f-capacidad', 'f-vehiculo'].forEach(i =>
           $(i).style.display = soloCarga ? 'none' : 'block');
+
+        /* La estiba solo se le pregunta al cargador individual. Un
+           transportista no declara estiba: o conduce, o carga. */
+        $('f-estiba').style.display = soloCarga ? 'block' : 'none';
         if (soloCarga) {
           $('f-empresa-nombre').style.display = 'none';
-          if (estiba === 'no') estiba = 'propio';
+          if (estiba !== 'cuadrilla') estiba = 'propio';
+          pintarEstibas();
         }
-        $('l-estiba').textContent = soloCarga
-          ? '¿Cargas solo o con tropa?' : 'Servicio de estiba (opcional)';
-        pintarEstibas();
       }
 
       if (esEmpresa) {
@@ -423,10 +422,11 @@
           const soloCarga = modalidad === 'cargador';
           cambios.vehiculo = soloCarga ? '' : vehiculo;
           if (soloCarga) { cambios.patente = ''; cambios.capacidad = 0; }
-          cambios.estiba = estiba;
-          cambios.cuadrilla_nombre = estiba === 'cuadrilla'
+          // Solo el cargador individual tiene estiba; el resto, ninguna.
+          cambios.estiba = soloCarga ? estiba : 'no';
+          cambios.cuadrilla_nombre = (soloCarga && estiba === 'cuadrilla')
             ? $('cuadrilla-nombre').value.trim() : '';
-          cambios.cuadrilla_personas = estiba === 'cuadrilla'
+          cambios.cuadrilla_personas = (soloCarga && estiba === 'cuadrilla')
             ? (parseInt($('cuadrilla-personas').value, 10) || 2) : 0;
           cambios.modalidad = modalidad;
           cambios.empresa_email = modalidad === 'empresa' ? empresaEmail : '';

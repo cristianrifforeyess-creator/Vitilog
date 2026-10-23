@@ -134,13 +134,12 @@ const DATA = {
       capacidadTipica: 14, accesos: ['normal', 'estrecho', 'dificil'] },
   ],
 
-  /* El transportista puede además ofrecer estiba, por su cuenta o con
-     equipo. Es opcional: conducir y cargar son oficios distintos. */
+  /* Como trabaja un cargador individual. Solo aplica a esa modalidad:
+     conducir y cargar son oficios distintos y nadie hace los dos a la
+     vez, asi que un transportista no declara estiba. */
   estibaChofer: [
-    { id: 'no', label: 'Solo conduzco', ic: '🚚',
-      desc: 'No hago carga ni descarga' },
-    { id: 'propio', label: 'Cargador individual', ic: '💪',
-      desc: 'Además de conducir, yo subo la carga' },
+    { id: 'propio', label: 'Trabajo solo', ic: '💪',
+      desc: 'Cargo por mi cuenta' },
     { id: 'cuadrilla', label: 'Tengo tropa de estiba', ic: '👥',
       desc: 'Llevo mi propio equipo de cargadores' },
   ],

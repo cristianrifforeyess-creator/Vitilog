@@ -84,9 +84,9 @@
               </div>`;
           }).join('');
 
-      /* Quienes ofrecen estiba. No es la flota: un transportista puede
-         cargar para esta planta sin estar vinculado a ella. La
-         administración los deriva al programar un retiro. */
+      /* Cargadores individuales: no conducen ni pertenecen a ninguna
+         empresa. La planta los ve para saber con qué cuenta, pero quien
+         los deriva a un retiro es la administración. */
       const estibas = Store.cuadrillasDisponibles()
         .sort((a, b) => Store.personasDeEstiba(b) - Store.personasDeEstiba(a));
       const personasTotales = estibas.reduce((t, e) => t + Store.personasDeEstiba(e), 0);
@@ -94,11 +94,11 @@
       const estibasHtml = estibas.length === 0
         ? `<div class="empty">
              <div class="ic">👷</div>
-             <p>Ningún transportista ofrece cargadores.</p>
+             <p>No hay cargadores individuales disponibles.</p>
              <p style="font-size:13px">
-               Cada uno lo activa en su perfil, en Ajustes → Servicio de estiba.
-               Mientras tanto, las viñas que pidan cargadores tendrán que resolverlo
-               con el transportista que tome el retiro.
+               Se registran como transportista y eligen la modalidad
+               <b>Cargador individual</b>. Mientras tanto, las viñas que pidan
+               cargadores tendrán que resolverlo por su cuenta.
              </p>
            </div>`
         : estibas.map(e => {
@@ -184,11 +184,11 @@
         </div>
 
         <div class="section">
-          <div class="section-title">Servicio de estiba</div>
+          <div class="section-title">Cargadores disponibles</div>
           <div class="section-sub">
             ${estibas.length
-              ? estibas.length + ' transportista(s) ofrecen cargadores · ' + personasTotales + ' persona(s) en total'
-              : 'Nadie ofrece el servicio ahora mismo'}
+              ? estibas.length + ' cargador(es) individuales · ' + personasTotales + ' persona(s) en total'
+              : 'Ningún cargador individual disponible ahora mismo'}
           </div>
           <div class="grid" style="margin-top:12px">${estibasHtml}</div>
         </div>
