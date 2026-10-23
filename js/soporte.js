@@ -128,10 +128,10 @@ const Soporte = {
     Shell.openModal(`
       <div class="handle"></div>
       <div style="display:flex;align-items:center;gap:12px">
-        <div class="li-ic" style="background:rgba(229,57,53,.12);color:var(--danger)">🆘</div>
+        <div class="li-ic" style="background:rgba(46,125,50,.12);color:var(--primary)">🎧</div>
         <div style="flex:1">
-          <b style="font-size:17px">Reportar un problema</b>
-          <div class="li-sub">Te contactamos de inmediato</div>
+          <b style="font-size:17px">Servicio al cliente</b>
+          <div class="li-sub">Cuéntanos qué pasa y te respondemos de inmediato</div>
         </div>
       </div>
 
@@ -201,9 +201,10 @@ const Soporte = {
       b.id = 'fab-soporte';
       b.className = 'fab-soporte';
       b.type = 'button';
-      b.title = 'Reportar un problema';
-      b.setAttribute('aria-label', 'Reportar un problema');
-      b.innerHTML = '<span aria-hidden="true">🆘</span><span class="fab-texto">Ayuda</span>';
+      b.title = 'Servicio al cliente';
+      b.setAttribute('aria-label', 'Servicio al cliente');
+      b.innerHTML = '<span aria-hidden="true">🎧</span>'
+        + '<span class="fab-texto">Servicio al cliente</span>';
       b.onclick = () => this.abrir();
       document.body.appendChild(b);
     }
@@ -213,9 +214,9 @@ const Soporte = {
     if (acciones && !acciones.querySelector('[data-soporte]')) {
       const b = document.createElement('button');
       b.dataset.soporte = '1';
-      b.title = 'Reportar un problema';
-      b.setAttribute('aria-label', 'Reportar un problema');
-      b.textContent = '🆘';
+      b.title = 'Servicio al cliente';
+      b.setAttribute('aria-label', 'Servicio al cliente');
+      b.textContent = '🎧';
       b.onclick = () => this.abrir();
       acciones.insertBefore(b, acciones.firstChild);
     }

@@ -771,25 +771,36 @@ html[data-theme="dark"] .ficha-ruta {
    Pensado para usarse en terreno: grande, siempre a la vista y donde cae
    el pulgar. En el telefono se sube por encima del menu inferior, que si
    no lo taparia. */
+/* Discreto a proposito. Antes era rojo y decia SOS: parecia una
+   emergencia y competia con el contenido en todas las pantallas. Esto
+   es atencion al cliente, no un boton de panico, asi que se queda
+   quieto hasta que alguien lo necesita. */
 .fab-soporte {
-  position: fixed; right: 20px; bottom: 24px; z-index: 60;
-  display: flex; align-items: center; gap: 9px;
-  min-height: 54px; padding: 0 20px; border: none; border-radius: 27px;
-  background: var(--danger); color: #fff;
-  font-size: 15.5px; font-weight: 700; font-family: inherit;
-  box-shadow: 0 8px 22px rgba(229, 57, 53, .4);
-  cursor: pointer; transition: transform .12s, box-shadow .18s;
+  position: fixed; right: 20px; bottom: 22px; z-index: 60;
+  display: flex; align-items: center; gap: 8px;
+  min-height: 42px; padding: 0 15px; border-radius: 21px;
+  background: var(--surface); color: var(--text-secondary);
+  border: 1px solid var(--border);
+  font-size: 13px; font-weight: 600; font-family: inherit;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .10);
+  opacity: .82;
+  cursor: pointer; transition: opacity .18s, box-shadow .18s, color .18s;
 }
-.fab-soporte:hover { box-shadow: 0 12px 28px rgba(229, 57, 53, .5); }
-.fab-soporte:active { transform: scale(.96); }
-.fab-soporte span[aria-hidden] { font-size: 21px; line-height: 1; }
+.fab-soporte:hover {
+  opacity: 1; color: var(--primary-dark);
+  border-color: var(--primary-light);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .14);
+}
+html[data-theme="dark"] .fab-soporte:hover { color: var(--primary-light); }
+.fab-soporte:active { opacity: 1; }
+.fab-soporte span[aria-hidden] { font-size: 16px; line-height: 1; }
 
 /* En pantalla angosta queda solo el icono: el texto se come el ancho que
    necesita el contenido, y ahi abajo ya esta el menu. */
 @media (max-width: 760px) {
   .fab-soporte {
-    bottom: 80px;   /* por encima del menú inferior */
-    right: 16px; padding: 0; width: 56px; min-height: 56px;
+    bottom: 78px;   /* por encima del menú inferior */
+    right: 14px; padding: 0; width: 42px; min-height: 42px;
     justify-content: center; border-radius: 50%;
   }
   .fab-soporte .fab-texto { display: none; }
