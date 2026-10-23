@@ -158,15 +158,7 @@
          los botones sin reconstruir todo el inicio. */
       const caja = document.getElementById('membresia-vina');
       caja.innerHTML = Finanzas.membresiaHtml(user);
-      caja.querySelectorAll('[data-plan]').forEach(b => {
-        b.onclick = async () => {
-          b.disabled = true;
-          const error = await Store.contratarPlan(b.dataset.plan);
-          if (error) { b.disabled = false; return Shell.toast(error); }
-          Shell.toast('Membresía activada');
-          location.reload();
-        };
-      });
+      Finanzas.conectarMembresia(caja);
 
       Ficha.montarAporte(document.getElementById('aporte-inicio'));
       Ficha.montar(document.getElementById('ficha-inicio'),

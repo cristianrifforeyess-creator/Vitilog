@@ -178,6 +178,9 @@
             lbl: 'En custodia', sub: retenidos.length + ' flete(s) sin liquidar' },
         ];
 
+        const pendientes = Store.solicitudesDePlan();
+        const suscritas = Store.suscripcionesActivas();
+
         const movs = Store.movimientos()
           .slice().sort((a, b) => (b.creado || '').localeCompare(a.creado || ''))
           .slice(0, 25);
@@ -200,6 +203,68 @@
                 <div class="sub">${x.sub}</div>
               </div>`).join('')}
           </div>
+
+          <div class="section">
+            <div class="section-title">Solicitudes de membresía</div>
+            <div class="section-sub">
+              ${pendientes.length
+                ? pendientes.length + ' esperando tu respuesta'
+                : 'Ninguna pendiente'}
+            </div>
+          </div>
+          ${pendientes.length === 0
+            ? `<div class="empty"><div class="ic">📨</div><p>No hay solicitudes pendientes.</p></div>`
+            : `<div class="grid" style="margin-top:12px">
+                ${pendientes.map(c => {
+                  const plan = Finanzas.planesDe(c).find(p => p.id === c.plan);
+                  return `
+                    <div class="card pad">
+                      <div class="list-item" style="padding:0">
+                        <div class="li-ic" style="background:rgba(249,168,37,.15);color:var(--warning)">⏳</div>
+                        <div class="li-body">
+                          <div class="li-title">${Shell.escape(c.nombre)}</div>
+                          <div class="li-sub">${Shell.escape(c.email)} · ${Store.etiquetaCuenta(c)}</div>
+                          <div class="li-sub">
+                            ${plan ? Shell.escape(plan.label) + ' · ' + Finanzas.pesos(plan.precio) : 'Plan desconocido'}
+                            ${c.plan_pedido_at ? ' · pedida el ' + new Date(c.plan_pedido_at).toLocaleDateString('es-CL') : ''}
+                          </div>
+                        </div>
+                      </div>
+                      <div class="field-row" style="margin-top:12px">
+                        <button class="btn ghost" style="flex:1" data-rechazar-plan="${Shell.escape(c.email)}">Rechazar</button>
+                        <button class="btn" style="flex:1" data-aprobar-plan="${Shell.escape(c.email)}">✅ Aprobar</button>
+                      </div>
+                    </div>`;
+                }).join('')}
+              </div>`}
+
+          ${suscritas.length ? `
+            <div class="section">
+              <div class="section-title">Membresías vigentes</div>
+              <div class="section-sub">${suscritas.length} cuenta(s)</div>
+            </div>
+            <div class="grid" style="margin-top:12px">
+              ${suscritas.map(c => {
+                const plan = Finanzas.planesDe(c).find(p => p.id === c.plan);
+                const cancelada = c.plan_estado === 'cancelada';
+                return `
+                  <div class="card list-item">
+                    <div class="li-ic" style="background:${cancelada ? 'var(--surface-alt)' : 'rgba(46,125,50,.13)'}">
+                      ${cancelada ? '⏹' : '✅'}
+                    </div>
+                    <div class="li-body">
+                      <div class="li-title">${Shell.escape(c.nombre)}</div>
+                      <div class="li-sub">
+                        ${plan ? Shell.escape(plan.label) : ''} ·
+                        ${cancelada ? 'no se renueva · ' : ''}${Finanzas.diasRestantes(c)} día(s)
+                      </div>
+                    </div>
+                    ${cancelada ? '' :
+                      `<button class="link-btn" style="color:var(--danger)"
+                               data-cancelar-ajeno="${Shell.escape(c.email)}">Cancelar</button>`}
+                  </div>`;
+              }).join('')}
+            </div>` : ''}
 
           ${retenidos.length ? `
             <div class="section">
@@ -247,6 +312,25 @@
                     </b>
                   </div>`).join('')}
               </div>`}`;
+
+        const panel = document.getElementById('panel');
+        const resolver = async (fn, email, aviso) => {
+          const error = await fn(email);
+          if (error) return Shell.toast(error);
+          Shell.toast(aviso);
+          render();
+        };
+        panel.querySelectorAll('[data-aprobar-plan]').forEach(b => {
+          b.onclick = () => resolver(e => Store.aprobarPlan(e), b.dataset.aprobarPlan, 'Membresía aprobada');
+        });
+        panel.querySelectorAll('[data-rechazar-plan]').forEach(b => {
+          b.onclick = () => resolver(e => Store.rechazarPlan(e), b.dataset.rechazarPlan, 'Solicitud rechazada');
+        });
+        panel.querySelectorAll('[data-cancelar-ajeno]').forEach(b => {
+          b.onclick = () => confirmar('Cancelar membresía',
+            'La cuenta conserva el acceso hasta la fecha ya pagada, pero no se renovará.',
+            () => resolver(e => Store.cancelarPlan(e), b.dataset.cancelarAjeno, 'Membresía cancelada'));
+        });
       }
 
       /* -------- Estiba --------

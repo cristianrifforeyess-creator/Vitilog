@@ -260,6 +260,10 @@ on conflict (id) do nothing;
 -- Suscripcion de la planta receptora y saldo de su billetera.
 alter table cuentas add column if not exists plan text default 'ninguno';
 alter table cuentas add column if not exists plan_hasta timestamptz;
+-- Una membresia no se activa sola: la pide la cuenta y la aprueba la
+-- administracion. ninguno | pendiente | activa | rechazada | cancelada
+alter table cuentas add column if not exists plan_estado text default 'ninguno';
+alter table cuentas add column if not exists plan_pedido_at timestamptz;
 alter table cuentas add column if not exists wallet_saldo numeric not null default 0;
 
 -- Lo acordado por el flete y en que estado esta la custodia.

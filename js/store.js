@@ -174,6 +174,8 @@ const Store = {
       cuadrilla_personas: Number(f.cuadrilla_personas) || 0,
       plan: f.plan || 'ninguno',
       plan_hasta: f.plan_hasta || null,
+      plan_estado: f.plan_estado || 'ninguno',
+      plan_pedido_at: f.plan_pedido_at || null,
       wallet_saldo: Number(f.wallet_saldo) || 0,
       disponible: f.disponible !== false,
       activa: f.activa !== false, creada: f.creada,
@@ -329,7 +331,7 @@ const Store = {
     const esperadas = {
       cuentas: ['modalidad', 'empresa_nombre', 'empresa_email', 'ultimo_acceso',
                 'accesos', 'vehiculo', 'estiba', 'cuadrilla_nombre', 'cuadrilla_personas',
-                'plan', 'wallet_saldo'],
+                'plan', 'plan_estado', 'wallet_saldo'],
       cargas: ['mano_obra', 'acceso'],
       envios: ['paradas', 'cuadrilla_email', 'cuadrilla_nombre', 'validado_por',
                'validado_at', 'tarifa', 'escrow_estado'],
@@ -364,6 +366,8 @@ const Store = {
       cuadrilla_personas: Number(a.cuadrilla_personas) || 0,
       plan: a.plan || 'ninguno',
       plan_hasta: a.plan_hasta || null,
+      plan_estado: a.plan_estado || 'ninguno',
+      plan_pedido_at: a.plan_pedido_at || null,
       wallet_saldo: Number(a.wallet_saldo) || 0,
       disponible: a.disponible !== false,
       activa: a.activa !== false,
@@ -1196,7 +1200,14 @@ const Store = {
   },
 
   /* -------- Membresia de la planta -------- */
-  async contratarPlan(planId) {
+  /* -------- Membresia: se pide, se aprueba, se cancela --------
+
+     Una suscripcion no se activa sola. La cuenta la solicita y la
+     administracion la aprueba, y recien ahi se cobra y empieza a correr
+     el tiempo. Asi nadie queda con un cargo por algo que la plataforma
+     todavia no habilito, y la administracion sabe a quien le dio acceso
+     a la consola industrial. */
+  async solicitarPlan(planId) {
     const u = this.currentUser();
     if (!u) return 'Entra con tu cuenta primero';
     /* El transportista y el cargador no pagan nunca: si alguien llega
@@ -1204,17 +1215,83 @@ const Store = {
     if (!Finanzas.pagaMembresia(u)) return 'Tu perfil no paga membresía';
     const plan = Finanzas.planesDe(u).find(p => p.id === planId);
     if (!plan) return 'Ese plan no existe para tu perfil';
+    if (u.plan_estado === 'pendiente') return 'Ya tienes una solicitud esperando aprobación';
+
+    await this.updateAccount({
+      plan: plan.id,
+      plan_estado: 'pendiente',
+      plan_pedido_at: new Date().toISOString(),
+    });
+    return null;
+  },
+
+  /* Solicitudes esperando respuesta. Lo que ve la administración. */
+  solicitudesDePlan() {
+    return this._cache.cuentas.filter(a => a.plan_estado === 'pendiente');
+  },
+
+  suscripcionesActivas() {
+    return this._cache.cuentas.filter(a =>
+      a.plan_estado === 'activa' || a.plan_estado === 'cancelada');
+  },
+
+  /* La administración aprueba: ahí se cobra y empieza a correr. */
+  async aprobarPlan(email) {
+    const cuenta = this.accountByEmail(email);
+    if (!cuenta) return 'Esa cuenta no existe';
+    if (cuenta.plan_estado !== 'pendiente') return 'Esa solicitud ya fue resuelta';
+    const plan = Finanzas.planesDe(cuenta).find(p => p.id === cuenta.plan);
+    if (!plan) return 'El plan solicitado ya no existe';
 
     // Si renueva antes de vencer, se suma a lo que le queda.
-    const desde = (u.plan_hasta && new Date(u.plan_hasta) > new Date())
-      ? new Date(u.plan_hasta) : new Date();
+    const desde = (cuenta.plan_hasta && new Date(cuenta.plan_hasta) > new Date())
+      ? new Date(cuenta.plan_hasta) : new Date();
     desde.setDate(desde.getDate() + plan.dias);
 
-    await this.updateAccount({ plan: plan.id, plan_hasta: desde.toISOString() });
+    await this.upsertAccount({
+      ...cuenta,
+      plan_estado: 'activa',
+      plan_hasta: desde.toISOString(),
+    });
     await this.addMovimiento({
-      email: u.email, tipo: 'membresia',
+      email: cuenta.email, tipo: 'membresia',
       concepto: `Membresía ${plan.label}`, monto: -plan.precio,
     });
+    return null;
+  },
+
+  async rechazarPlan(email) {
+    const cuenta = this.accountByEmail(email);
+    if (!cuenta) return 'Esa cuenta no existe';
+    if (cuenta.plan_estado !== 'pendiente') return 'Esa solicitud ya fue resuelta';
+    await this.upsertAccount({
+      ...cuenta, plan: 'ninguno', plan_estado: 'rechazada',
+    });
+    return null;
+  },
+
+  /* Cancelar. Lo puede hacer la propia cuenta o la administración.
+
+     No se corta el acceso de golpe: la membresía ya está pagada hasta
+     su fecha, y quitarla antes seria quedarse con el dinero. Lo que se
+     cancela es la renovación. */
+  async cancelarPlan(email) {
+    const yo = this.currentUser();
+    const cuenta = this.accountByEmail(email || (yo && yo.email));
+    if (!cuenta) return 'Esa cuenta no existe';
+
+    const esSuya = yo && cuenta.email === yo.email;
+    if (!esSuya && this.rolActual() !== this.ROL_ADMIN) {
+      return 'Solo la administración puede cancelar membresías ajenas';
+    }
+    if (cuenta.plan_estado === 'pendiente') {
+      // Todavía no se cobró nada: la solicitud simplemente se retira.
+      await this.upsertAccount({ ...cuenta, plan: 'ninguno', plan_estado: 'ninguno' });
+      return null;
+    }
+    if (cuenta.plan_estado !== 'activa') return 'No hay membresía que cancelar';
+
+    await this.upsertAccount({ ...cuenta, plan_estado: 'cancelada' });
     return null;
   },
 

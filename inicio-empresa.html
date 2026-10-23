@@ -226,15 +226,7 @@
           <div class="grid" style="margin-top:12px">${alertasHtml}</div>
         </div>`;
 
-      document.querySelectorAll('[data-plan]').forEach(b => {
-        b.onclick = async () => {
-          b.disabled = true;
-          const error = await Store.contratarPlan(b.dataset.plan);
-          if (error) { b.disabled = false; return Shell.toast(error); }
-          Shell.toast('Membresía activada');
-          location.reload();
-        };
-      });
+      Finanzas.conectarMembresia(document.getElementById('content'));
 
       document.querySelectorAll('[data-llamar-estiba]').forEach(b => {
         b.onclick = () => {

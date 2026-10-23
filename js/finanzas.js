@@ -205,12 +205,22 @@ const Finanzas = {
     return todos.find(p => p.id === u.plan) || null;
   },
 
-  /* ¿Tiene la suscripcion al día? */
+  /* ¿Tiene la suscripcion al día?
+
+     Una cancelada sigue valiendo hasta su fecha: ya esta pagada, y
+     cortarla antes seria quedarse con el dinero. Una pendiente no vale
+     todavia: no se ha aprobado ni cobrado. */
   activa(cuenta) {
     const u = cuenta || Store.currentUser();
-    if (!this.plan(u)) return false;
+    if (!u || !this.plan(u)) return false;
+    if (u.plan_estado !== 'activa' && u.plan_estado !== 'cancelada') return false;
     if (!u.plan_hasta) return false;
     return new Date(u.plan_hasta).getTime() > Date.now();
+  },
+
+  pendiente(cuenta) {
+    const u = cuenta || Store.currentUser();
+    return !!u && u.plan_estado === 'pendiente';
   },
 
   diasRestantes(cuenta) {
@@ -274,19 +284,53 @@ const Finanzas = {
     const activa = this.activa(u);
     const actual = this.plan(u);
 
-    if (activa) {
+    /* Pedida pero todavía sin respuesta. Importa decir que no se ha
+       cobrado nada: nadie debe creer que ya pagó. */
+    if (this.pendiente(u)) {
+      const p = this.plan(u);
       return `
-        <div class="card pad" style="border-left:4px solid var(--primary)">
+        <div class="card pad" style="border-left:4px solid var(--warning)">
+          <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
+            <div>
+              <b>${Shell.escape(p ? p.label : 'Membresía')}</b>
+              <div class="li-sub">Esperando aprobación de la administración</div>
+            </div>
+            ${Shell.badge('Pendiente', '#F9A825', '⏳')}
+          </div>
+          <div class="li-sub" style="margin-top:10px">
+            Todavía no se te ha cobrado nada. Cuando la aprueben, empieza a
+            correr tu período y se registra el cargo.
+          </div>
+          <button class="btn ghost block" style="margin-top:12px" data-cancelar-plan>
+            Retirar solicitud
+          </button>
+        </div>`;
+    }
+
+    if (activa) {
+      const cancelada = u.plan_estado === 'cancelada';
+      return `
+        <div class="card pad" style="border-left:4px solid ${cancelada ? 'var(--text-secondary)' : 'var(--primary)'}">
           <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
             <div>
               <b>${Shell.escape(actual.label)}</b>
-              <div class="li-sub">Quedan ${this.diasRestantes(u)} día(s)</div>
+              <div class="li-sub">
+                ${cancelada
+                  ? `No se renovará · te quedan ${this.diasRestantes(u)} día(s)`
+                  : `Quedan ${this.diasRestantes(u)} día(s)`}
+              </div>
             </div>
-            ${Shell.badge('Activa', '#2E7D32', '✅')}
+            ${cancelada
+              ? Shell.badge('Cancelada', '#5F6B60', '⏹')
+              : Shell.badge('Activa', '#2E7D32', '✅')}
           </div>
           <div style="margin-top:12px;display:grid;gap:5px">
             ${this.beneficios(rol).map(b => `<div class="li-sub">✔ ${Shell.escape(b)}</div>`).join('')}
           </div>
+          ${cancelada ? '' : `
+            <button class="btn ghost block" style="margin-top:14px" data-cancelar-plan>
+              Cancelar renovación
+            </button>`}
         </div>`;
     }
 
@@ -306,9 +350,38 @@ const Finanzas = {
             </button>`).join('')}
         </div>
         <div class="li-sub" style="margin-top:10px;opacity:.8">
+          La administración revisa la solicitud antes de activarla.
           Simulación: no se cobra dinero real.
         </div>
       </div>`;
+  },
+
+  /* Engancha los botones del bloque de membresía. Lo llaman las páginas
+     después de dibujarlo. */
+  conectarMembresia(caja, alCambiar) {
+    if (!caja) return;
+    const refrescar = alCambiar || (() => location.reload());
+
+    caja.querySelectorAll('[data-plan]').forEach(b => {
+      b.onclick = async () => {
+        b.disabled = true;
+        const error = await Store.solicitarPlan(b.dataset.plan);
+        if (error) { b.disabled = false; return Shell.toast(error); }
+        Shell.toast('Solicitud enviada · queda esperando aprobación');
+        refrescar();
+      };
+    });
+
+    const cancelar = caja.querySelector('[data-cancelar-plan]');
+    if (cancelar) {
+      cancelar.onclick = async () => {
+        cancelar.disabled = true;
+        const error = await Store.cancelarPlan();
+        if (error) { cancelar.disabled = false; return Shell.toast(error); }
+        Shell.toast('Membresía cancelada');
+        refrescar();
+      };
+    }
   },
 
   /* -------- Formato -------- */
