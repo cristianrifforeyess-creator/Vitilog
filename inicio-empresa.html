@@ -193,22 +193,7 @@
             ? 'Plan ' + Finanzas.plan(u).label + ' · quedan ' + Finanzas.diasRestantes(u) + ' día(s)'
             : 'Sin membresía activa'}</div>
           <div style="margin-top:12px">${Finanzas.walletHtml(u.email, { titulo: 'Gastos del período', positivo: false })}</div>
-          ${Finanzas.activa(u) ? '' : `
-            <div class="card pad" style="margin-top:12px;border:1.5px dashed var(--warning)">
-              <b>Consola industrial bloqueada</b>
-              <div class="li-sub" style="margin-top:4px">
-                La demanda en vivo, el mapa de acopio y los reportes de Sello Verde
-                y trazabilidad ODS 9 y 12 necesitan membresía.
-              </div>
-              <div class="grid cols-2" style="margin-top:12px">
-                ${Finanzas.PLANES.map(p => `
-                  <button class="btn" data-plan="${p.id}" style="flex-direction:column;padding:14px">
-                    <b>${p.label}</b>
-                    <span style="font-size:17px;font-weight:800">${Finanzas.pesos(p.precio)}</span>
-                    <span style="font-size:11.5px;opacity:.85">${p.desc}</span>
-                  </button>`).join('')}
-              </div>
-            </div>`}
+          <div style="margin-top:12px">${Finanzas.membresiaHtml(u)}</div>
         </div>
 
         <div class="section">

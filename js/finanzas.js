@@ -52,8 +52,17 @@ const Finanzas = {
   /* Redondea a un múltiplo de cien: nadie factura pesos sueltos. */
   _redondear(n) { return Math.round((Number(n) || 0) / 100) * 100; },
 
-  /* Tarifa completa de un viaje, con estiba incluida. */
-  tarifa({ km = 0, volumen = 0 } = {}) {
+  /* Tarifa completa de un viaje, con estiba incluida.
+
+     Si la vina es socia y pone su propia gente para cargar, entra en la
+     tarifa coordinada: un precio cerrado y mas bajo, porque el viaje se
+     programa con anticipacion y el camion no espera a nadie. */
+  tarifa({ km = 0, volumen = 0, vinatero = null } = {}) {
+    if (vinatero && this.activa(vinatero)) {
+      const coordinada = this.BASE + km * 300;
+      return this._redondear(Math.min(
+        Math.max(coordinada, this.FLETE_COORDINADO_MIN), this.FLETE_COORDINADO_MAX));
+    }
     return this._redondear(this.BASE + km * this.POR_KM + volumen * this.POR_M3);
   },
 
@@ -123,17 +132,77 @@ const Finanzas = {
      El panel industrial (consola de demanda, acopio en vivo, reportes)
      va detrás de una suscripcion. Las viñas y los transportistas nunca
      ven un cobro: el modelo cobra a quien recibe el residuo. */
-  PLANES: [
-    { id: 'mensual', label: 'Mensual', precio: 49000, dias: 30,
-      desc: 'Se renueva cada mes' },
-    { id: 'temporada', label: 'Temporada', precio: 198000, dias: 180,
-      desc: 'Seis meses · equivale a 33.000 al mes' },
-  ],
+  PLANES: {
+    /* La planta paga por la consola industrial: es la que opera con esto
+       todos los dias y la que obtiene el residuo barato. */
+    empresa: [
+      { id: 'empresa_temporada', label: 'Temporada de poda',
+        precio: 250000, mensual: 250000, dias: 30,
+        desc: 'Por mes, sin compromiso' },
+      { id: 'empresa_anual', label: 'Plan anual',
+        precio: 1800000, mensual: 150000, dias: 365,
+        desc: '$150.000 al mes · se paga el año' },
+    ],
+    /* El vinatero paga poco y solo durante la poda: fuera de temporada
+       no tiene cargas que publicar, y cobrarle todo el ano seria
+       cobrarle por nada. */
+    vinatero: [
+      { id: 'vina_mensual', label: 'Mensual',
+        precio: 25000, mensual: 25000, dias: 30,
+        desc: 'Por mes, durante la poda' },
+      { id: 'vina_temporada', label: 'Temporada completa',
+        precio: 60000, mensual: 15000, dias: 120,
+        desc: 'Cuatro meses · $15.000 al mes' },
+    ],
+    /* El transportista NO PAGA NADA. Nunca.
+
+       Es deliberado y es lo que sostiene el modelo: si se le cobra al
+       que pone el camion, se van los camiones, y sin camiones no hay
+       nada que cobrarle a nadie. La oferta en terreno es el cuello de
+       botella, no la demanda. */
+    chofer: [],
+  },
+
+  /* Que puede contratar este perfil. Lista vacia = exento. */
+  planesDe(cuenta) {
+    const u = cuenta || Store.currentUser();
+    if (!u) return [];
+    const rol = Store.rolDe(u);
+    if (rol === Store.ROL_EMPRESA) return this.PLANES.empresa;
+    if (rol === Store.ROL_VINATERO) return this.PLANES.vinatero;
+    return [];                        // transportista y cargador: exentos
+  },
+
+  /* ¿A este perfil se le cobra algo alguna vez? */
+  pagaMembresia(cuenta) { return this.planesDe(cuenta).length > 0; },
+
+  /* Lo que incluye cada membresia, para decirlo antes de cobrar. */
+  beneficios(rol) {
+    if (rol === Store.ROL_EMPRESA) {
+      return ['Consola de acopio en tiempo real',
+              'Alertas de acumulación crítica regional',
+              'Reportes de Sello Verde y trazabilidad ODS 9 y 12'];
+    }
+    if (rol === Store.ROL_VINATERO) {
+      return ['Publica cargas sin límite',
+              'Tarifa de flete coordinado desde ' + this.pesos(this.FLETE_COORDINADO_MIN),
+              'Seguimiento GPS del camión en vivo'];
+    }
+    return [];
+  },
+
+  /* Cuantas cargas puede tener publicadas una vina sin membresia. */
+  CARGAS_LIBRES: 2,
+
+  /* Flete coordinado para socios que ponen su propia cuadrilla. */
+  FLETE_COORDINADO_MIN: 70000,
+  FLETE_COORDINADO_MAX: 90000,
 
   plan(cuenta) {
     const u = cuenta || Store.currentUser();
     if (!u || !u.plan || u.plan === 'ninguno') return null;
-    return this.PLANES.find(p => p.id === u.plan) || null;
+    const todos = [].concat(this.PLANES.empresa, this.PLANES.vinatero);
+    return todos.find(p => p.id === u.plan) || null;
   },
 
   /* ¿Tiene la suscripcion al día? */
@@ -190,6 +259,55 @@ const Finanzas = {
                   </b>
                 </div>`).join('')}
             </div>`}
+      </div>`;
+  },
+
+  /* Bloque de membresia reutilizable: estado, beneficios y planes. Se
+     dibuja igual para la planta y para la vina; lo que cambia son los
+     precios y lo que incluye, que ya sabe cada perfil. */
+  membresiaHtml(cuenta) {
+    const u = cuenta || Store.currentUser();
+    const planes = this.planesDe(u);
+    if (!planes.length) return '';          // perfiles exentos
+
+    const rol = Store.rolDe(u);
+    const activa = this.activa(u);
+    const actual = this.plan(u);
+
+    if (activa) {
+      return `
+        <div class="card pad" style="border-left:4px solid var(--primary)">
+          <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
+            <div>
+              <b>${Shell.escape(actual.label)}</b>
+              <div class="li-sub">Quedan ${this.diasRestantes(u)} día(s)</div>
+            </div>
+            ${Shell.badge('Activa', '#2E7D32', '✅')}
+          </div>
+          <div style="margin-top:12px;display:grid;gap:5px">
+            ${this.beneficios(rol).map(b => `<div class="li-sub">✔ ${Shell.escape(b)}</div>`).join('')}
+          </div>
+        </div>`;
+    }
+
+    return `
+      <div class="card pad" style="border:1.5px dashed var(--warning)">
+        <b>${rol === Store.ROL_EMPRESA ? 'Consola industrial bloqueada' : 'Activa tu temporada'}</b>
+        <div style="margin-top:10px;display:grid;gap:5px">
+          ${this.beneficios(rol).map(b => `<div class="li-sub">✔ ${Shell.escape(b)}</div>`).join('')}
+        </div>
+        <div class="grid cols-2" style="margin-top:14px">
+          ${planes.map(p => `
+            <button class="btn" data-plan="${p.id}"
+                    style="flex-direction:column;align-items:flex-start;padding:14px;gap:2px">
+              <b>${p.label}</b>
+              <span style="font-size:19px;font-weight:800">${this.pesos(p.mensual)}<span style="font-size:12px;font-weight:600">/mes</span></span>
+              <span style="font-size:11.5px;opacity:.85">${p.desc}</span>
+            </button>`).join('')}
+        </div>
+        <div class="li-sub" style="margin-top:10px;opacity:.8">
+          Simulación: no se cobra dinero real.
+        </div>
       </div>`;
   },
 

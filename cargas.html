@@ -247,7 +247,7 @@
         function pintarCobro() {
           const sel = $('r-estiba');
           const hayEstiba = carga.manoObra === 'solicita' && !!(sel && sel.value);
-          const tarifa = Finanzas.tarifa({ km, volumen: carga.volumen });
+          const tarifa = Finanzas.tarifa({ km, volumen: carga.volumen, vinatero: Store.accountByEmail(carga.email) });
           const total = Finanzas.cobrado(tarifa, hayEstiba);
           const elegidoChofer = $('r-flota').value;
           const propia = hayEstiba && sel.value === elegidoChofer;
@@ -337,7 +337,7 @@
              transportista puede cobrarlo hasta que se valide la descarga. */
           const hayEstiba = carga.manoObra === 'solicita' && !!estiba;
           await Store.retenerFlete(
-            envio.id, Finanzas.tarifa({ km, volumen: carga.volumen }), hayEstiba);
+            envio.id, Finanzas.tarifa({ km, volumen: carga.volumen, vinatero: Store.accountByEmail(carga.email) }), hayEstiba);
 
           Shell.closeModal();
           if (elegido) {

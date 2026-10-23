@@ -126,6 +126,8 @@
       window.publicar = () => {
         const comuna = $('comuna').value;
         const volumen = parseFloat(($('volumen').value || '').replace(',', '.'));
+        const tope = Store.puedePublicar();
+        if (tope) return ($('err').textContent = tope);
         if (!comuna) return ($('err').textContent = 'Selecciona una comuna');
         if (!volumen || volumen <= 0) return ($('err').textContent = 'Ingresa un volumen válido');
         if (volumen > 500) return ($('err').textContent = 'Volumen demasiado alto');

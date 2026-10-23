@@ -567,6 +567,32 @@ const Store = {
     return this._cache.cargas.filter(c => c.ownerEmail === e);
   },
 
+  /* Cuantas cargas activas tiene publicadas esta vina. */
+  cargasActivasDe(email) {
+    const correo = (email || this.currentEmail() || '').toLowerCase();
+    const comprometidas = new Set();
+    this._cache.envios.forEach(e => {
+      if (e.cargaId) comprometidas.add(e.cargaId);
+      (e.paradas || []).forEach(p => comprometidas.add(p.cargaId));
+    });
+    return this._cache.cargas.filter(c =>
+      (c.ownerEmail || '').toLowerCase() === correo
+      && c.estado !== 'retirada'
+      && !comprometidas.has(c.id)).length;
+  },
+
+  /* ¿Puede publicar una carga mas? Sin membresia hay un tope; con ella,
+     ninguno. Devuelve null si puede, o el motivo si no. */
+  puedePublicar(cuenta) {
+    const u = cuenta || this.currentUser();
+    if (!u) return 'Entra con tu cuenta primero';
+    if (Finanzas.activa(u)) return null;
+    const n = this.cargasActivasDe(u.email);
+    if (n < Finanzas.CARGAS_LIBRES) return null;
+    return `Sin membresía puedes tener ${Finanzas.CARGAS_LIBRES} cargas publicadas a la vez.`
+      + ` Tienes ${n}. Espera a que retiren alguna o activa tu membresía de temporada.`;
+  },
+
   async addCarga(carga) {
     this._cache.cargas.unshift(carga);
     if (this.enNube()) {
@@ -1172,9 +1198,12 @@ const Store = {
   /* -------- Membresia de la planta -------- */
   async contratarPlan(planId) {
     const u = this.currentUser();
-    if (!u || this.rolDe(u) !== this.ROL_EMPRESA) return 'Solo las plantas tienen membresía';
-    const plan = Finanzas.PLANES.find(p => p.id === planId);
-    if (!plan) return 'Ese plan no existe';
+    if (!u) return 'Entra con tu cuenta primero';
+    /* El transportista y el cargador no pagan nunca: si alguien llega
+       acá con uno de esos perfiles, es un error de la interfaz. */
+    if (!Finanzas.pagaMembresia(u)) return 'Tu perfil no paga membresía';
+    const plan = Finanzas.planesDe(u).find(p => p.id === planId);
+    if (!plan) return 'Ese plan no existe para tu perfil';
 
     // Si renueva antes de vencer, se suma a lo que le queda.
     const desde = (u.plan_hasta && new Date(u.plan_hasta) > new Date())

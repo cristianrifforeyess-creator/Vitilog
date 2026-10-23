@@ -106,7 +106,13 @@
           <div id="aporte-inicio"></div>
 
           <div id="seccion-proxima" style="margin-top:22px">
-            <div class="section-title">Resumen de tu próxima ruta</div>
+            <div class="section-title">Tu temporada</div>
+          <div class="section-sub">${Finanzas.activa(user)
+            ? 'Membresía activa'
+            : `Publicas hasta ${Finanzas.CARGAS_LIBRES} cargas a la vez`}</div>
+          <div id="membresia-vina" style="margin-top:12px"></div>
+
+          <div class="section-title" style="margin-top:22px">Resumen de tu próxima ruta</div>
             <!-- Lo llena Ficha con el calculo real; antes eran cuatro numeros fijos. -->
             <div id="ficha-inicio"></div>
           </div>
@@ -148,6 +154,20 @@
       /* Resumen de la próxima ruta. Vive en Inicio, Rutas e Historial con
          el mismo código: lo que muestra depende del perfil de quien mira.
          Va después de dibujar el contenido, porque su hueco está dentro. */
+      /* Membresía de temporada. Se dibuja aparte para poder engancharle
+         los botones sin reconstruir todo el inicio. */
+      const caja = document.getElementById('membresia-vina');
+      caja.innerHTML = Finanzas.membresiaHtml(user);
+      caja.querySelectorAll('[data-plan]').forEach(b => {
+        b.onclick = async () => {
+          b.disabled = true;
+          const error = await Store.contratarPlan(b.dataset.plan);
+          if (error) { b.disabled = false; return Shell.toast(error); }
+          Shell.toast('Membresía activada');
+          location.reload();
+        };
+      });
+
       Ficha.montarAporte(document.getElementById('aporte-inicio'));
       Ficha.montar(document.getElementById('ficha-inicio'),
                    { seccion: document.getElementById('seccion-proxima') });
