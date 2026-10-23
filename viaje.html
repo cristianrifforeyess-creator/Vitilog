@@ -106,12 +106,12 @@
           <!-- Avance del viaje -->
           <div class="card pad" style="margin-top:14px">
             <div class="envio-cabecera">
-              <div class="li-ic" style="background:${est.color}22;color:${est.color}">${est.ic}</div>
+              <div class="li-ic" style="background:${Shell.tinte(est.color)};color:${est.color}">${est.ic}</div>
               <div class="titulo">${est.label}
                 <div class="li-sub" style="font-weight:400">${est.desc}</div>
               </div>
               ${Shell.badge(seg.fuente === 'gps' ? 'Por GPS' : 'Estimada',
-                            seg.fuente === 'gps' ? '#2E7D32' : '#5F6B60',
+                            seg.fuente === 'gps' ? 'var(--leaf)' : 'var(--text-secondary)',
                             seg.fuente === 'gps' ? '🛰️' : '📈')}
             </div>
             <div class="progress" style="margin-top:14px">

@@ -3,11 +3,11 @@
        documentos, la portada del informe, una presentacion. Los colores se
        invierten respecto a la version con fondo, porque el verde claro que
        alli resaltaba, sobre blanco se pierde. -->
-  <path fill="none" stroke="#2E7D32" stroke-width="5" stroke-linecap="round"
+  <path fill="none" stroke="#4A154B" stroke-width="5" stroke-linecap="round"
         d="M38.5 16.1 A19 19 0 1 1 25.5 16.1"/>
-  <path fill="#2E7D32" d="M33.0 13.4 L27.4 21.3 L23.6 10.9 Z"/>
+  <path fill="#4A154B" d="M33.0 13.4 L27.4 21.3 L23.6 10.9 Z"/>
 
-  <g fill="#8BC34A">
+  <g fill="#8E5A8F">
     <circle cx="25.6" cy="29.5" r="3.9"/>
     <circle cx="32"   cy="29.5" r="3.9"/>
     <circle cx="38.4" cy="29.5" r="3.9"/>

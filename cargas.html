@@ -72,7 +72,7 @@
         const dist = c.km ? ` · ${c.km} km` : '';
         return `
           <div class="carga-fila">
-            <div class="li-ic" style="background:${color}22;color:${color}">${tipoIcono(c.destino)}</div>
+            <div class="li-ic" style="background:${Shell.tinte(color)};color:${color}">${tipoIcono(c.destino)}</div>
             <div class="carga-datos">
               <div class="carga-titulo">
                 <b>${c.volumen} m³</b> · ${Shell.escape(c.comuna)}${dist}

@@ -26,11 +26,11 @@
 
         <!-- Leyenda -->
         <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;font-weight:600;margin:16px 0 12px">
-          <span>♻️ <span style="color:#F9A825">Biomasa</span></span>
-          <span>♻️ <span style="color:#43A047">Compostaje</span></span>
-          <span>📦 <span style="color:#1976D2">Centro de acopio</span></span>
-          <span>🚚 <span style="color:#6A1B9A">Transportista</span></span>
-          <span>⛔ <span style="color:#E53935">Sin cupos</span></span>
+          <span>♻️ <span style="color:var(--warning)">Biomasa</span></span>
+          <span>♻️ <span style="color:var(--leaf)">Compostaje</span></span>
+          <span>📦 <span style="color:var(--primary)">Centro de acopio</span></span>
+          <span>🚚 <span style="color:var(--primary-light)">Transportista</span></span>
+          <span>⛔ <span style="color:var(--danger)">Sin cupos</span></span>
           <span>🏠 <span style="color:var(--primary)">Tu ubicación</span></span>
         </div>
         <p class="section-sub" style="margin-bottom:12px">♻️ En las plantas de <b>biomasa</b> y <b>compostaje</b> puedes dejar tus sarmientos. Los <b>centros de acopio</b> solo agrupan cargas antes de llevarlas a una planta.</p>
@@ -104,18 +104,18 @@
       /* -------- Ficha de un punto -------- */
       function verPunto(p) {
         const color = tipoColor(p.tipo, p.activo);
-        const estado = p.activo ? Shell.badge('Disponible', '#2E7D32', '✅') : Shell.badge('Sin cupos', '#E53935', '⛔');
+        const estado = p.activo ? Shell.badge('Disponible', 'var(--leaf)', '✅') : Shell.badge('Sin cupos', 'var(--danger)', '⛔');
         const entrega = recibeSarmientos(p.tipo)
-          ? Shell.badge('Aquí puedes dejar tus sarmientos', '#2E7D32', '♻️')
+          ? Shell.badge('Aquí puedes dejar tus sarmientos', 'var(--leaf)', '♻️')
           : p.tipo === 'Transporte'
-            ? Shell.badge('Transportista: retira y traslada cargas', '#6A1B9A', '🚚')
-            : Shell.badge('Solo agrupa cargas', '#1976D2', '📦');
-        const sello = p.registrada ? ' ' + Shell.badge('Registrada en VITILOG', '#1976D2', '🔖') : '';
+            ? Shell.badge('Transportista: retira y traslada cargas', 'var(--primary-light)', '🚚')
+            : Shell.badge('Solo agrupa cargas', 'var(--primary)', '📦');
+        const sello = p.registrada ? ' ' + Shell.badge('Registrada en VITILOG', 'var(--primary)', '🔖') : '';
         const km = Shell.distanciaKm(ubicacion, p);
         Shell.openModal(`
           <div class="handle"></div>
           <div style="display:flex;align-items:center;gap:12px">
-            <div class="li-ic" style="background:${color}22;color:${color}">🏭</div>
+            <div class="li-ic" style="background:${Shell.tinte(color)};color:${color}">🏭</div>
             <div style="flex:1"><b style="font-size:17px">${Shell.escape(p.nombre)}</b><div class="li-sub">${p.tipo} · ${p.comuna}</div></div>
             ${estado}
           </div>
@@ -193,7 +193,7 @@
           title: ubicacion.origen === 'gps' ? 'Estás aquí' : `${ubicacion.etiqueta} · ${ubicacion.comuna}`,
           icon: {
             path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
-            scale: 7, fillColor: '#1B5E20', fillOpacity: 1,
+            scale: 7, fillColor: 'var(--verde-oscuro)', fillOpacity: 1,
             strokeColor: '#ffffff', strokeWeight: 2.5,
           },
         });
@@ -246,22 +246,22 @@
               <div class="li-title">${ubicacion.origen === 'gps' ? 'Estás aquí' : ubicacion.etiqueta}</div>
               <div class="li-sub">${Shell.escape(ubicacion.comuna || 'Ubicación actual')}</div>
             </div>
-            <span class="badge" style="color:#2E7D32;background:#2E7D3222">Tu ubicación</span>
+            <span class="badge" style="color:var(--leaf);background:var(--leaf)22">Tu ubicación</span>
           </div>` : ''}
           <div class="puntos-lista">
             ${lista.map((p, i) => {
               const color = tipoColor(p.tipo, p.activo);
               const entrega = recibeSarmientos(p.tipo);
               const estado = p.activo
-                ? Shell.badge('Disponible', '#2E7D32', '✅')
-                : Shell.badge('Sin cupos', '#E53935', '⛔');
+                ? Shell.badge('Disponible', 'var(--leaf)', '✅')
+                : Shell.badge('Sin cupos', 'var(--danger)', '⛔');
               return `
                 <div class="card list-item punto ${entrega ? 'entrega' : ''}" data-i="${i}">
-                  <div class="li-ic" style="background:${color}22;color:${color}">${entrega ? '♻️' : p.tipo === 'Transporte' ? '🚚' : '📦'}</div>
+                  <div class="li-ic" style="background:${Shell.tinte(color)};color:${color}">${entrega ? '♻️' : p.tipo === 'Transporte' ? '🚚' : '📦'}</div>
                   <div class="li-body">
                     <div class="li-title">${Shell.escape(p.nombre)}</div>
                     <div class="li-sub">${p.tipo} · ${p.comuna}${p.km != null ? ' · a ' + p.km + ' km' : ''}</div>
-                    <div style="margin-top:6px">${estado}${p.registrada ? ' ' + Shell.badge('Registrada', '#1976D2', '🔖') : ''}</div>
+                    <div style="margin-top:6px">${estado}${p.registrada ? ' ' + Shell.badge('Registrada', 'var(--primary)', '🔖') : ''}</div>
                   </div>
                   <button class="link-btn" data-ficha="${i}">Ficha ›</button>
                 </div>`;

@@ -233,13 +233,13 @@
           <!-- Estado principal -->
           <div class="card pad">
             <div class="envio-cabecera">
-              <div class="li-ic" style="background:${est.color}22;color:${est.color};width:48px;height:48px;font-size:24px">${est.ic}</div>
+              <div class="li-ic" style="background:${Shell.tinte(est.color)};color:${est.color};width:48px;height:48px;font-size:24px">${est.ic}</div>
               <div class="titulo">
                 ${est.label}
                 <div class="li-sub" style="font-weight:400">${est.desc}</div>
               </div>
               ${Shell.badge(seg.fuente === 'gps' ? 'GPS en vivo' : 'Posición estimada',
-                            seg.fuente === 'gps' ? '#2E7D32' : '#5F6B60',
+                            seg.fuente === 'gps' ? 'var(--leaf)' : 'var(--text-secondary)',
                             seg.fuente === 'gps' ? '🛰️' : '📈')}
             </div>
 

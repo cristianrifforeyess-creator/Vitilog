@@ -228,7 +228,7 @@
         return `
           <div class="card pad" style="border:2px solid ${est.color}">
             <div class="envio-cabecera">
-              <div class="li-ic" style="background:${est.color}22;color:${est.color};width:46px;height:46px;font-size:23px">${est.ic}</div>
+              <div class="li-ic" style="background:${Shell.tinte(est.color)};color:${est.color};width:46px;height:46px;font-size:23px">${est.ic}</div>
               <div class="titulo">
                 Viaje en curso
                 <div class="li-sub" style="font-weight:400">
@@ -323,7 +323,7 @@
         return `
           <div class="card pad" style="border-left:4px solid ${est.color}">
             <div class="list-item" style="padding:0">
-              <div class="li-ic" style="background:${est.color}22;color:${est.color}">💪</div>
+              <div class="li-ic" style="background:${Shell.tinte(est.color)};color:${est.color}">💪</div>
               <div class="li-body">
                 <div class="li-title">${Shell.escape(envio.origenComuna)}</div>
                 <div class="li-sub">${volumen} m³ para subir · hacia ${Shell.escape(envio.destinoNombre)}</div>
@@ -354,11 +354,11 @@
         const color = tipoColor(carga.destino);
         return `
           <div class="carga-fila">
-            <div class="li-ic" style="background:${color}22;color:${color}">${tipoIcono(carga.destino)}</div>
+            <div class="li-ic" style="background:${Shell.tinte(color)};color:${color}">${tipoIcono(carga.destino)}</div>
             <div class="carga-datos">
               <div class="carga-titulo">
                 <b>${carga.volumen} m³</b> · ${Shell.escape(carga.comuna)}
-                ${carga.km != null ? Shell.badge('a ' + carga.km + ' km', '#1976D2', '📍') : ''}
+                ${carga.km != null ? Shell.badge('a ' + carga.km + ' km', 'var(--primary)', '📍') : ''}
               </div>
               <div class="li-sub">♻️ ${Shell.escape(carga.destino)} · 📅 ${Shell.escape(carga.fecha || 'Por confirmar')}</div>
               ${carga.manoObra === 'solicita'

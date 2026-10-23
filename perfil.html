@@ -45,11 +45,11 @@
         const ic = e.tipo === 'Biomasa' ? '🔥' : '♻️';
         return `
           <div class="card list-item">
-            <div class="li-ic" style="background:${color}22;color:${color}">${ic}</div>
+            <div class="li-ic" style="background:${Shell.tinte(color)};color:${color}">${ic}</div>
             <div class="li-body"><div class="li-title">${Shell.escape(e.nombre)}</div><div class="li-sub">${e.tipo} · ${e.comuna}${e.km != null ? ' · a ' + e.km + ' km' : ''}</div></div>
             ${e.activo
               ? `<button class="btn ghost" style="padding:8px 12px;font-size:13px" onclick="Shell.contactar('${Shell.escape(e.nombre)}','${e.tipo} · ${e.comuna}')">💬</button>`
-              : Shell.badge('Inactiva', '#5F6B60')}
+              : Shell.badge('Inactiva', 'var(--text-secondary)')}
           </div>`;
       }).join('');
 
@@ -59,7 +59,7 @@
           <div>
             <div style="font-size:19px;font-weight:800">${Shell.escape(u.nombre)} · Viñatero</div>
             <div class="li-sub">${Shell.escape(u.comuna)}, Región del Maule</div>
-            <div style="margin-top:8px">${Shell.badge('Productor verificado', '#2E7D32', '✔')}</div>
+            <div style="margin-top:8px">${Shell.badge('Productor verificado', 'var(--leaf)', '✔')}</div>
           </div>
         </div>
 

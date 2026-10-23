@@ -153,7 +153,7 @@ const Soporte = {
       </div>
 
       <a class="btn block" id="sop-wa" href="#" target="_blank" rel="noopener"
-         style="background:#25D366;display:flex;align-items:center;justify-content:center;gap:8px;min-height:54px">
+         style="background:var(--leaf);display:flex;align-items:center;justify-content:center;gap:8px;min-height:54px">
         💬 Escribir por WhatsApp
       </a>
       <a class="btn block" id="sop-tel" href="${this.urlLlamada()}"

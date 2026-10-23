@@ -50,10 +50,10 @@
       const mwh = (volumen * 0.3).toFixed(1);   // ~0,3 MWh por m³ de sarmiento
 
       const stats = [
-        { ic: '🌾', color: '#2E7D32', val: String(cargas.length), lbl: 'Cargas Disponibles', sub: 'Publicadas' },
-        { ic: '📦', color: '#43A047', val: volumen + ' m³', lbl: 'Volumen Ofertado', sub: 'Sarmientos' },
-        { ic: '📍', color: '#1976D2', val: String(comunas), lbl: 'Comunas', sub: 'Con oferta activa' },
-        { ic: '🔥', color: '#F9A825', val: mwh + ' MWh', lbl: 'Potencial Energético', sub: 'Aprovechable' },
+        { ic: '🌾', color: 'var(--leaf)', val: String(cargas.length), lbl: 'Cargas Disponibles', sub: 'Publicadas' },
+        { ic: '📦', color: 'var(--leaf)', val: volumen + ' m³', lbl: 'Volumen Ofertado', sub: 'Sarmientos' },
+        { ic: '📍', color: 'var(--primary)', val: String(comunas), lbl: 'Comunas', sub: 'Con oferta activa' },
+        { ic: '🔥', color: 'var(--warning)', val: mwh + ' MWh', lbl: 'Potencial Energético', sub: 'Aprovechable' },
       ];
 
       /* Flota vinculada: quiénes son, si están libres y qué llevan ahora.
@@ -127,7 +127,7 @@
 
       const statsHtml = stats.map(s => `
         <div class="card stat-card">
-          <div class="chip-ic" style="background:${s.color}22;color:${s.color}">${s.ic}</div>
+          <div class="chip-ic" style="background:${Shell.tinte(s.color)};color:${s.color}">${s.ic}</div>
           <div class="val">${s.val}</div>
           <div class="lbl">${s.lbl}</div>
           <div class="sub">${s.sub}</div>
@@ -140,7 +140,7 @@
             const color = tipoColor(c.destino);
             return `
               <div class="card list-item">
-                <div class="li-ic" style="background:${color}22;color:${color}">${tipoIcono(c.destino)}</div>
+                <div class="li-ic" style="background:${Shell.tinte(color)};color:${color}">${tipoIcono(c.destino)}</div>
                 <div class="li-body">
                   <div class="li-title">${Shell.escape(c.productor)}</div>
                   <div class="li-sub">${Shell.escape(c.comuna)} · ${c.volumen} m³ · ${c.destino}</div>
@@ -152,7 +152,7 @@
 
       const alertasHtml = DATA.alertasEmpresa.map(a => `
         <div class="card list-item">
-          <div class="li-ic" style="background:${a.color}22">${a.ic}</div>
+          <div class="li-ic" style="background:${Shell.tinte(a.color)}">${a.ic}</div>
           <div class="li-body"><div class="li-title">${a.titulo}</div><div class="li-sub">${a.detalle}</div></div>
           <div class="li-chev">›</div>
         </div>`).join('');
@@ -167,7 +167,7 @@
           <button class="action-btn" style="background:var(--primary)" onclick="location.href='cargas.html'">
             <span class="ic">🌾</span><b>Ver Cargas Disponibles</b><span>Sarmientos publicados</span>
           </button>
-          <button class="action-btn" style="background:var(--info)" onclick="location.href='mapa.html'">
+          <button class="action-btn" style="background:var(--primary-dark)" onclick="location.href='mapa.html'">
             <span class="ic">🗺️</span><b>Mapa de Acopio</b><span>Plantas y centros</span>
           </button>
         </div>
@@ -262,7 +262,7 @@
           <div style="margin-top:12px">
           ${DATA.alertasEmpresa.map(a => `
             <div class="list-item" style="padding:10px 0">
-              <div class="li-ic" style="background:${a.color}22">${a.ic}</div>
+              <div class="li-ic" style="background:${Shell.tinte(a.color)}">${a.ic}</div>
               <div class="li-body"><div class="li-title">${a.titulo}</div><div class="li-sub">${a.detalle}</div></div>
             </div>`).join('')}
           </div>

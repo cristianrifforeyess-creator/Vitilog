@@ -1,28 +1,45 @@
 /* ================= VITILOG · Web (simulación de la app) ================= */
-:root {
-  --primary: #2E7D32;
-  --primary-dark: #1B5E20;
-  --primary-light: #60AD5E;
-  --accent: #8BC34A;
-  --leaf: #43A047;
-  --warning: #F9A825;
-  --info: #1976D2;
-  --danger: #E53935;
-  --in-progress: #EF6C00;
-  --completed: #2E7D32;
+/* ============ Identidad de AgroConecta ============
 
-  --scaffold: #F3F6F2;
+   El morado es la vid: el color de la uva maulina, y lo que manda en
+   barras, encabezados y acciones principales. El lila es el aire de la
+   pantalla. El verde queda reservado para lo que de verdad habla de
+   sostenibilidad —estados en orden, confirmaciones, sellos— y el dorado
+   solo para dos cosas: alertas de acopio y el valor energetico.
+
+   Esa reserva es lo que hace que un color signifique algo: si el verde
+   estuviera en todas partes, no diria nada al aparecer en un sello. */
+:root {
+  --primary: #4A154B;         /* morado uva, institucional */
+  --primary-dark: #581845;    /* borgona profundo */
+  --primary-light: #8E5A8F;
+  --accent: #D8B4E2;          /* lila suave */
+  --lila-medio: #E9D8FD;
+  --lila-claro: #F3E8FF;
+
+  --leaf: #38A169;            /* verde vinedo: sostenibilidad */
+  --verde-claro: #48BB78;
+  --verde-oscuro: #2F855A;
+
+  --warning: #D69E2E;         /* dorado: acopio y energia */
+  --naranja: #DD6B20;
+  --info: #4A154B;
+  --danger: #C53030;
+  --in-progress: #DD6B20;
+  --completed: #2F855A;
+
+  --scaffold: #F7F2FA;        /* lavanda muy claro */
   --surface: #FFFFFF;
-  --surface-alt: #EDF4EA;
-  --text-primary: #1D2B1F;
-  --text-secondary: #5F6B60;
-  --border: rgba(0, 0, 0, .08);
-  --shadow: 0 8px 24px rgba(0, 0, 0, .06);
-  --radius: 16px;
+  --surface-alt: #F3E8FF;
+  --text-primary: #2D1B2E;
+  --text-secondary: #6B5B6E;
+  --border: rgba(74, 21, 75, .11);
+  --shadow: 0 2px 8px rgba(74, 21, 75, .07);
+  --radius: 16px;             /* rounded-2xl */
 
   /* Mapa esquemático */
-  --map-sea: #A8CFE8;
-  --map-land: #DDE9C9;
+  --map-sea: #B6D4E8;
+  --map-land: #E4E0D4;
   --map-hill: #C2D7A4;
   --map-andes: #AFC596;
   --map-snow: #F4F8F0;
@@ -33,13 +50,29 @@
 }
 
 html[data-theme="dark"] {
-  --scaffold: #10150F;
-  --surface: #1B221A;
-  --surface-alt: #273026;
-  --text-primary: #ECF1EC;
-  --text-secondary: #A6B2A6;
-  --border: rgba(255, 255, 255, .10);
-  --shadow: 0 8px 24px rgba(0, 0, 0, .35);
+  --primary: #8E5A8F;
+  --primary-dark: #4A154B;
+  --primary-light: #D8B4E2;
+  --accent: #B98BC4;
+
+  --leaf: #48BB78;
+  --verde-claro: #68D391;
+  --verde-oscuro: #38A169;
+
+  --warning: #ECC94B;
+  --naranja: #ED8936;
+  --info: #B98BC4;
+  --danger: #FC8181;
+  --in-progress: #ED8936;
+  --completed: #48BB78;
+
+  --scaffold: #16101A;
+  --surface: #221A26;
+  --surface-alt: #2E2434;
+  --text-primary: #F2EAF4;
+  --text-secondary: #B3A4B8;
+  --border: rgba(255, 255, 255, .11);
+  --shadow: 0 2px 10px rgba(0, 0, 0, .4);
 
   --map-sea: #16323F;
   --map-land: #202C1E;

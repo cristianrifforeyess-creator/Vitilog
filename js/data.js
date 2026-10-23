@@ -1,9 +1,9 @@
 /* Datos de ejemplo (Región del Maule) — equivalente a MockData de la app. */
 const DATA = {
   alertas: [
-    { ic: '✅', color: '#2E7D32', titulo: 'Zona lista para recolectar', detalle: 'Sarmientos acumulados en Curicó' },
-    { ic: '🏭', color: '#1976D2', titulo: 'Nueva empresa disponible', detalle: 'BioEnergía Maule busca cargas en tu zona' },
-    { ic: '💰', color: '#F9A825', titulo: 'Flete optimizado', detalle: 'Ahorro estimado del 30% agrupando cargas' },
+    { ic: '✅', color: 'var(--leaf)', titulo: 'Zona lista para recolectar', detalle: 'Sarmientos acumulados en Curicó' },
+    { ic: '🏭', color: 'var(--primary)', titulo: 'Nueva empresa disponible', detalle: 'BioEnergía Maule busca cargas en tu zona' },
+    { ic: '💰', color: 'var(--warning)', titulo: 'Flete optimizado', detalle: 'Ahorro estimado del 30% agrupando cargas' },
   ],
 
   enCurso: {
@@ -58,9 +58,9 @@ const DATA = {
 
   /* Alertas del panel de empresa. */
   alertasEmpresa: [
-    { ic: '🌾', color: '#2E7D32', titulo: 'Nueva carga publicada', detalle: 'Hacienda Río Claro ofrece 31 m³ en Talca' },
-    { ic: '🚚', color: '#EF6C00', titulo: 'Retiro programado', detalle: 'Camión asignado a Molina para el 29/08' },
-    { ic: '💰', color: '#F9A825', titulo: 'Flete compartido', detalle: 'Agrupa Curicó y Molina y ahorra 30% del viaje' },
+    { ic: '🌾', color: 'var(--leaf)', titulo: 'Nueva carga publicada', detalle: 'Hacienda Río Claro ofrece 31 m³ en Talca' },
+    { ic: '🚚', color: 'var(--in-progress)', titulo: 'Retiro programado', detalle: 'Camión asignado a Molina para el 29/08' },
+    { ic: '💰', color: 'var(--warning)', titulo: 'Flete compartido', detalle: 'Agrupa Curicó y Molina y ahorra 30% del viaje' },
   ],
 
   /* Rubros de una empresa receptora. El transporte no está acá: quien
@@ -85,17 +85,17 @@ const DATA = {
   /* Estados por los que pasa un envío, en orden. El seguimiento avanza por
      esta lista; cada estado define su color y qué se puede hacer en él. */
   estadosEnvio: [
-    { id: 'asignado', label: 'Asignado', ic: '📨', color: '#546E7A',
+    { id: 'asignado', label: 'Asignado', ic: '📨', color: 'var(--text-secondary)',
       desc: 'La planta se lo encargó a un transportista, que aún no responde' },
-    { id: 'programado', label: 'Programado', ic: '📅', color: '#1976D2',
+    { id: 'programado', label: 'Programado', ic: '📅', color: 'var(--primary)',
       desc: 'El retiro está agendado y aún no sale' },
-    { id: 'en_camino', label: 'En camino', ic: '🚚', color: '#EF6C00',
+    { id: 'en_camino', label: 'En camino', ic: '🚚', color: 'var(--in-progress)',
       desc: 'El camión va en ruta hacia la planta' },
-    { id: 'llegando', label: 'Llegando', ic: '📍', color: '#F9A825',
+    { id: 'llegando', label: 'Llegando', ic: '📍', color: 'var(--warning)',
       desc: 'Está a menos de 15 km del destino' },
-    { id: 'en_destino', label: 'En destino', ic: '🏭', color: '#6A1B9A',
+    { id: 'en_destino', label: 'En destino', ic: '🏭', color: 'var(--primary-light)',
       desc: 'Llegó a la planta. Ya puedes contactar al transportista' },
-    { id: 'entregado', label: 'Entregado', ic: '✅', color: '#2E7D32',
+    { id: 'entregado', label: 'Entregado', ic: '✅', color: 'var(--leaf)',
       desc: 'Pesaje confirmado y servicio cerrado' },
   ],
 
@@ -203,11 +203,11 @@ const DATA = {
 
 /* Colores por tipo (marcador / icono). */
 function tipoColor(tipo, activo) {
-  if (activo === false) return '#E53935';
-  if (tipo === 'Biomasa') return '#F9A825';
-  if (tipo === 'Compostaje') return '#43A047';
-  if (tipo === 'Transporte') return '#6A1B9A';
-  return '#1976D2';
+  if (activo === false) return 'var(--danger)';
+  if (tipo === 'Biomasa') return 'var(--warning)';
+  if (tipo === 'Compostaje') return 'var(--leaf)';
+  if (tipo === 'Transporte') return 'var(--primary-light)';
+  return 'var(--primary)';
 }
 
 /* Convierte coordenadas reales en la posición dentro del mapa propio.

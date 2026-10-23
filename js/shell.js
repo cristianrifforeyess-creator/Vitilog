@@ -458,10 +458,10 @@ const Shell = {
   /* Etiqueta chica que dice si la pantalla se está actualizando sola. */
   indicadorVivo(estado) {
     const mapa = {
-      vivo: ['#2E7D32', '🟢', 'En vivo'],
-      conectando: ['#F9A825', '🟡', 'Conectando…'],
-      caido: ['#E53935', '🔴', 'Sin conexión en vivo'],
-      apagado: ['#78909C', '⚪', 'Actualización periódica'],
+      vivo: ['var(--leaf)', '🟢', 'En vivo'],
+      conectando: ['var(--warning)', '🟡', 'Conectando…'],
+      caido: ['var(--danger)', '🔴', 'Sin conexión en vivo'],
+      apagado: ['var(--text-secondary)', '⚪', 'Actualización periódica'],
     };
     const [color, ic, texto] = mapa[estado] || mapa.apagado;
     return this.badge(texto, color, ic);
@@ -1219,8 +1219,18 @@ const Shell = {
       { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
   },
 
+  /* Versión translúcida de un color, para los fondos de los iconos.
+
+     Antes se concatenaba "22" al final del hexadecimal, que es el canal
+     alfa. Eso dejó de funcionar al pasar la paleta a variables: no
+     existe "var(--leaf)22". color-mix hace lo mismo y entiende tanto un
+     hexadecimal como una variable. */
+  tinte(color, pct = 13) {
+    return `color-mix(in srgb, ${color} ${pct}%, transparent)`;
+  },
+
   badge(text, color, ic) {
-    return `<span class="badge" style="color:${color};background:${color}22">${ic ? ic + ' ' : ''}${text}</span>`;
+    return `<span class="badge" style="color:${color};background:${Shell.tinte(color)}">${ic ? ic + ' ' : ''}${text}</span>`;
   },
 };
 

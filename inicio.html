@@ -42,7 +42,7 @@
 
       const alertasHtml = DATA.alertas.map((a, i) => `
         <div class="card list-item" onclick="Shell.toast('${Shell.escape(a.titulo)}')">
-          <div class="li-ic" style="background:${a.color}22">${a.ic}</div>
+          <div class="li-ic" style="background:${Shell.tinte(a.color)}">${a.ic}</div>
           <div class="li-body"><div class="li-title">${a.titulo}</div><div class="li-sub">${a.detalle}</div></div>
           <div class="li-chev">›</div>
         </div>`).join('');
@@ -62,7 +62,7 @@
                 <div style="display:flex;align-items:center;gap:12px">
                   <div class="li-ic" style="background:rgba(46,125,50,.12);color:var(--primary)">🌾</div>
                   <b style="flex:1">${m.volumen} m³ · ${m.comuna}</b>
-                  ${Shell.badge('Publicada', '#2E7D32', '✅')}
+                  ${Shell.badge('Publicada', 'var(--leaf)', '✅')}
                 </div>
                 <div class="route-info" style="margin-top:12px">
                   <span class="info-line">♻️ Destino: <b>${m.destino}</b></span>
@@ -85,7 +85,7 @@
           <button class="action-btn" style="background:var(--primary)" onclick="location.href='publicar.html'">
             <span class="ic">➕</span><b>Publicar Sarmientos</b><span>Nueva carga</span>
           </button>
-          <button class="action-btn" style="background:var(--leaf)" onclick="location.href='empresas.html'">
+          <button class="action-btn" style="background:var(--primary-dark)" onclick="location.href='empresas.html'">
             <span class="ic">🔍</span><b>Buscar Empresas</b><span>Biomasa o compostaje</span>
           </button>
         </div>
@@ -142,7 +142,7 @@
           <div style="margin-top:12px">
           ${DATA.alertas.map(a => `
             <div class="list-item" style="padding:10px 0">
-              <div class="li-ic" style="background:${a.color}22">${a.ic}</div>
+              <div class="li-ic" style="background:${Shell.tinte(a.color)}">${a.ic}</div>
               <div class="li-body"><div class="li-title">${a.titulo}</div><div class="li-sub">${a.detalle}</div></div>
             </div>`).join('')}
           </div>

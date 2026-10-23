@@ -295,7 +295,7 @@ const Finanzas = {
               <b>${Shell.escape(p ? p.label : 'Membresía')}</b>
               <div class="li-sub">Esperando aprobación de la administración</div>
             </div>
-            ${Shell.badge('Pendiente', '#F9A825', '⏳')}
+            ${Shell.badge('Pendiente', 'var(--warning)', '⏳')}
           </div>
           <div class="li-sub" style="margin-top:10px">
             Todavía no se te ha cobrado nada. Cuando la aprueben, empieza a
@@ -321,8 +321,8 @@ const Finanzas = {
               </div>
             </div>
             ${cancelada
-              ? Shell.badge('Cancelada', '#5F6B60', '⏹')
-              : Shell.badge('Activa', '#2E7D32', '✅')}
+              ? Shell.badge('Cancelada', 'var(--text-secondary)', '⏹')
+              : Shell.badge('Activa', 'var(--leaf)', '✅')}
           </div>
           <div style="margin-top:12px;display:grid;gap:5px">
             ${this.beneficios(rol).map(b => `<div class="li-sub">✔ ${Shell.escape(b)}</div>`).join('')}

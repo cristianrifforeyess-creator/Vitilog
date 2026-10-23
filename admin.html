@@ -105,16 +105,16 @@
         const volumen = cargas().reduce((s, x) => s + (Number(x.volumen) || 0), 0);
         const suspendidas = cuentas().filter(a => a.activa === false).length;
         const stats = [
-          { ic: '🍇', color: '#2E7D32', val: v.length, lbl: 'Viñateros', sub: 'Registrados' },
-          { ic: '🏭', color: '#1976D2', val: e.length, lbl: 'Plantas', sub: 'Biomasa o compostaje' },
-          { ic: '🌾', color: '#43A047', val: cargas().length, lbl: 'Cargas', sub: volumen + ' m³ publicados' },
-          { ic: '♻️', color: '#F9A825', val: puntos().length, lbl: 'Plantas y acopios', sub: puntos().filter(p => p.activo !== false).length + ' con cupos' },
+          { ic: '🍇', color: 'var(--leaf)', val: v.length, lbl: 'Viñateros', sub: 'Registrados' },
+          { ic: '🏭', color: 'var(--primary)', val: e.length, lbl: 'Plantas', sub: 'Biomasa o compostaje' },
+          { ic: '🌾', color: 'var(--leaf)', val: cargas().length, lbl: 'Cargas', sub: volumen + ' m³ publicados' },
+          { ic: '♻️', color: 'var(--warning)', val: puntos().length, lbl: 'Plantas y acopios', sub: puntos().filter(p => p.activo !== false).length + ' con cupos' },
         ];
         $('panel').innerHTML = `
           <div class="grid cols-4" style="margin-top:16px">
             ${stats.map(s => `
               <div class="card stat-card">
-                <div class="chip-ic" style="background:${s.color}22;color:${s.color}">${s.ic}</div>
+                <div class="chip-ic" style="background:${Shell.tinte(s.color)};color:${s.color}">${s.ic}</div>
                 <div class="val">${s.val}</div>
                 <div class="lbl">${s.lbl}</div>
                 <div class="sub">${s.sub}</div>
@@ -168,13 +168,13 @@
         }, 0);
 
         const stats = [
-          { ic: '⚙️', color: '#2E7D32', val: Finanzas.pesos(comision),
+          { ic: '⚙️', color: 'var(--leaf)', val: Finanzas.pesos(comision),
             lbl: 'Comisiones', sub: '10% de cada flete' },
-          { ic: '🛟', color: '#1976D2', val: Finanzas.pesos(reserva),
+          { ic: '🛟', color: 'var(--primary)', val: Finanzas.pesos(reserva),
             lbl: 'Fondo de imprevistos', sub: '5% retenido' },
-          { ic: '💳', color: '#6A1B9A', val: Finanzas.pesos(membresias),
+          { ic: '💳', color: 'var(--primary-light)', val: Finanzas.pesos(membresias),
             lbl: 'Membresías', sub: 'Cobrado a plantas' },
-          { ic: '🔒', color: '#F9A825', val: Finanzas.pesos(enCustodia),
+          { ic: '🔒', color: 'var(--warning)', val: Finanzas.pesos(enCustodia),
             lbl: 'En custodia', sub: retenidos.length + ' flete(s) sin liquidar' },
         ];
 
@@ -197,7 +197,7 @@
           <div class="grid cols-4" style="margin-top:16px">
             ${stats.map(x => `
               <div class="card stat-card">
-                <div class="chip-ic" style="background:${x.color}22;color:${x.color}">${x.ic}</div>
+                <div class="chip-ic" style="background:${Shell.tinte(x.color)};color:${x.color}">${x.ic}</div>
                 <div class="val">${x.val}</div>
                 <div class="lbl">${x.lbl}</div>
                 <div class="sub">${x.sub}</div>
@@ -489,8 +489,8 @@
                       ? `<div class="li-sub">${Shell.escape(Shell.etiquetaModalidad(a))}</div>` : ''}
                     <div class="li-sub">${historialCuenta(a)}</div>
                     <div style="margin-top:6px">
-                      ${suspendida ? Shell.badge('Suspendida', '#E53935', '⛔') : Shell.badge('Activa', '#2E7D32', '✅')}
-                      ${a.porDefecto ? ' ' + Shell.badge('Clave por defecto', '#F9A825', '⚠️') : ''}
+                      ${suspendida ? Shell.badge('Suspendida', 'var(--danger)', '⛔') : Shell.badge('Activa', 'var(--leaf)', '✅')}
+                      ${a.porDefecto ? ' ' + Shell.badge('Clave por defecto', 'var(--warning)', '⚠️') : ''}
                     </div>
                   </div>
                   ${esYo ? '' : `
@@ -561,12 +561,12 @@
               const color = tipoColor(p.tipo, p.activo);
               return `
                 <div class="card list-item">
-                  <div class="li-ic" style="background:${color}22;color:${color}">${recibeSarmientos(p.tipo) ? '♻️' : p.tipo === 'Transporte' ? '🚚' : '📦'}</div>
+                  <div class="li-ic" style="background:${Shell.tinte(color)};color:${color}">${recibeSarmientos(p.tipo) ? '♻️' : p.tipo === 'Transporte' ? '🚚' : '📦'}</div>
                   <div class="li-body">
                     <div class="li-title">${Shell.escape(p.nombre)}</div>
                     <div class="li-sub">${p.tipo} · ${Shell.escape(p.comuna)}${p.cap != null ? ' · ' + p.cap + ' m³' : ''}</div>
                     <div class="li-sub">${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}</div>
-                    <div style="margin-top:6px">${p.activo !== false ? Shell.badge('Con cupos', '#2E7D32', '✅') : Shell.badge('Sin cupos', '#E53935', '⛔')}</div>
+                    <div style="margin-top:6px">${p.activo !== false ? Shell.badge('Con cupos', 'var(--leaf)', '✅') : Shell.badge('Sin cupos', 'var(--danger)', '⛔')}</div>
                   </div>
                   <button class="link-btn" data-cupos="${Shell.escape(p.id)}">${p.activo !== false ? 'Cerrar cupos' : 'Abrir cupos'}</button>
                   <button class="link-btn" style="color:var(--danger)" data-punto="${Shell.escape(p.id)}">Eliminar</button>

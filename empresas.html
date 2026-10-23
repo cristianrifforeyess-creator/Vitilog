@@ -65,11 +65,11 @@
           `<div class="grid">` + list.map(e => {
             const color = tipoColor(e.tipo, e.activo);
             const ic = e.tipo === 'Biomasa' ? '🔥' : '♻️';
-            const estado = e.activo ? Shell.badge('Disponible', '#2E7D32', '✅') : Shell.badge('Sin cupos', '#E53935', '⛔');
-            const sello = e.registrada ? ' ' + Shell.badge('Registrada', '#1976D2', '🔖') : '';
+            const estado = e.activo ? Shell.badge('Disponible', 'var(--leaf)', '✅') : Shell.badge('Sin cupos', 'var(--danger)', '⛔');
+            const sello = e.registrada ? ' ' + Shell.badge('Registrada', 'var(--primary)', '🔖') : '';
             return `
               <div class="card list-item">
-                <div class="li-ic" style="background:${color}22;color:${color}">${ic}</div>
+                <div class="li-ic" style="background:${Shell.tinte(color)};color:${color}">${ic}</div>
                 <div class="li-body">
                   <div class="li-title">${Shell.escape(e.nombre)}</div>
                   <div class="li-sub">${e.tipo} · ${e.comuna}${e.km != null ? ' · a ' + e.km + ' km' : ''}</div>
