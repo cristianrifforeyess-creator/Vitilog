@@ -133,6 +133,10 @@ const Shell = {
     // Varias páginas arman su contenido después de init(); al terminar de
     // cargar el documento se vuelve a pasar por los mapas que aparecieron.
     document.addEventListener('DOMContentLoaded', () => this.pintarMapas());
+    // Canal de soporte: botón flotante y acceso en la cabecera.
+    if (typeof Soporte !== 'undefined') {
+      try { Soporte.montar(); } catch (e) { /* nunca debe tumbar la página */ }
+    }
     return true;
   },
 
@@ -1071,10 +1075,13 @@ const Shell = {
     this._ensureOverlays();
     document.getElementById('modal').innerHTML = html;
     document.getElementById('modalbg').classList.add('open');
+    // Marca en el cuerpo para que lo flotante se aparte de la hoja.
+    document.body.classList.add('modal-abierto');
   },
   closeModal() {
     const m = document.getElementById('modalbg');
     if (m) m.classList.remove('open');
+    document.body.classList.remove('modal-abierto');
   },
 
   /* Datos de contacto de demostración a partir del nombre. */

@@ -110,6 +110,20 @@ const MODO_MAPA = 'propio';
 const SUPABASE_URL = 'https://gjzxmrguecgebrzxclbu.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdqenhtcmd1ZWNnZWJyenhjbGJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MDk1MjUsImV4cCI6MjEwNzQ4NTUyNX0.u_w0pRAH3jnSYOmXXODyXoIGeAEhbVqBK0LTI_fWOso';
 
+/* ============ TELÉFONO DE SOPORTE ============
+
+   A dónde van las llamadas y los WhatsApp del botón de ayuda.
+
+   Normalmente no hace falta tocarlo: la aplicación usa el teléfono que
+   tenga declarado la cuenta de administración. Esto es el respaldo para
+   cuando esa cuenta aún no lo completó.
+
+   Formato libre: +56 9 1234 5678, 912345678 o 56912345678 dan lo mismo,
+   se normaliza solo. Si queda vacío y la administración tampoco tiene
+   teléfono, el botón de ayuda no aparece. */
+
+const SOPORTE_TELEFONO = '';
+
 /* Origen de los datos:
      'auto'  -> usa la base compartida si está configurada; si no, la local.
      'local' -> fuerza localStorage (útil para probar sin internet).

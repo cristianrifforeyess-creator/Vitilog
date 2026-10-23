@@ -32,6 +32,7 @@
   <script src="js/ruteo.js"></script>
   <script src="js/mosaico.js"></script>
   <script src="js/ficha.js"></script>
+  <script src="js/soporte.js"></script>
   <script src="js/shell.js"></script>
   <script>
     Shell.init('admin', { rol: Store.ROL_ADMIN }).then(listo => { if (!listo) return;
@@ -62,6 +63,23 @@
               <div class="li-sub" id="aviso-origen">${Store.aviso() ? '⚠️ ' + Shell.escape(Store.aviso()) : 'Conexión correcta.'}</div>
             </div>
           </div>
+
+          ${Soporte.hayCanal() ? '' : `
+            <div class="card pad" style="margin-top:14px;border:1.5px dashed var(--warning)">
+              <div class="list-item" style="padding:0">
+                <div class="li-ic" style="background:rgba(249,168,37,.15);color:var(--warning)">🆘</div>
+                <div class="li-body">
+                  <div class="li-title">El botón de ayuda está apagado</div>
+                  <div class="li-sub">
+                    Nadie puede reportar problemas porque la administración no tiene
+                    teléfono declarado. Ponlo en Ajustes → Teléfono y el botón aparece
+                    solo en los tres perfiles.
+                  </div>
+                </div>
+                <button class="btn" style="padding:10px 14px;font-size:13.5px"
+                        onclick="location.href='configuracion.html'">Ir a Ajustes</button>
+              </div>
+            </div>`}
 
           <div class="tabs" style="margin-top:18px">
             <button class="tab ${pestana === 'resumen' ? 'active' : ''}" data-t="resumen">Resumen</button>
