@@ -590,7 +590,10 @@ const Store = {
   /* Choferes registrados y disponibles para tomar servicios. */
   choferesDisponibles() {
     return this._cache.cuentas.filter(a =>
-      this.rolDe(a) === this.ROL_CHOFER && a.activa !== false && a.disponible !== false);
+      this.rolDe(a) === this.ROL_CHOFER && a.activa !== false
+      && a.disponible !== false
+      // El cargador individual no conduce: no cuenta como transportista.
+      && !this.esSoloCargador(a));
   },
 
   /* Que le falta por declarar a esta cuenta.
@@ -615,6 +618,13 @@ const Store = {
     }
     if (!hay(u.comuna)) {
       falta.push({ campo: 'Comuna', porque: 'se usa para calcular distancias y ordenar las cargas' });
+    }
+
+    if (rol === this.ROL_CHOFER && this.esSoloCargador(u)) {
+      if (u.estiba === 'cuadrilla' && !hay(u.cuadrilla_personas)) {
+        falta.push({ campo: 'Cuántos son en tu tropa', porque: 'se asignan primero los equipos más grandes' });
+      }
+      return falta;      // no conduce: no se le pide nada del camión
     }
 
     if (rol === this.ROL_CHOFER) {
@@ -720,6 +730,38 @@ const Store = {
   /* =====================================================================
      Flota: los transportistas que trabajan para una planta receptora
      ===================================================================== */
+  /* El que solo carga: entra como transportista, pero no conduce ni
+     pertenece a ninguna empresa. Lo suyo es la estiba, y la ruta o el
+     chofer al que asiste se los asigna la administracion. */
+  esSoloCargador(cuenta) {
+    const u = cuenta || this.currentUser();
+    return !!u && this.rolDe(u) === this.ROL_CHOFER && u.modalidad === 'cargador';
+  },
+
+  /* Cargadores individuales registrados y disponibles. */
+  cargadoresIndividuales() {
+    return this._cache.cuentas.filter(a =>
+      this.esSoloCargador(a) && a.activa !== false && a.disponible !== false);
+  },
+
+  /* La administracion deriva a un cargador a un retiro concreto: le da la
+     ruta y, con ella, el chofer al que va a asistir. */
+  async derivarCargador(envioId, correoCargador) {
+    const envio = this.envioPorId(envioId);
+    if (!envio) return 'Ese retiro ya no existe';
+    if (!correoCargador) {
+      await this.actualizarEnvio(envioId, { cuadrillaEmail: '', cuadrillaNombre: '' });
+      return null;
+    }
+    const c = this.accountByEmail(correoCargador);
+    if (!c) return 'Esa cuenta no existe';
+    await this.actualizarEnvio(envioId, {
+      cuadrillaEmail: c.email,
+      cuadrillaNombre: this.nombreDeEstiba(c) || c.nombre,
+    });
+    return null;
+  },
+
   /* Transportistas vinculados a una empresa. El vínculo lo declara el propio
      transportista en su perfil, así nadie queda enganchado sin saberlo. */
   flotaDe(empresaEmail) {
@@ -728,6 +770,7 @@ const Store = {
     return this._cache.cuentas.filter(a =>
       this.rolDe(a) === this.ROL_CHOFER
       && a.activa !== false
+      && !this.esSoloCargador(a)
       && (a.empresa_email || '').toLowerCase() === correo);
   },
 

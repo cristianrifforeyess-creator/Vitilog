@@ -202,6 +202,7 @@
         $('patente').value = u.patente || '';
         $('capacidad').value = u.capacidad || '';
         pintarModalidades();
+        aplicarModalidad();
         pintarVehiculos();
         pintarEstibas();
         $('cuadrilla-nombre').value = u.cuadrilla_nombre || '';
@@ -261,7 +262,11 @@
 
       /* Estiba: opcional, y con equipo propio si corresponde. */
       function pintarEstibas() {
-        $('estibas').innerHTML = DATA.estibaChofer.map(e => `
+        /* "Solo conduzco" no se le ofrece a quien vino justamente a cargar. */
+        const opciones = modalidad === 'cargador'
+          ? DATA.estibaChofer.filter(e => e.id !== 'no')
+          : DATA.estibaChofer;
+        $('estibas').innerHTML = opciones.map(e => `
           <button type="button" class="rol-opcion ${e.id === estiba ? 'activa' : ''}"
                   data-e="${e.id}" role="radio" aria-checked="${e.id === estiba}">
             <span class="ic" aria-hidden="true">${e.ic}</span>
@@ -284,9 +289,24 @@
             <span class="marca" aria-hidden="true">${m.id === modalidad ? '●' : '○'}</span>
           </button>`).join('');
         $('modalidades').querySelectorAll('.rol-opcion').forEach(b => {
-          b.onclick = () => { modalidad = b.dataset.m; pintarModalidades(); };
+          b.onclick = () => { modalidad = b.dataset.m; pintarModalidades(); aplicarModalidad(); };
         });
         $('f-empresa-nombre').style.display = modalidad === 'empresa' ? 'block' : 'none';
+      }
+
+      /* El cargador individual no conduce: no tiene camión que declarar y
+         la estiba deja de ser opcional, porque es justamente su oficio. */
+      function aplicarModalidad() {
+        const soloCarga = modalidad === 'cargador';
+        ['f-patente', 'f-capacidad', 'f-vehiculo'].forEach(i =>
+          $(i).style.display = soloCarga ? 'none' : 'block');
+        if (soloCarga) {
+          $('f-empresa-nombre').style.display = 'none';
+          if (estiba === 'no') estiba = 'propio';
+        }
+        $('l-estiba').textContent = soloCarga
+          ? '¿Cargas solo o con tropa?' : 'Servicio de estiba (opcional)';
+        pintarEstibas();
       }
 
       if (esEmpresa) {
@@ -400,7 +420,9 @@
         } else if (esChofer) {
           cambios.patente = $('patente').value.trim().toUpperCase();
           cambios.capacidad = parseFloat($('capacidad').value) || 0;
-          cambios.vehiculo = vehiculo;
+          const soloCarga = modalidad === 'cargador';
+          cambios.vehiculo = soloCarga ? '' : vehiculo;
+          if (soloCarga) { cambios.patente = ''; cambios.capacidad = 0; }
           cambios.estiba = estiba;
           cambios.cuadrilla_nombre = estiba === 'cuadrilla'
             ? $('cuadrilla-nombre').value.trim() : '';
@@ -408,6 +430,8 @@
             ? (parseInt($('cuadrilla-personas').value, 10) || 2) : 0;
           cambios.modalidad = modalidad;
           cambios.empresa_email = modalidad === 'empresa' ? empresaEmail : '';
+          // El cargador individual no pertenece a ninguna empresa.
+          if (soloCarga) cambios.empresa_nombre = '';
           cambios.empresa_nombre = modalidad === 'empresa'
             ? $('empresa-nombre').value.trim() : '';
         } else {

@@ -48,6 +48,10 @@
       let vistosEnvios = new Set();  // lo mismo para los retiros encargados
 
       function render() {
+        /* El cargador individual no conduce: su panel no muestra cargas
+           para tomar ni viajes, sino las estibas que le derivaron. */
+        if (Store.esSoloCargador(u)) return renderCargador();
+
         const activo = Store.servicioActivo();
         const asignados = Store.serviciosAsignados();
         const cargas = Store.cargasDisponibles(base);
@@ -187,6 +191,97 @@
       }
 
       /* Una carga que se puede aceptar. */
+      /* Panel del que solo carga. No elige trabajos: se los asigna la
+         administración junto con la ruta y el chofer al que asiste. */
+      function renderCargador() {
+        const mias = Store.misEstibas();
+        const pendientes = mias.filter(e => e.estado !== 'entregado');
+        const hechas = mias.filter(e => e.estado === 'entregado');
+
+        $('tb-sub').textContent =
+          `${Store.nombreDeEstiba(u) || u.nombre} · ${Store.personasDeEstiba(u)} persona(s)`
+          + (u.comuna ? ' · ' + u.comuna : '');
+
+        c.innerHTML = `
+          ${Shell.avisoPerfil()}
+
+          <div class="section" style="margin-top:4px">
+            <div class="section-title">Estibas que te asignaron</div>
+            <div class="section-sub">
+              ${pendientes.length === 0
+                ? 'Ninguna por ahora'
+                : `${pendientes.length} viña(s) esperando carga`}
+            </div>
+          </div>
+
+          ${pendientes.length === 0
+            ? `<div class="empty">
+                 <div class="ic">💪</div>
+                 <p>No tienes estibas asignadas.</p>
+                 <p style="font-size:13px">
+                   La administración de AgroConecta te deriva a los retiros que
+                   necesitan cargadores, con la ruta y el chofer al que asistes.
+                 </p>
+               </div>`
+            : `<div class="grid" style="margin-top:12px">
+                 ${pendientes.map(tarjetaEstiba).join('')}
+               </div>`}
+
+          ${hechas.length ? `
+            <div class="section">
+              <div class="section-title">Estibas completadas</div>
+              <div class="section-sub">${hechas.length} trabajo(s)</div>
+            </div>
+            <div class="grid" style="margin-top:12px">
+              ${hechas.map(e => `
+                <div class="card list-item">
+                  <div class="li-ic" style="background:rgba(46,125,50,.13);color:var(--primary)">✅</div>
+                  <div class="li-body">
+                    <div class="li-title">${Shell.escape(e.origenComuna)} → ${Shell.escape(e.destinoNombre)}</div>
+                    <div class="li-sub">${e.volumenRecibido ?? e.volumenDeclarado} m³ cargados</div>
+                  </div>
+                </div>`).join('')}
+            </div>` : ''}`;
+
+        c.querySelectorAll('[data-ver-estiba]').forEach(b => {
+          b.onclick = () => {
+            location.href = 'seguimiento.html?id=' + encodeURIComponent(b.dataset.verEstiba);
+          };
+        });
+        c.querySelectorAll('[data-llamar-chofer]').forEach(b => {
+          b.onclick = () => {
+            const e = Store.envioPorId(b.dataset.llamarChofer);
+            if (!e) return;
+            Shell.contactar(e.chofer || 'Transportista',
+              `${e.origenComuna} → ${e.destinoNombre}`,
+              { tel: e.choferTelefono, email: e.choferEmail, ic: '🚚' });
+          };
+        });
+      }
+
+      /* Un trabajo de estiba: dónde, cuánto y a quién asiste. */
+      function tarjetaEstiba(envio) {
+        const est = estadoEnvio(Shell.calcularSeguimiento(envio).estado);
+        const volumen = (Number(envio.volumenDeclarado) || 0)
+          + (envio.paradas || []).reduce((t, p) => t + (Number(p.volumen) || 0), 0);
+        return `
+          <div class="card pad" style="border-left:4px solid ${est.color}">
+            <div class="list-item" style="padding:0">
+              <div class="li-ic" style="background:${est.color}22;color:${est.color}">💪</div>
+              <div class="li-body">
+                <div class="li-title">${Shell.escape(envio.origenComuna)}</div>
+                <div class="li-sub">${volumen} m³ para subir · hacia ${Shell.escape(envio.destinoNombre)}</div>
+                <div class="li-sub">🚚 Asistes a ${Shell.escape(envio.chofer || 'un transportista')}</div>
+              </div>
+              ${Shell.badge(est.label, est.color)}
+            </div>
+            <div class="field-row" style="margin-top:14px">
+              <button class="btn ghost" style="flex:1" data-llamar-chofer="${Shell.escape(envio.id)}">📞 Transportista</button>
+              <button class="btn" style="flex:1" data-ver-estiba="${Shell.escape(envio.id)}">Ver retiro</button>
+            </div>
+          </div>`;
+      }
+
       /* ¿Le sirve esta carga a su camión? El aviso no bloquea: el que
          conoce el campo puede saber que sí entra, y decidir él. */
       function compat(carga) {

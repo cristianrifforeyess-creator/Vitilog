@@ -94,7 +94,12 @@ const Shell = {
   /* Menú y página de inicio que corresponden a cada rol. */
   navFor(rol) {
     if (rol === Store.ROL_ADMIN) return NAV_ADMIN;
-    if (rol === Store.ROL_CHOFER) return NAV_CHOFER;
+    if (rol === Store.ROL_CHOFER) {
+      // El cargador individual no conduce: "Mi viaje" no le sirve de nada.
+      return Store.esSoloCargador()
+        ? NAV_CHOFER.filter(n => n.key !== 'viaje')
+        : NAV_CHOFER;
+    }
     return rol === Store.ROL_EMPRESA ? NAV_EMPRESA : NAV_VINATERO;
   },
   homeFor(rol) {
@@ -996,7 +1001,8 @@ const Shell = {
     const nav = this.navFor(rol);
     const etiquetaRol = rol === Store.ROL_ADMIN ? '🛠️ Administración AgroConecta'
       : rol === Store.ROL_EMPRESA ? '🏭 Cuenta de planta receptora'
-      : rol === Store.ROL_CHOFER ? '🚚 Cuenta de transportista'
+      : rol === Store.ROL_CHOFER
+        ? (Store.esSoloCargador() ? '💪 Cuenta de cargador' : '🚚 Cuenta de transportista')
       : '🍇 Cuenta de viñatero';
     const links = nav.map(n => `
       <a class="nav-link ${n.key === active ? 'active' : ''}" href="${n.href}">

@@ -67,6 +67,7 @@
             <button class="tab ${pestana === 'resumen' ? 'active' : ''}" data-t="resumen">Resumen</button>
             <button class="tab ${pestana === 'cuentas' ? 'active' : ''}" data-t="cuentas">Cuentas</button>
             <button class="tab ${pestana === 'cargas' ? 'active' : ''}" data-t="cargas">Cargas</button>
+            <button class="tab ${pestana === 'estiba' ? 'active' : ''}" data-t="estiba">Estiba</button>
             <button class="tab ${pestana === 'puntos' ? 'active' : ''}" data-t="puntos">Plantas</button>
           </div>
           <div id="panel" class="stagger"></div>`;
@@ -74,7 +75,8 @@
         c.querySelectorAll('.tab').forEach(b => {
           b.onclick = () => { pestana = b.dataset.t; render(); };
         });
-        ({ resumen, cuentas: panelCuentas, cargas: panelCargas, puntos: panelPuntos })[pestana]();
+        ({ resumen, cuentas: panelCuentas, cargas: panelCargas,
+           estiba: panelEstiba, puntos: panelPuntos })[pestana]();
       }
 
       /* -------- Resumen -------- */
@@ -124,6 +126,117 @@
               <div style="width:${(m3 / mayor * 100).toFixed(0)}%;background:var(--primary)"></div>
             </div>
           </div>`).join('');
+      }
+
+      /* -------- Estiba --------
+         Acá el equipo de AgroConecta deriva a los cargadores individuales:
+         les da la ruta, y con ella el chofer al que van a asistir.
+
+         Es la administración y no la planta quien lo hace porque el
+         cargador individual no pertenece a ninguna empresa: no tiene a
+         quién pedirle trabajo, y sin alguien que lo derive quedaría
+         registrado pero sin que le llegue nada. */
+      function panelEstiba() {
+        const cargadores = Store.cargadoresIndividuales();
+        const todos = Store.accounts().filter(a => Store.esSoloCargador(a));
+
+        // Retiros vivos que pidieron cargadores o que aún no tienen quién cargue.
+        const abiertos = Store.envios().filter(e => e.estado !== 'entregado');
+
+        const caja = document.getElementById('panel');
+        caja.innerHTML = `
+          <div class="section" style="margin-top:4px">
+            <div class="section-title">Cargadores individuales</div>
+            <div class="section-sub">
+              ${todos.length === 0
+                ? 'Nadie se ha registrado con esta modalidad'
+                : `${cargadores.length} disponible(s) de ${todos.length} registrado(s)`}
+            </div>
+          </div>
+
+          ${todos.length === 0
+            ? `<div class="empty">
+                 <div class="ic">💪</div>
+                 <p>Ningún cargador individual registrado.</p>
+                 <p style="font-size:13px">
+                   Se registran como transportista y eligen la modalidad
+                   <b>Cargador individual</b> en Ajustes.
+                 </p>
+               </div>`
+            : `<div class="grid" style="margin-top:12px">
+                ${todos.map(c => {
+                  const asignados = Store.envios().filter(e =>
+                    e.cuadrillaEmail === c.email && e.estado !== 'entregado');
+                  return `
+                    <div class="card list-item">
+                      <div class="li-ic" style="background:rgba(25,118,210,.12);color:var(--info)">
+                        ${c.estiba === 'cuadrilla' ? '👥' : '💪'}
+                      </div>
+                      <div class="li-body">
+                        <div class="li-title">${Shell.escape(Store.nombreDeEstiba(c) || c.nombre)}</div>
+                        <div class="li-sub">
+                          ${Shell.escape(c.email)}${c.comuna ? ' · ' + Shell.escape(c.comuna) : ''}
+                          · ${Store.personasDeEstiba(c)} persona(s)
+                        </div>
+                        <div class="li-sub">
+                          ${c.disponible === false ? '⚪ No disponible'
+                            : asignados.length ? '🟠 ' + asignados.length + ' retiro(s) asignado(s)'
+                            : '🟢 Libre'}
+                        </div>
+                      </div>
+                    </div>`;
+                }).join('')}
+              </div>`}
+
+          <div class="section">
+            <div class="section-title">Derivar a un retiro</div>
+            <div class="section-sub">
+              Dale la ruta: el cargador verá a qué viña ir y a qué transportista asiste
+            </div>
+          </div>
+
+          ${abiertos.length === 0
+            ? `<div class="empty"><div class="ic">🚚</div><p>No hay retiros en curso.</p></div>`
+            : `<div class="grid" style="margin-top:12px">
+                ${abiertos.map(e => `
+                  <div class="card pad">
+                    <div class="list-item" style="padding:0">
+                      <div class="li-ic" style="background:rgba(239,108,0,.12);color:var(--in-progress)">🚚</div>
+                      <div class="li-body">
+                        <div class="li-title">${Shell.escape(e.origenComuna)} → ${Shell.escape(e.destinoNombre)}</div>
+                        <div class="li-sub">
+                          ${e.volumenDeclarado} m³ · transportista: ${Shell.escape(e.chofer || 'sin asignar')}
+                        </div>
+                        <div class="li-sub">
+                          ${e.cuadrillaNombre
+                            ? '💪 Carga: ' + Shell.escape(e.cuadrillaNombre)
+                            : '— Sin cargador asignado'}
+                        </div>
+                      </div>
+                    </div>
+                    <div class="field" style="margin-top:12px;margin-bottom:0">
+                      <select data-derivar="${Shell.escape(e.id)}">
+                        <option value="">Sin cargador</option>
+                        ${cargadores.map(c => `
+                          <option value="${Shell.escape(c.email)}" ${
+                            c.email === e.cuadrillaEmail ? 'selected' : ''}>${
+                            Shell.escape(Store.nombreDeEstiba(c) || c.nombre)} · ${
+                            Store.personasDeEstiba(c)} persona(s)</option>`).join('')}
+                      </select>
+                    </div>
+                  </div>`).join('')}
+              </div>`}`;
+
+        caja.querySelectorAll('[data-derivar]').forEach(sel => {
+          sel.onchange = async () => {
+            sel.disabled = true;
+            const error = await Store.derivarCargador(sel.dataset.derivar, sel.value);
+            sel.disabled = false;
+            if (error) return Shell.toast(error);
+            Shell.toast(sel.value ? 'Cargador derivado' : 'Retiro sin cargador');
+            render();
+          };
+        });
       }
 
       /* -------- Cuentas -------- */

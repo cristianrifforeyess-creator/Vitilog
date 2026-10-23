@@ -74,6 +74,12 @@ const DATA = {
       desc: 'Trabajo por mi cuenta con mi propio camión' },
     { id: 'empresa', label: 'Parte de una empresa', ic: '🏢',
       desc: 'Conduzco para una empresa de transporte' },
+    /* El que no conduce: su oficio es la estiba, por su cuenta y sin
+       pertenecer a ninguna empresa. No tiene camion que declarar, y es
+       la administracion la que le asigna la ruta o el chofer al que va
+       a asistir. */
+    { id: 'cargador', label: 'Cargador individual', ic: '💪',
+      desc: 'No conduzco: solo cargo, y no pertenezco a ninguna empresa' },
   ],
 
   /* Estados por los que pasa un envío, en orden. El seguimiento avanza por
