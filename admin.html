@@ -32,6 +32,7 @@
   <script src="js/ruteo.js"></script>
   <script src="js/mosaico.js"></script>
   <script src="js/ficha.js"></script>
+  <script src="js/finanzas.js"></script>
   <script src="js/soporte.js"></script>
   <script src="js/shell.js"></script>
   <script>
@@ -86,6 +87,7 @@
             <button class="tab ${pestana === 'cuentas' ? 'active' : ''}" data-t="cuentas">Cuentas</button>
             <button class="tab ${pestana === 'cargas' ? 'active' : ''}" data-t="cargas">Cargas</button>
             <button class="tab ${pestana === 'estiba' ? 'active' : ''}" data-t="estiba">Estiba</button>
+            <button class="tab ${pestana === 'finanzas' ? 'active' : ''}" data-t="finanzas">Finanzas</button>
             <button class="tab ${pestana === 'puntos' ? 'active' : ''}" data-t="puntos">Plantas</button>
           </div>
           <div id="panel" class="stagger"></div>`;
@@ -94,7 +96,7 @@
           b.onclick = () => { pestana = b.dataset.t; render(); };
         });
         ({ resumen, cuentas: panelCuentas, cargas: panelCargas,
-           estiba: panelEstiba, puntos: panelPuntos })[pestana]();
+           estiba: panelEstiba, finanzas: panelFinanzas, puntos: panelPuntos })[pestana]();
       }
 
       /* -------- Resumen -------- */
@@ -144,6 +146,107 @@
               <div style="width:${(m3 / mayor * 100).toFixed(0)}%;background:var(--primary)"></div>
             </div>
           </div>`).join('');
+      }
+
+      /* -------- Finanzas --------
+         El tablero maestro: comisiones, fondo de imprevistos y caja. Se
+         arma sumando el libro de movimientos, no recalculando nada: si
+         una cifra esta mal, esta mal en el libro, que es donde se puede
+         revisar. */
+      function panelFinanzas() {
+        const comision = Store.totalPlataforma('comision');
+        const reserva = Store.totalPlataforma('reserva');
+        const membresias = Store.movimientos()
+          .filter(m => m.tipo === 'membresia')
+          .reduce((t, m) => t + Math.abs(m.monto), 0);
+
+        const envios = Store.envios();
+        const retenidos = envios.filter(e => e.escrowEstado === 'retenido');
+        const enCustodia = retenidos.reduce((t, e) => {
+          const r = Finanzas.repartoDe(e);
+          return t + (r ? r.total : 0);
+        }, 0);
+
+        const stats = [
+          { ic: '⚙️', color: '#2E7D32', val: Finanzas.pesos(comision),
+            lbl: 'Comisiones', sub: '10% de cada flete' },
+          { ic: '🛟', color: '#1976D2', val: Finanzas.pesos(reserva),
+            lbl: 'Fondo de imprevistos', sub: '5% retenido' },
+          { ic: '💳', color: '#6A1B9A', val: Finanzas.pesos(membresias),
+            lbl: 'Membresías', sub: 'Cobrado a plantas' },
+          { ic: '🔒', color: '#F9A825', val: Finanzas.pesos(enCustodia),
+            lbl: 'En custodia', sub: retenidos.length + ' flete(s) sin liquidar' },
+        ];
+
+        const movs = Store.movimientos()
+          .slice().sort((a, b) => (b.creado || '').localeCompare(a.creado || ''))
+          .slice(0, 25);
+
+        document.getElementById('panel').innerHTML = `
+          <div class="card pad" style="margin-top:4px;background:var(--surface-alt)">
+            <div class="li-sub">
+              ⚠️ <b>Simulación.</b> No hay pasarela de pagos conectada: la aplicación
+              no cobra ni transfiere dinero real. Esto es el registro de lo que se
+              movería.
+            </div>
+          </div>
+
+          <div class="grid cols-4" style="margin-top:16px">
+            ${stats.map(x => `
+              <div class="card stat-card">
+                <div class="chip-ic" style="background:${x.color}22;color:${x.color}">${x.ic}</div>
+                <div class="val">${x.val}</div>
+                <div class="lbl">${x.lbl}</div>
+                <div class="sub">${x.sub}</div>
+              </div>`).join('')}
+          </div>
+
+          ${retenidos.length ? `
+            <div class="section">
+              <div class="section-title">Fletes en custodia</div>
+              <div class="section-sub">Se liberan cuando la planta valide la descarga</div>
+            </div>
+            <div class="grid" style="margin-top:12px">
+              ${retenidos.map(e => {
+                const r = Finanzas.repartoDe(e);
+                return `
+                  <div class="card list-item">
+                    <div class="li-ic" style="background:rgba(249,168,37,.15);color:var(--warning)">🔒</div>
+                    <div class="li-body">
+                      <div class="li-title">${Shell.escape(e.origenComuna)} → ${Shell.escape(e.destinoNombre)}</div>
+                      <div class="li-sub">${Shell.escape(e.chofer || 'sin transportista')} · ${estadoEnvio(e.estado).label}</div>
+                    </div>
+                    <b>${Finanzas.pesos(r ? r.total : 0)}</b>
+                  </div>`;
+              }).join('')}
+            </div>` : ''}
+
+          <div class="section">
+            <div class="section-title">Movimientos</div>
+            <div class="section-sub">Los ${movs.length} más recientes</div>
+          </div>
+          ${movs.length === 0
+            ? `<div class="empty"><div class="ic">📒</div><p>Todavía no hay movimientos.</p></div>`
+            : `<div class="grid" style="margin-top:12px">
+                ${movs.map(m => `
+                  <div class="card list-item">
+                    <div class="li-ic" style="background:var(--surface-alt)">
+                      ${m.tipo === 'comision' ? '⚙️' : m.tipo === 'reserva' ? '🛟'
+                        : m.tipo === 'membresia' ? '💳' : m.tipo === 'retencion' ? '🔒' : '💰'}
+                    </div>
+                    <div class="li-body">
+                      <div class="li-title">${Shell.escape(m.concepto)}</div>
+                      <div class="li-sub">
+                        ${m.email ? Shell.escape(m.email) : 'AgroConecta'} ·
+                        ${new Date(m.creado).toLocaleDateString('es-CL',
+                          { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                      </div>
+                    </div>
+                    <b style="color:${m.monto < 0 ? 'var(--danger)' : 'var(--primary)'}">
+                      ${m.monto < 0 ? '' : '+'}${Finanzas.pesos(m.monto)}
+                    </b>
+                  </div>`).join('')}
+              </div>`}`;
       }
 
       /* -------- Estiba --------

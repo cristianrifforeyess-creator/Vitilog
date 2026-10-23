@@ -249,6 +249,47 @@ insert into puntos (id, nombre, tipo, comuna, descripcion, capacidad, activo, la
 on conflict (id) do nothing;
 
 -- ---------------------------------------------------------------------
+-- Finanzas: membresia de las plantas, custodia del flete y libro de
+-- movimientos.
+--
+-- IMPORTANTE: esto NO mueve dinero real. No hay pasarela de pagos
+-- conectada. Es un registro de quien le debe cuanto a quien, con las
+-- cifras y los estados que tendria el sistema de verdad.
+-- ---------------------------------------------------------------------
+
+-- Suscripcion de la planta receptora y saldo de su billetera.
+alter table cuentas add column if not exists plan text default 'ninguno';
+alter table cuentas add column if not exists plan_hasta timestamptz;
+alter table cuentas add column if not exists wallet_saldo numeric not null default 0;
+
+-- Lo acordado por el flete y en que estado esta la custodia.
+alter table envios add column if not exists tarifa numeric;
+alter table envios add column if not exists estiba_cobrada boolean default false;
+alter table envios add column if not exists escrow_estado text default 'ninguno';
+alter table envios add column if not exists escrow_at timestamptz;
+alter table envios add column if not exists liquidado_at timestamptz;
+
+-- Libro de movimientos. Una fila por cada vez que una cifra cambia de
+-- manos: asi el panel de administracion no tiene que recalcular nada,
+-- solo sumar lo que paso.
+create table if not exists movimientos (
+  id        text primary key,
+  envio_id  text references envios(id) on delete set null,
+  email     text,                     -- a quien afecta; null si es de la plataforma
+  tipo      text not null,            -- retencion | liberacion | abono | comision | reserva | membresia
+  concepto  text not null default '',
+  monto     numeric not null,
+  creado    timestamptz not null default now()
+);
+
+create index if not exists movimientos_email_idx on movimientos (email);
+create index if not exists movimientos_envio_idx on movimientos (envio_id);
+
+alter table movimientos enable row level security;
+drop policy if exists movimientos_todo on movimientos;
+create policy movimientos_todo on movimientos for all using (true) with check (true);
+
+-- ---------------------------------------------------------------------
 -- Tiempo real: qué tablas avisan sus cambios por WebSocket
 -- ---------------------------------------------------------------------
 -- Sin esto, js/vivo.js se conecta pero no recibe nada: Supabase solo
@@ -257,7 +298,7 @@ on conflict (id) do nothing;
 do $$
 declare t text;
 begin
-  foreach t in array array['cuentas', 'cargas', 'envios', 'mensajes', 'puntos'] loop
+  foreach t in array array['cuentas', 'cargas', 'envios', 'mensajes', 'puntos', 'movimientos'] loop
     if not exists (
       select 1 from pg_publication_tables
       where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t
@@ -274,3 +315,4 @@ alter table cargas   replica identity full;
 alter table envios   replica identity full;
 alter table mensajes replica identity full;
 alter table puntos   replica identity full;
+alter table movimientos replica identity full;

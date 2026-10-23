@@ -19,6 +19,7 @@ const Store = {
   K_PUNTOS: 'vitilog_puntos',
   K_ENVIOS: 'vitilog_envios',
   K_MENSAJES: 'vitilog_mensajes',
+  K_MOVIMIENTOS: 'vitilog_movimientos',
   K_THEME: 'vitilog_theme',
 
   ROL_VINATERO: 'vinatero',
@@ -27,7 +28,7 @@ const Store = {
   ROL_ADMIN: 'admin',
 
   /* Datos en memoria. Los llena sincronizar() al abrir cada página. */
-  _cache: { cuentas: [], cargas: [], puntos: [], envios: [], mensajes: [] },
+  _cache: { cuentas: [], cargas: [], puntos: [], envios: [], mensajes: [], movimientos: [] },
   _listo: false,
   _aviso: null,          // problema de conexión, si lo hubo
 
@@ -57,12 +58,13 @@ const Store = {
 
     if (this.modo() === 'nube') {
       try {
-        const [cuentas, cargas, puntos, envios, mensajes] = await Promise.all([
+        const [cuentas, cargas, puntos, envios, mensajes, movimientos] = await Promise.all([
           Nube.listar('cuentas'),
           Nube.listar('cargas'),
           Nube.listar('puntos'),
           Nube.listar('envios'),
           Nube.listar('mensajes'),
+          Nube.listar('movimientos').catch(() => []),
         ]);
         this._recordarColumnas('cuentas', cuentas);
         this._recordarColumnas('cargas', cargas);
@@ -72,6 +74,7 @@ const Store = {
         this._cache.puntos = (puntos || []).map(this._puntoDesdeNube);
         this._cache.envios = (envios || []).map(this._envioDesdeNube);
         this._cache.mensajes = (mensajes || []).map(this._mensajeDesdeNube);
+        this._cache.movimientos = (movimientos || []).map(this._movimientoDesdeNube);
         this._listo = true;
         return null;
       } catch (e) {
@@ -86,6 +89,7 @@ const Store = {
     this._cache.puntos = this._read(this.K_PUNTOS, []);
     this._cache.envios = this._read(this.K_ENVIOS, []);
     this._cache.mensajes = this._read(this.K_MENSAJES, []);
+    this._cache.movimientos = this._read(this.K_MOVIMIENTOS, []);
     await this._sembrarLocal();
     this._listo = true;
     return this._aviso;
@@ -100,6 +104,7 @@ const Store = {
     cargas:   { cache: 'cargas',   mapa: '_cargaDesdeNube',   llave: 'id' },
     envios:   { cache: 'envios',   mapa: '_envioDesdeNube',   llave: 'id' },
     mensajes: { cache: 'mensajes', mapa: '_mensajeDesdeNube', llave: 'id' },
+    movimientos: { cache: 'movimientos', mapa: '_movimientoDesdeNube', llave: 'id' },
     cuentas:  { cache: 'cuentas',  mapa: '_cuentaDesdeNube',  llave: 'email' },
     puntos:   { cache: 'puntos',   mapa: '_puntoDesdeNube',   llave: 'id' },
   },
@@ -167,6 +172,9 @@ const Store = {
       estiba: f.estiba || 'no',
       cuadrilla_nombre: f.cuadrilla_nombre || '',
       cuadrilla_personas: Number(f.cuadrilla_personas) || 0,
+      plan: f.plan || 'ninguno',
+      plan_hasta: f.plan_hasta || null,
+      wallet_saldo: Number(f.wallet_saldo) || 0,
       disponible: f.disponible !== false,
       activa: f.activa !== false, creada: f.creada,
       ultimo_acceso: f.ultimo_acceso || null,
@@ -230,6 +238,11 @@ const Store = {
       cuadrillaNombre: f.cuadrilla_nombre || '',
       validadoPor: f.validado_por || '',
       validadoAt: f.validado_at || null,
+      tarifa: f.tarifa != null ? Number(f.tarifa) : null,
+      estibaCobrada: f.estiba_cobrada === true,
+      escrowEstado: f.escrow_estado || 'ninguno',
+      escrowAt: f.escrow_at || null,
+      liquidadoAt: f.liquidado_at || null,
     };
   },
   _envioHaciaNube(e) {
@@ -253,12 +266,31 @@ const Store = {
       cuadrilla_nombre: e.cuadrillaNombre || '',
       validado_por: e.validadoPor || null,
       validado_at: e.validadoAt || null,
+      tarifa: e.tarifa != null ? e.tarifa : null,
+      estiba_cobrada: e.estibaCobrada === true,
+      escrow_estado: e.escrowEstado || 'ninguno',
+      escrow_at: e.escrowAt || null,
+      liquidado_at: e.liquidadoAt || null,
     };
   },
   _mensajeDesdeNube(f) {
     return {
       id: f.id, envioId: f.envio_id, autorEmail: f.autor_email,
       autorNombre: f.autor_nombre, texto: f.texto, creado: f.creado,
+    };
+  },
+  _movimientoDesdeNube(f) {
+    return {
+      id: f.id, envioId: f.envio_id, email: f.email || '',
+      tipo: f.tipo, concepto: f.concepto || '',
+      monto: Number(f.monto) || 0, creado: f.creado,
+    };
+  },
+  _movimientoHaciaNube(m) {
+    return {
+      id: m.id, envio_id: m.envioId || null, email: m.email || null,
+      tipo: m.tipo, concepto: m.concepto || '',
+      monto: m.monto, creado: m.creado,
     };
   },
   _mensajeHaciaNube(m) {
@@ -296,9 +328,11 @@ const Store = {
   columnasQueFaltan() {
     const esperadas = {
       cuentas: ['modalidad', 'empresa_nombre', 'empresa_email', 'ultimo_acceso',
-                'accesos', 'vehiculo', 'estiba', 'cuadrilla_nombre', 'cuadrilla_personas'],
+                'accesos', 'vehiculo', 'estiba', 'cuadrilla_nombre', 'cuadrilla_personas',
+                'plan', 'wallet_saldo'],
       cargas: ['mano_obra', 'acceso'],
-      envios: ['paradas', 'cuadrilla_email', 'cuadrilla_nombre', 'validado_por', 'validado_at'],
+      envios: ['paradas', 'cuadrilla_email', 'cuadrilla_nombre', 'validado_por',
+               'validado_at', 'tarifa', 'escrow_estado'],
     };
     const faltan = [];
     for (const [tabla, cols] of Object.entries(esperadas)) {
@@ -328,6 +362,9 @@ const Store = {
       estiba: a.estiba || 'no',
       cuadrilla_nombre: a.cuadrilla_nombre || '',
       cuadrilla_personas: Number(a.cuadrilla_personas) || 0,
+      plan: a.plan || 'ninguno',
+      plan_hasta: a.plan_hasta || null,
+      wallet_saldo: Number(a.wallet_saldo) || 0,
       disponible: a.disponible !== false,
       activa: a.activa !== false,
       ultimo_acceso: a.ultimo_acceso || null,
@@ -1019,6 +1056,137 @@ const Store = {
       this._write(this.K_ENVIOS, this._cache.envios);
       this._write(this.K_MENSAJES, this._cache.mensajes);
     }
+  },
+
+  /* =====================================================================
+     Dinero: custodia, reparto y billetera
+
+     NADA DE ESTO MUEVE DINERO REAL. Es un libro de movimientos: deja
+     registrado quien le debe cuanto a quien y en que estado esta cada
+     pago. Las cifras son correctas; el cobro no existe.
+     ===================================================================== */
+  movimientos() { return this._cache.movimientos || []; },
+
+  async addMovimiento({ envioId, email, tipo, concepto, monto }) {
+    const m = {
+      id: 'mov-' + Date.now() + '-' + Math.random().toString(16).slice(2, 7),
+      envioId: envioId || null, email: email || '',
+      tipo, concepto: concepto || '', monto: Math.round(Number(monto) || 0),
+      creado: new Date().toISOString(),
+    };
+    this._cache.movimientos.push(m);
+    if (this.enNube()) {
+      await Nube.guardar('movimientos', this._movimientoHaciaNube(m));
+    } else {
+      this._write(this.K_MOVIMIENTOS, this._cache.movimientos);
+    }
+    return m;
+  },
+
+  /* Lo que esta cuenta tiene a su favor: lo abonado menos lo gastado. */
+  saldo(email) {
+    const correo = (email || this.currentEmail() || '').toLowerCase();
+    return this.movimientos()
+      .filter(m => (m.email || '').toLowerCase() === correo)
+      .reduce((t, m) => t + m.monto, 0);
+  },
+
+  movimientosDe(email) {
+    const correo = (email || this.currentEmail() || '').toLowerCase();
+    return this.movimientos()
+      .filter(m => (m.email || '').toLowerCase() === correo)
+      .sort((a, b) => (b.creado || '').localeCompare(a.creado || ''));
+  },
+
+  /* Lo que se queda la plataforma y el fondo de reserva: son los
+     movimientos sin dueno. */
+  totalPlataforma(tipo) {
+    return this.movimientos()
+      .filter(m => !m.email && (!tipo || m.tipo === tipo))
+      .reduce((t, m) => t + m.monto, 0);
+  },
+
+  /* -------- Custodia --------
+     Al contratar, el monto queda retenido: ni la planta lo tiene ni el
+     transportista puede cobrarlo. */
+  async retenerFlete(envioId, tarifa, conEstiba) {
+    const envio = this.envioPorId(envioId);
+    if (!envio) return 'Ese retiro ya no existe';
+    if (envio.escrowEstado === 'retenido') return 'Ya está retenido';
+
+    const total = Finanzas.cobrado(tarifa, conEstiba);
+    await this.actualizarEnvio(envioId, {
+      tarifa, estibaCobrada: !!conEstiba,
+      escrowEstado: 'retenido', escrowAt: new Date().toISOString(),
+    });
+    // Le sale del bolsillo a la planta, aunque todavia no llegue a nadie.
+    if (envio.empresaEmail) {
+      await this.addMovimiento({
+        envioId, email: envio.empresaEmail, tipo: 'retencion',
+        concepto: `Flete retenido · ${envio.origenComuna} → ${envio.destinoNombre}`,
+        monto: -total,
+      });
+    }
+    return null;
+  },
+
+  /* -------- Liquidacion --------
+     La planta valido la descarga: recien ahi se reparte. */
+  async liquidarFlete(envioId) {
+    const envio = this.envioPorId(envioId);
+    if (!envio) return 'Ese retiro ya no existe';
+    if (envio.escrowEstado !== 'retenido') return null;   // nada que liquidar
+
+    const r = Finanzas.repartoDe(envio);
+    if (!r) return null;
+
+    if (envio.choferEmail && r.chofer > 0) {
+      await this.addMovimiento({
+        envioId, email: envio.choferEmail, tipo: 'abono',
+        concepto: r.estiba > 0 ? 'Transporte' : 'Transporte y estiba',
+        monto: r.chofer,
+      });
+    }
+    if (envio.cuadrillaEmail && r.cuadrilla > 0
+        && envio.cuadrillaEmail !== envio.choferEmail) {
+      await this.addMovimiento({
+        envioId, email: envio.cuadrillaEmail, tipo: 'abono',
+        concepto: 'Estiba', monto: r.cuadrilla,
+      });
+    }
+    await this.addMovimiento({
+      envioId, email: '', tipo: 'reserva',
+      concepto: 'Fondo de imprevistos', monto: r.reserva,
+    });
+    await this.addMovimiento({
+      envioId, email: '', tipo: 'comision',
+      concepto: 'Comisión de la plataforma', monto: r.app,
+    });
+
+    await this.actualizarEnvio(envioId, {
+      escrowEstado: 'liquidado', liquidadoAt: new Date().toISOString(),
+    });
+    return null;
+  },
+
+  /* -------- Membresia de la planta -------- */
+  async contratarPlan(planId) {
+    const u = this.currentUser();
+    if (!u || this.rolDe(u) !== this.ROL_EMPRESA) return 'Solo las plantas tienen membresía';
+    const plan = Finanzas.PLANES.find(p => p.id === planId);
+    if (!plan) return 'Ese plan no existe';
+
+    // Si renueva antes de vencer, se suma a lo que le queda.
+    const desde = (u.plan_hasta && new Date(u.plan_hasta) > new Date())
+      ? new Date(u.plan_hasta) : new Date();
+    desde.setDate(desde.getDate() + plan.dias);
+
+    await this.updateAccount({ plan: plan.id, plan_hasta: desde.toISOString() });
+    await this.addMovimiento({
+      email: u.email, tipo: 'membresia',
+      concepto: `Membresía ${plan.label}`, monto: -plan.precio,
+    });
+    return null;
   },
 
   /* =====================================================================

@@ -31,6 +31,7 @@
   <script src="js/ruteo.js"></script>
   <script src="js/mosaico.js"></script>
   <script src="js/ficha.js"></script>
+  <script src="js/finanzas.js"></script>
   <script src="js/soporte.js"></script>
   <script src="js/shell.js"></script>
   <script>
@@ -366,6 +367,10 @@
               validadoPor: yo,
               validadoAt: new Date().toISOString(),
             });
+            // Validada la descarga, se libera la custodia y se reparte.
+            await Store.liquidarFlete(envio.id);
+            envio = Store.envioPorId(envio.id) || envio;
+
             Shell.notificar('Recepción validada',
               `${vol} m³ recibidos en ${envio.destinoNombre}. Transportista liberado.`);
             detenerReloj();

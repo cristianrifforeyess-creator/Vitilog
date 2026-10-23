@@ -42,6 +42,7 @@
   <script src="js/ruteo.js"></script>
   <script src="js/mosaico.js"></script>
   <script src="js/ficha.js"></script>
+  <script src="js/finanzas.js"></script>
   <script src="js/soporte.js"></script>
   <script src="js/shell.js"></script>
   <script>
@@ -234,16 +235,53 @@
               ${km} km hasta ${Shell.escape(base ? base.comuna : 'tu base')}
             </div>
           </div>
+          <div class="card pad" id="r-cobro" style="background:var(--surface-alt);margin-bottom:14px"></div>
           <div class="err" id="r-err"></div>
           <div class="field-row">
             <button class="btn ghost" style="flex:1" onclick="Shell.closeModal()">Cancelar</button>
             <button class="btn" style="flex:1" id="r-ok">🚚 Iniciar retiro</button>
           </div>`);
 
+        /* Lo que cuesta el flete y cómo se reparte. Se recalcula al
+           cambiar la cuadrilla, porque la estiba entra o sale del cobro. */
+        function pintarCobro() {
+          const sel = $('r-estiba');
+          const hayEstiba = carga.manoObra === 'solicita' && !!(sel && sel.value);
+          const tarifa = Finanzas.tarifa({ km, volumen: carga.volumen });
+          const total = Finanzas.cobrado(tarifa, hayEstiba);
+          const elegidoChofer = $('r-flota').value;
+          const propia = hayEstiba && sel.value === elegidoChofer;
+          const r = Finanzas.reparto(total, { conEstiba: hayEstiba, estibaDelChofer: propia });
+
+          $('r-cobro').innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:baseline">
+              <b>Flete</b>
+              <b style="font-size:20px">${Finanzas.pesos(total)}</b>
+            </div>
+            <div class="li-sub" style="margin-top:4px">
+              ${km} km · ${carga.volumen} m³${hayEstiba ? ' · con estiba' : ' · sin estiba (la viña pone su gente)'}
+            </div>
+            <div style="margin-top:10px;display:grid;gap:4px">
+              <div class="li-sub">🚚 Transportista: <b>${Finanzas.pesos(r.transporte)}</b></div>
+              ${r.estiba > 0 ? `<div class="li-sub">💪 Estiba: <b>${Finanzas.pesos(r.estiba)}</b></div>` : ''}
+              <div class="li-sub">🛟 Fondo de imprevistos: ${Finanzas.pesos(r.reserva)}</div>
+              <div class="li-sub">⚙️ Plataforma: ${Finanzas.pesos(r.app)}</div>
+            </div>
+            <div class="li-sub" style="margin-top:10px">
+              🔒 El monto queda <b>retenido en custodia</b> y se libera cuando valides la descarga.
+            </div>
+            <div class="li-sub" style="margin-top:6px;opacity:.75">
+              Simulación: la aplicación no cobra ni transfiere dinero real.
+            </div>`;
+        }
+
         $('r-flota').onchange = () => {
           $('r-manual').style.display = $('r-flota').value ? 'none' : 'block';
+          pintarCobro();
         };
         $('r-flota').onchange();
+        if ($('r-estiba')) $('r-estiba').onchange = pintarCobro;
+        pintarCobro();
 
         $('r-ok').onclick = async () => {
           const min = parseInt($('r-min').value, 10);
@@ -294,6 +332,12 @@
             $('r-ok').disabled = false;
             return ($('r-err').textContent = 'No se pudo programar el retiro: ' + e.message);
           }
+
+          /* El flete queda retenido: ni la planta lo tiene ni el
+             transportista puede cobrarlo hasta que se valide la descarga. */
+          const hayEstiba = carga.manoObra === 'solicita' && !!estiba;
+          await Store.retenerFlete(
+            envio.id, Finanzas.tarifa({ km, volumen: carga.volumen }), hayEstiba);
 
           Shell.closeModal();
           if (elegido) {

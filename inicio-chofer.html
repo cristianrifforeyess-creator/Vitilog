@@ -36,6 +36,7 @@
   <script src="js/ruteo.js"></script>
   <script src="js/mosaico.js"></script>
   <script src="js/ficha.js"></script>
+  <script src="js/finanzas.js"></script>
   <script src="js/soporte.js"></script>
   <script src="js/shell.js"></script>
   <script>
@@ -80,7 +81,13 @@
               ${asignados.map(tarjetaAsignado).join('')}
             </div>` : ''}
 
-          <div class="section" ${activo ? '' : 'style="margin-top:4px"'}>
+          <div class="section">
+            <div class="section-title">Mis ganancias</div>
+            <div class="section-sub">Lo que has ganado por transporte y estiba</div>
+            <div style="margin-top:12px">${Finanzas.walletHtml(u.email, { titulo: 'Ganancias acumuladas' })}</div>
+          </div>
+
+          <div class="section">
             <div class="section-title">Cargas esperando retiro</div>
             <div class="section-sub">
               ${cargas.length === 0 ? 'Ninguna por ahora' :
