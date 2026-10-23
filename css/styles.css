@@ -797,3 +797,24 @@ html[data-theme="dark"] .ficha-ruta {
 
 /* Al abrir una hoja modal el boton estorba: la tapa en parte. */
 body.modal-abierto .fab-soporte { display: none; }
+
+
+/* ---- Instrucciones paso a paso (permiso de ubicacion) ----
+   Pensadas para alguien que no esta acostumbrado al telefono: numeros
+   grandes, una sola accion por linea y harto aire entre pasos. */
+.pasos-gps {
+  list-style: none; counter-reset: paso;
+  margin: 16px 0; display: grid; gap: 12px;
+}
+.pasos-gps li {
+  counter-increment: paso;
+  display: flex; align-items: flex-start; gap: 12px;
+  font-size: 15px; line-height: 1.45;
+}
+.pasos-gps li::before {
+  content: counter(paso);
+  flex: 0 0 auto; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--primary); color: #fff;
+  display: grid; place-items: center;
+  font-size: 14px; font-weight: 800;
+}

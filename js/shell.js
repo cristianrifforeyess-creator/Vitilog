@@ -754,24 +754,116 @@ const Shell = {
   exigirGPS() {
     return new Promise(resolve => {
       if (!navigator.geolocation) {
-        return resolve({ ok: false, motivo: 'Este dispositivo no tiene GPS o el navegador no lo permite.' });
+        return resolve({ ok: false, causa: 'sin-soporte' });
       }
       if (!this.puedePedirGPS()) {
-        return resolve({ ok: false, motivo: 'El GPS solo funciona en sitios seguros (https). Abre la aplicación desde el enlace oficial.' });
+        return resolve({ ok: false, causa: 'sitio-inseguro' });
       }
-      navigator.geolocation.getCurrentPosition(
-        pos => resolve({ ok: true, posicion: {
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          precision: Math.round(pos.coords.accuracy),
-        } }),
-        err => resolve({ ok: false, motivo:
-          err.code === 1 ? 'Tienes que permitir el acceso a tu ubicación para empezar el viaje. Búscalo en el candado de la barra de direcciones.'
-          : err.code === 3 ? 'El GPS no respondió a tiempo. Sal a un lugar despejado y vuelve a intentarlo.'
-          : 'No se pudo obtener tu ubicación. Revisa que el GPS del teléfono esté encendido.' }),
-        { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
-      );
+
+      const bueno = pos => resolve({ ok: true, posicion: {
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        precision: Math.round(pos.coords.accuracy),
+      } });
+
+      const causaDe = err =>
+        err.code === 1 ? 'permiso' : err.code === 3 ? 'tiempo' : 'sin-senal';
+
+      /* Dos intentos, y este orden importa.
+
+         El primero pide precisión alta, que es lo que sirve para seguir un
+         camión. Pero en un notebook no hay GPS: la ubicación sale de las
+         redes wifi cercanas y con precisión alta se queda esperando hasta
+         agotar el tiempo. Por eso, si el primero falla por lentitud, el
+         segundo se conforma con menos precisión y acepta una lectura de
+         hasta cinco minutos. Basta para arrancar el viaje; después
+         watchPosition ya va afinando.
+
+         Si el que falla es el permiso, no se reintenta: el navegador va a
+         responder lo mismo y solo haría esperar de balde. */
+      navigator.geolocation.getCurrentPosition(bueno, err => {
+        if (err.code === 1) return resolve({ ok: false, causa: 'permiso' });
+        navigator.geolocation.getCurrentPosition(
+          bueno,
+          err2 => resolve({ ok: false, causa: causaDe(err2) }),
+          { enableHighAccuracy: false, maximumAge: 300000, timeout: 20000 }
+        );
+      }, { enableHighAccuracy: true, maximumAge: 0, timeout: 8000 });
     });
+  },
+
+  /* En qué está abriendo la aplicación. Sirve para dar la instrucción que
+     corresponde: en un iPhone no existe el candado de la barra de
+     direcciones, y mandarlo a buscarlo es peor que no decirle nada. */
+  dispositivo() {
+    const ua = navigator.userAgent || '';
+    const iOS = /iPad|iPhone|iPod/.test(ua)
+      || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (iOS) return 'iphone';
+    if (/Android/.test(ua)) return 'android';
+    return 'computador';
+  },
+
+  /* Qué hacer, paso a paso, según el aparato que tiene en la mano. Cada
+     paso es una frase corta y una sola acción. */
+  pasosGPS(causa) {
+    if (causa === 'sitio-inseguro') {
+      return {
+        titulo: 'Abre la aplicación desde el enlace oficial',
+        pasos: ['La ubicación solo funciona en la dirección que te compartieron.',
+                'Si llegaste por otro lado, vuelve a entrar desde ese enlace.'],
+      };
+    }
+    if (causa === 'sin-soporte') {
+      return {
+        titulo: 'Este aparato no puede dar su ubicación',
+        pasos: ['Prueba desde el teléfono, que sí tiene GPS.'],
+      };
+    }
+    if (causa === 'tiempo' || causa === 'sin-senal') {
+      return {
+        titulo: 'No se pudo leer tu ubicación',
+        pasos: [
+          'Revisa que la ubicación del aparato esté encendida.',
+          'Si estás bajo techo, sal a un lugar despejado.',
+          'Espera unos segundos y toca "Reintentar".',
+        ],
+      };
+    }
+
+    // causa === 'permiso': las instrucciones cambian según el aparato.
+    const d = this.dispositivo();
+    if (d === 'iphone') {
+      return {
+        titulo: 'Permite la ubicación en tu iPhone',
+        pasos: [
+          'Abre Ajustes del iPhone.',
+          'Entra en Privacidad y seguridad → Localización.',
+          'Enciéndela y busca tu navegador en la lista.',
+          'Elige "Al usar la app".',
+          'Vuelve acá y toca "Reintentar".',
+        ],
+      };
+    }
+    if (d === 'android') {
+      return {
+        titulo: 'Permite la ubicación',
+        pasos: [
+          'Toca el candado 🔒 que está al lado de la dirección, arriba.',
+          'Entra en Permisos y activa Ubicación.',
+          'Vuelve acá y toca "Reintentar".',
+        ],
+      };
+    }
+    return {
+      titulo: 'Permite la ubicación en el navegador',
+      pasos: [
+        'Mira arriba, al lado de la dirección de la página.',
+        'Toca el candado 🔒 o el ícono de ubicación 📍.',
+        'Cambia Ubicación a "Permitir".',
+        'Recarga la página y vuelve a intentarlo.',
+      ],
+    };
   },
 
   detenerTransmision() {

@@ -120,23 +120,70 @@
         conectar(cargas);
       }
 
-      /* Explica por qué no se puede partir y qué hacer, en vez de un aviso
-         suelto que desaparece en dos segundos. */
-      function avisoSinGPS(motivo) {
+      /* Pide el GPS y, si no se puede, acompaña al chofer en vez de
+         dejarlo encerrado.
+
+         El muro anterior solo decía "busca el candado de la barra de
+         direcciones", que en un iPhone no existe, y no ofrecía ni
+         reintentar ni salida. Un chofer parado en la viña con el camión
+         esperando no puede quedarse ahí.
+
+         Por eso ahora hay tres caminos: arreglarlo con instrucciones de
+         su propio aparato, reintentar, o seguir sin GPS asumiendo que el
+         viñatero no lo verá en el mapa. */
+      async function conGPS(seguir) {
+        const gps = await Shell.exigirGPS();
+        if (gps.ok) return seguir(true);
+        avisoSinGPS(gps.causa, seguir);
+      }
+
+      function avisoSinGPS(causa, seguir) {
+        const g = Shell.pasosGPS(causa);
         Shell.openModal(`
           <div class="handle"></div>
           <div style="text-align:center;padding:6px 0 2px">
             <div style="font-size:42px">📡</div>
-            <b style="font-size:19px;display:block;margin-top:8px">Necesitas el GPS encendido</b>
+            <b style="font-size:19px;display:block;margin-top:8px">${Shell.escape(g.titulo)}</b>
           </div>
-          <p class="section-sub" style="margin-top:12px">${Shell.escape(motivo)}</p>
-          <div class="card pad" style="background:var(--surface-alt);margin:14px 0">
+
+          <ol class="pasos-gps">
+            ${g.pasos.map(p => `<li>${Shell.escape(p)}</li>`).join('')}
+          </ol>
+
+          <button class="btn block" id="gps-reintentar" style="min-height:54px">
+            🔄 Reintentar
+          </button>
+
+          ${Soporte && Soporte.hayCanal() ? `
+            <button class="btn ghost block" style="margin-top:10px" id="gps-ayuda">
+              🆘 Hablar con soporte
+            </button>` : ''}
+
+          <div class="card pad" style="background:var(--surface-alt);margin-top:16px">
             <div class="li-sub">
-              El viaje no puede empezar sin ubicación: el viñatero y la planta
-              siguen el recorrido en vivo, y sin GPS se quedarían a ciegas.
+              Si no logras encenderlo y el camión tiene que salir igual, puedes
+              seguir sin GPS. El viñatero no verá tu recorrido en el mapa:
+              avísale por teléfono.
             </div>
+            <button class="btn ghost block" style="margin-top:12px" id="gps-seguir">
+              Continuar sin GPS
+            </button>
           </div>
-          <button class="btn block" onclick="Shell.closeModal()">Entendido</button>`);
+
+          <button class="btn ghost block" style="margin-top:10px"
+                  onclick="Shell.closeModal()">Cancelar</button>`);
+
+        document.getElementById('gps-reintentar').onclick = () => {
+          Shell.closeModal();
+          conGPS(seguir);
+        };
+        const ayuda = document.getElementById('gps-ayuda');
+        if (ayuda) ayuda.onclick = () => { Shell.closeModal(); Soporte.abrir(); };
+        document.getElementById('gps-seguir').onclick = () => {
+          Shell.closeModal();
+          Shell.toast('Viaje sin seguimiento en vivo');
+          seguir(false);
+        };
       }
 
       /* Retiro que una planta le encargó a este transportista y que todavía
@@ -368,15 +415,14 @@
               return Shell.toast('Primero cierra el viaje que tienes en curso');
             }
             b.disabled = true;
+            const id = b.dataset.aceptarEnvio;
 
-            // Sin GPS no se arranca: el viñatero tiene que poder seguirte.
-            const gps = await Shell.exigirGPS();
-            if (!gps.ok) { b.disabled = false; return avisoSinGPS(gps.motivo); }
-
-            const error = await Store.aceptarServicio(b.dataset.aceptarEnvio);
-            if (error) { b.disabled = false; return Shell.toast(error); }
-            // El "1" le dice a la pantalla del viaje que encienda el GPS sola.
-            location.href = 'viaje.html?iniciar=1';
+            conGPS(async hayGps => {
+              const error = await Store.aceptarServicio(id);
+              if (error) { b.disabled = false; return Shell.toast(error); }
+              // El "1" le dice a la pantalla del viaje que encienda el GPS sola.
+              location.href = hayGps ? 'viaje.html?iniciar=1' : 'viaje.html';
+            });
           };
         });
         c.querySelectorAll('[data-rechazar-envio]').forEach(b => {
@@ -398,10 +444,9 @@
         }
         if (!carga.lat) { Shell.toast('Esa comuna no tiene coordenadas'); return; }
 
-        // Sin GPS no se arranca: el viñatero tiene que poder seguirte.
-        const gps = await Shell.exigirGPS();
-        if (!gps.ok) return avisoSinGPS(gps.motivo);
-
+        /* El GPS se pide al confirmar, no acá. Bloquearlo antes de que
+           siquiera vea a qué planta iría era pedirle resolver un permiso
+           para algo que todavía no sabe si le conviene. */
         let plantas = Shell.empresasParaBuscador()
           .filter(p => p.activo && (carga.destino === 'Indistinto' || p.tipo === carga.destino));
         if (plantas.length === 0) { Shell.toast('No hay plantas con cupos para ese destino'); return; }
@@ -465,12 +510,20 @@
           if (p) $('a-min').value = p.minDesdeCarga || Math.max(6, Math.round(p.kmDesdeCarga * 1.4));
         };
 
-        $('a-ok').onclick = async () => {
+        $('a-ok').onclick = () => {
           const planta = plantas.find(x => x.id === $('a-planta').value);
           const min = parseInt($('a-min').value, 10);
           if (!planta) return ($('a-err').textContent = 'Elige la planta de destino.');
           if (!min || min < 1) return ($('a-err').textContent = 'Ingresa un tiempo válido.');
 
+          // Recién acá se pide la ubicación: ya decidió que toma el servicio.
+          Shell.closeModal();
+          conGPS(hayGps => tomarServicio(carga, planta, min, hayGps));
+        };
+      }
+
+      async function tomarServicio(carga, planta, min, hayGps) {
+        {
           const cuadrilla = cuadrillaPara(carga);
           const envio = await Store.addEnvio({
             id: 'env-' + Date.now(),
@@ -496,11 +549,10 @@
             creado: new Date().toISOString(),
           });
 
-          Shell.closeModal();
           Shell.notificar('Servicio aceptado',
             `${carga.comuna} → ${planta.nombre}` + (cuadrilla ? ` · Estiba: ${cuadrilla.nombre}` : ''));
-          location.href = 'viaje.html?iniciar=1';
-        };
+          location.href = hayGps ? 'viaje.html?iniciar=1' : 'viaje.html';
+        }
       }
 
       /* Revisa si llegaron cargas nuevas y avisa una sola vez por cada una.
