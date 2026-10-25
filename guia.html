@@ -269,7 +269,7 @@ lista.<span class="c4">push</span>(cuenta);
 
 <span class="c1">// 2. decide dónde dejarlo de verdad</span>
 <span class="c2">if</span> (<span class="c2">this</span>.<span class="c4">enNube</span>()) <span class="c2">await</span> Nube.<span class="c4">guardar</span>(<span class="c3">'cuentas'</span>, cuenta);
-<span class="c2">else</span> <span class="c2">this</span>.<span class="c4">_write</span>(<span class="c2">this</span>.K_ACCOUNTS, lista);</code></pre>
+<span class="c2">else</span> <span class="c2">this</span>.<span class="c4">_guardarBase</span>();</code></pre>
 
     <h3>Las contraseñas no se guardan</h3>
     <p>Se guarda su <em>huella</em>: un código de 64 caracteres calculado con <strong>SHA-256</strong>, imposible de revertir. Al iniciar sesión se calcula la huella de lo que la persona escribió y se compara.</p>

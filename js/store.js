@@ -13,13 +13,32 @@
      · empresa  -> biomasa, compostaje o transporte; busca esos residuos.
      · admin    -> administración de VITILOG. No se registra desde el sitio. */
 const Store = {
-  K_ACCOUNTS: 'vitilog_accounts',
+  /* -------- Lo que se guarda en este navegador --------
+     Los datos van todos juntos en una sola llave, como un objeto con una
+     lista por tabla. Antes era una llave por tabla, y eso traia dos
+     problemas: media docena de escrituras por cada cambio, y la
+     posibilidad de quedar a medias —cargas guardadas y envios no— si el
+     navegador cortaba la pagina en el momento justo. Con un solo objeto,
+     o se guarda todo o no se guarda nada.
+
+     Aparte quedan las cosas que son de este aparato y no de la base: con
+     que cuenta entraste, el tema claro u oscuro, que mensajes ya leiste.
+     Si estuvieran dentro del objeto de datos, restablecer la demo te
+     echaria de tu propia sesion. */
+  K_DB: 'vitilog_db',
+  DB_VERSION: 2,
+
+  /* Las llaves de la version 1, solo para traerse los datos una vez. */
+  K_VIEJAS: {
+    cuentas: 'vitilog_accounts',
+    cargas: 'vitilog_cargas',
+    puntos: 'vitilog_puntos',
+    envios: 'vitilog_envios',
+    mensajes: 'vitilog_mensajes',
+    movimientos: 'vitilog_movimientos',
+  },
+
   K_SESSION: 'vitilog_session',
-  K_CARGAS: 'vitilog_cargas',
-  K_PUNTOS: 'vitilog_puntos',
-  K_ENVIOS: 'vitilog_envios',
-  K_MENSAJES: 'vitilog_mensajes',
-  K_MOVIMIENTOS: 'vitilog_movimientos',
   K_THEME: 'vitilog_theme',
 
   ROL_VINATERO: 'vinatero',
@@ -48,6 +67,57 @@ const Store = {
     catch (e) { return def; }
   },
   _write(key, val) { localStorage.setItem(key, JSON.stringify(val)); },
+
+  /* Las seis listas que viven en el objeto de datos. */
+  _TABLAS_LOCALES: ['cuentas', 'cargas', 'puntos', 'envios', 'mensajes', 'movimientos'],
+
+  /* Trae los datos de este navegador a memoria. Si todavia estan en las
+     llaves sueltas de la version 1, se recogen de ahi, se guardan en el
+     objeto nuevo y las viejas se borran. Pasa una sola vez por aparato y
+     nadie pierde lo que tenia publicado. */
+  _cargarBaseLocal() {
+    const db = this._read(this.K_DB, null);
+    if (db && typeof db === 'object') {
+      this._TABLAS_LOCALES.forEach(t => {
+        this._cache[t] = Array.isArray(db[t]) ? db[t] : [];
+      });
+      return;
+    }
+
+    let habia = false;
+    this._TABLAS_LOCALES.forEach(t => {
+      const sueltos = this._read(this.K_VIEJAS[t], null);
+      this._cache[t] = Array.isArray(sueltos) ? sueltos : [];
+      if (Array.isArray(sueltos)) habia = true;
+    });
+    if (habia) {
+      this._guardarBase();
+      // Recien cuando lo nuevo esta escrito se sueltan las llaves viejas.
+      Object.values(this.K_VIEJAS).forEach(k => {
+        try { localStorage.removeItem(k); } catch (e) { /* da igual */ }
+      });
+    }
+  },
+
+  /* Guarda el estado completo de una vez. Es barato: son listas chicas, y
+     a cambio nunca quedan dos tablas contandose historias distintas. */
+  _guardarBase() {
+    const db = { version: this.DB_VERSION, guardado: new Date().toISOString() };
+    this._TABLAS_LOCALES.forEach(t => { db[t] = this._cache[t] || []; });
+    try {
+      this._write(this.K_DB, db);
+    } catch (e) {
+      /* Si el navegador no deja escribir —modo privado, cuota llena— vale
+         mas seguir con los datos en memoria que romper la pagina. */
+      this._aviso = 'No se pudo guardar en este navegador: ' + e.message;
+    }
+  },
+
+  /* Deja el almacen local vacio. Lo usa el restablecimiento de la demo. */
+  vaciarBaseLocal() {
+    this._TABLAS_LOCALES.forEach(t => { this._cache[t] = []; });
+    this._guardarBase();
+  },
 
   /* =====================================================================
      Carga inicial
@@ -84,12 +154,7 @@ const Store = {
       }
     }
 
-    this._cache.cuentas = this._read(this.K_ACCOUNTS, []);
-    this._cache.cargas = this._read(this.K_CARGAS, []);
-    this._cache.puntos = this._read(this.K_PUNTOS, []);
-    this._cache.envios = this._read(this.K_ENVIOS, []);
-    this._cache.mensajes = this._read(this.K_MENSAJES, []);
-    this._cache.movimientos = this._read(this.K_MOVIMIENTOS, []);
+    this._cargarBaseLocal();
     await this._sembrarLocal();
     this._listo = true;
     return this._aviso;
@@ -142,7 +207,7 @@ const Store = {
   async _sembrarLocal() {
     if (this._cache.puntos.length === 0 && typeof DATA !== 'undefined' && DATA.puntos) {
       this._cache.puntos = DATA.puntos.map(p => ({ ...p }));
-      this._write(this.K_PUNTOS, this._cache.puntos);
+      this._guardarBase();
     }
     if (!this._cache.cuentas.some(c => this.rolDe(c) === this.ROL_ADMIN)) {
       const { hash, sal } = await this._cifrar('admin1234');
@@ -151,7 +216,7 @@ const Store = {
         email: 'admin@vitilog.cl', clave_hash: hash, clave_sal: sal,
         comuna: 'Talca', telefono: '', activa: true, porDefecto: true,
       });
-      this._write(this.K_ACCOUNTS, this._cache.cuentas);
+      this._guardarBase();
     }
   },
 
@@ -190,6 +255,10 @@ const Store = {
       notas: f.notas || '', estado: f.estado || 'publicada', creada: f.creada,
       manoObra: f.mano_obra || 'propia',
       acceso: f.acceso || 'normal',
+      /* El viñatero declaró que el sarmiento ya está apilado en la
+         cabecera o el callejón. Sin esto el camión llega a un parrón con
+         el residuo tirado entre las hileras y no hay viaje que hacer. */
+      consolidado: f.consolidado === true,
     };
   },
   _puntoDesdeNube(f) {
@@ -206,6 +275,7 @@ const Store = {
       estado: c.estado || 'publicada',
       mano_obra: c.manoObra || 'propia',
       acceso: c.acceso || 'normal',
+      consolidado: c.consolidado === true,
     };
   },
   _puntoHaciaNube(p) {
@@ -240,6 +310,9 @@ const Store = {
       cuadrillaNombre: f.cuadrilla_nombre || '',
       validadoPor: f.validado_por || '',
       validadoAt: f.validado_at || null,
+      /* Hora en que el camión avisó que estaba en la portería del predio.
+         Es el momento en que el viñatero tiene que ir a abrir. */
+      porteriaAt: f.porteria_at || null,
       tarifa: f.tarifa != null ? Number(f.tarifa) : null,
       estibaCobrada: f.estiba_cobrada === true,
       escrowEstado: f.escrow_estado || 'ninguno',
@@ -268,6 +341,7 @@ const Store = {
       cuadrilla_nombre: e.cuadrillaNombre || '',
       validado_por: e.validadoPor || null,
       validado_at: e.validadoAt || null,
+      porteria_at: e.porteriaAt || null,
       tarifa: e.tarifa != null ? e.tarifa : null,
       estiba_cobrada: e.estibaCobrada === true,
       escrow_estado: e.escrowEstado || 'ninguno',
@@ -332,9 +406,9 @@ const Store = {
       cuentas: ['modalidad', 'empresa_nombre', 'empresa_email', 'ultimo_acceso',
                 'accesos', 'vehiculo', 'estiba', 'cuadrilla_nombre', 'cuadrilla_personas',
                 'plan', 'plan_estado', 'wallet_saldo'],
-      cargas: ['mano_obra', 'acceso'],
+      cargas: ['mano_obra', 'acceso', 'consolidado'],
       envios: ['paradas', 'cuadrilla_email', 'cuadrilla_nombre', 'validado_por',
-               'validado_at', 'tarifa', 'escrow_estado'],
+               'validado_at', 'tarifa', 'escrow_estado', 'porteria_at'],
     };
     const faltan = [];
     for (const [tabla, cols] of Object.entries(esperadas)) {
@@ -417,7 +491,7 @@ const Store = {
     if (this.enNube()) {
       await Nube.guardar('cuentas', this._soloColumnasConocidas('cuentas', this._cuentaHaciaNube(acc)));
     } else {
-      this._write(this.K_ACCOUNTS, lista);
+      this._guardarBase();
     }
   },
 
@@ -427,8 +501,7 @@ const Store = {
     if (this.enNube()) {
       await Nube.borrar('cuentas', 'email=eq.' + encodeURIComponent(email));
     } else {
-      this._write(this.K_ACCOUNTS, this._cache.cuentas);
-      this._write(this.K_CARGAS, this._cache.cargas);
+      this._guardarBase();
     }
   },
 
@@ -524,6 +597,21 @@ const Store = {
     return null;
   },
 
+  /* Alta de una cuenta sin iniciar sesión con ella. Los register* de
+     arriba dejan al recién registrado dentro, que es lo que uno espera al
+     registrarse; esto hace falta cuando la cuenta la crea otro, como al
+     sembrar los datos de demostración. */
+  async crearCuenta(datos, clave) {
+    const email = (datos.email || '').trim();
+    if (!email) return 'Falta el correo';
+    const { hash, sal } = await this._cifrar(clave || 'demo1234');
+    await this.upsertAccount({
+      activa: true, ...datos, email,
+      clave_hash: hash, clave_sal: sal,
+    });
+    return null;
+  },
+
   register(datos) {
     if (datos.rol === this.ROL_EMPRESA) return this.registerEmpresa(datos);
     if (datos.rol === this.ROL_CHOFER) return this.registerChofer(datos);
@@ -602,14 +690,14 @@ const Store = {
     if (this.enNube()) {
       await Nube.guardar('cargas', this._soloColumnasConocidas('cargas', this._cargaHaciaNube(carga)));
     } else {
-      this._write(this.K_CARGAS, this._cache.cargas);
+      this._guardarBase();
     }
   },
 
   async removeCarga(id) {
     this._cache.cargas = this._cache.cargas.filter(c => c.id !== id);
     if (this.enNube()) await Nube.borrar('cargas', 'id=eq.' + encodeURIComponent(id));
-    else this._write(this.K_CARGAS, this._cache.cargas);
+    else this._guardarBase();
   },
 
   /* Cargas visibles para una empresa: las publicadas por los viñateros
@@ -641,13 +729,13 @@ const Store = {
     const i = lista.findIndex(p => p.id === punto.id);
     if (i >= 0) lista[i] = punto; else lista.push(punto);
     if (this.enNube()) await Nube.guardar('puntos', this._puntoHaciaNube(punto));
-    else this._write(this.K_PUNTOS, lista);
+    else this._guardarBase();
   },
 
   async borrarPunto(id) {
     this._cache.puntos = this._cache.puntos.filter(p => p.id !== id);
     if (this.enNube()) await Nube.borrar('puntos', 'id=eq.' + encodeURIComponent(id));
-    else this._write(this.K_PUNTOS, this._cache.puntos);
+    else this._guardarBase();
   },
 
   /* =====================================================================
@@ -950,6 +1038,24 @@ const Store = {
     return null;
   },
 
+  /* -------- En portería --------
+     El camión llegó al predio y está esperando en la entrada. Suena
+     menor y no lo es: en el Maule los portones están con candado y el
+     que abre vive a dos kilómetros, así que el camión se queda parado
+     sin que el viñatero se entere.
+
+     Se guarda la hora, no un simple sí: lo que importa después es cuánto
+     esperó, y esa es la única forma de saberlo. */
+  async marcarPorteria(envioId) {
+    const envio = this.envioPorId(envioId);
+    if (!envio) return 'Ese viaje ya no existe';
+    if (envio.choferEmail && envio.choferEmail !== this.currentEmail()) {
+      return 'Ese viaje no es tuyo';
+    }
+    await this.actualizarEnvio(envioId, { porteriaAt: new Date().toISOString() });
+    return null;
+  },
+
   /* El transportista marca que ya cargó en una de las paradas. */
   async marcarParadaRecogida(envioId, cargaId) {
     const envio = this.envioPorId(envioId);
@@ -1035,7 +1141,7 @@ const Store = {
     if (this.enNube()) {
       await Nube.guardar('envios', this._soloColumnasConocidas('envios', this._envioHaciaNube(envio)));
     }
-    else this._write(this.K_ENVIOS, this._cache.envios);
+    else this._guardarBase();
     return envio;
   },
 
@@ -1048,7 +1154,7 @@ const Store = {
     if (this.enNube()) {
       await Nube.guardar('envios', this._soloColumnasConocidas('envios', this._envioHaciaNube(envio)));
     }
-    else this._write(this.K_ENVIOS, this._cache.envios);
+    else this._guardarBase();
     return envio;
   },
 
@@ -1083,8 +1189,7 @@ const Store = {
     if (this.enNube()) {
       await Nube.borrar('envios', 'id=eq.' + encodeURIComponent(id));
     } else {
-      this._write(this.K_ENVIOS, this._cache.envios);
-      this._write(this.K_MENSAJES, this._cache.mensajes);
+      this._guardarBase();
     }
   },
 
@@ -1108,7 +1213,7 @@ const Store = {
     if (this.enNube()) {
       await Nube.guardar('movimientos', this._movimientoHaciaNube(m));
     } else {
-      this._write(this.K_MOVIMIENTOS, this._cache.movimientos);
+      this._guardarBase();
     }
     return m;
   },
@@ -1123,7 +1228,7 @@ const Store = {
     if (this.enNube()) {
       await Nube.borrar('movimientos', 'id=eq.' + encodeURIComponent(id));
     } else {
-      this._write(this.K_MOVIMIENTOS, this._cache.movimientos);
+      this._guardarBase();
     }
     return null;
   },
@@ -1384,7 +1489,7 @@ const Store = {
     if (!mensaje.texto) return null;
     this._cache.mensajes.push(mensaje);
     if (this.enNube()) await Nube.guardar('mensajes', this._mensajeHaciaNube(mensaje));
-    else this._write(this.K_MENSAJES, this._cache.mensajes);
+    else this._guardarBase();
     return mensaje;
   },
 

@@ -862,3 +862,93 @@ body.modal-abierto .fab-soporte { display: none; }
   display: grid; place-items: center;
   font-size: 14px; font-weight: 800;
 }
+
+/* ============ Capacidad de la tolva ============
+   La barra que el transportista mira antes de aceptar otra carga. Dos
+   tramos: lo que subió en la viña de origen y lo que sumó en las paradas.
+   Lo que queda en blanco es lo que todavía le cabe, y es justamente lo
+   que se está preguntando. */
+.tolva {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 13px 14px;
+  background: var(--surface);
+}
+.tolva-fila {
+  display: flex; align-items: center; gap: 10px;
+  flex-wrap: wrap; justify-content: space-between;
+}
+.tolva-fila b { font-size: 16px; }
+.tolva-barra {
+  display: flex;
+  height: 15px;
+  margin-top: 10px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface-alt);
+  box-shadow: inset 0 1px 2px rgba(74, 21, 75, .08);
+}
+.tolva-parte { height: 100%; transition: width .35s ease; }
+.tolva-origen { background: var(--leaf); }
+.tolva-paradas {
+  /* Rayado para distinguirlo del tramo de origen sin meter un tercer
+     color: en una pantalla al sol, dos verdes parecidos no se separan. */
+  background: repeating-linear-gradient(135deg,
+    var(--verde-claro) 0 6px, var(--verde-oscuro) 6px 12px);
+}
+.tolva-libre { background: var(--surface-alt); border: 1px solid var(--border); }
+.tolva-leyenda {
+  display: flex; flex-wrap: wrap; gap: 6px 16px;
+  margin-top: 10px;
+  font-size: 12.5px; color: var(--text-secondary);
+}
+.tolva-leyenda span { display: flex; align-items: center; gap: 6px; }
+.tolva-punto {
+  width: 10px; height: 10px; border-radius: 3px; display: inline-block;
+}
+.tolva-sin-dato { border-style: dashed; border-color: var(--warning); }
+
+/* ============ Sello Verde: el comprobante de disposición ============
+   Se ve en pantalla igual que se descarga, para que nadie se lleve una
+   sorpresa al abrir el archivo. */
+.sello-marco {
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
+  line-height: 0;
+}
+.sello-marco svg { width: 100%; height: auto; display: block; }
+.sello-nota {
+  font-size: 12.5px; color: var(--text-secondary);
+  margin-top: 10px; line-height: 1.45;
+}
+
+/* ============ Confirmación obligatoria al publicar ============
+   La casilla que el viñatero tiene que marcar antes de publicar. Se ve
+   como una tarjeta y no como una casilla suelta al pie del formulario,
+   porque lo que declara ahí decide si el camión hace el viaje o lo
+   pierde. Mientras no esté marcada se muestra en ámbar. */
+.confirma {
+  display: flex; gap: 13px; align-items: flex-start;
+  padding: 14px 15px;
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+}
+.confirma.pendiente {
+  border-color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 7%, transparent);
+}
+.confirma.listo { border-color: var(--leaf); }
+.confirma input[type="checkbox"] {
+  width: 22px; height: 22px; flex: 0 0 auto;
+  margin-top: 2px; accent-color: var(--primary);
+}
+.confirma .texto b { display: block; font-size: 15px; line-height: 1.35; }
+.confirma .texto span {
+  display: block; margin-top: 4px;
+  font-size: 13px; color: var(--text-secondary); line-height: 1.45;
+}

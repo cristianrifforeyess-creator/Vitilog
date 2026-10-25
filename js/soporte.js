@@ -43,6 +43,10 @@ const Soporte = {
 
   hayCanal() { return this.telefono() !== ''; },
 
+  /* El mismo normalizador, para cualquier número de la aplicación: lo usa
+     Shell.urlWhatsApp cuando el transportista le escribe al productor. */
+  numero(crudo) { return this._normalizar(crudo); },
+
   /* -------- Contexto operativo --------
      Sobre qué está reclamando. Se elige lo más probable según el rol: un
      viaje en curso pesa más que una carga publicada hace una semana. */

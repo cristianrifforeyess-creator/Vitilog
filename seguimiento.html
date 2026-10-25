@@ -31,6 +31,7 @@
   <script src="js/ruteo.js"></script>
   <script src="js/mosaico.js"></script>
   <script src="js/ficha.js"></script>
+  <script src="js/comprobante.js"></script>
   <script src="js/finanzas.js"></script>
   <script src="js/soporte.js"></script>
   <script src="js/shell.js"></script>
@@ -180,6 +181,14 @@
                         hour: '2-digit', minute: '2-digit' }) : ''}
                 </p>
                 <p class="section-sub">🚚 Transportista liberado para su siguiente ruta.</p>` : ''}
+
+              <!-- Con el pesaje validado ya hay algo que acreditar: el
+                   volumen que salió del predio y no se quemó. -->
+              ${Comprobante.boton(envio, { clase: 'btn block', texto: '🌿 Ver Sello Verde' })}
+              ${Comprobante.disponible(envio) ? `
+                <p class="section-sub" style="margin-top:9px;text-align:center">
+                  Comprobante de Disposición Limpia · ODS 9 y 12. Se descarga como imagen.
+                </p>` : ''}
             </div>`;
         }
 
@@ -290,6 +299,12 @@
               <a class="btn ghost" style="padding:10px 14px;font-size:13.5px"
                  href="tel:${envio.choferTelefono.replace(/\s/g, '')}">📞 Llamar</a>
             </div>
+            ${envio.porteriaAt ? `
+              <div class="li-sub" style="margin-top:10px;color:var(--leaf)">
+                🏁 Avisó que estaba en la portería a las ${
+                  new Date(envio.porteriaAt).toLocaleTimeString('es-CL',
+                    { hour: '2-digit', minute: '2-digit' })}
+              </div>` : ''}
             ${!soyVinatero ? `
               <button class="btn ghost block" style="margin-top:10px" id="btn-gps">
                 🛰️ Reportar mi ubicación como posición del camión
@@ -377,6 +392,8 @@
             render();
           };
         }
+
+        Comprobante.conectar(document.getElementById('content'));
 
         const gps = $('btn-gps');
         if (gps) {

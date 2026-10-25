@@ -29,11 +29,61 @@
   <script src="js/ruteo.js"></script>
   <script src="js/mosaico.js"></script>
   <script src="js/ficha.js"></script>
+  <script src="js/comprobante.js"></script>
   <script src="js/finanzas.js"></script>
   <script src="js/soporte.js"></script>
   <script src="js/shell.js"></script>
   <script>
     Shell.init('historial', { rol: Store.ROL_VINATERO }).then(listo => { if (!listo) return;
+      /* -------- Lo que de verdad pasó --------
+         Los retiros cerrados de este usuario, con el pesaje ya validado
+         por la planta. Cada uno tiene su Comprobante de Disposición
+         Limpia: es el historial que sirve para mostrarle a alguien, no
+         solo para mirarlo.
+
+         Las rutas de ejemplo de data.js siguen abajo, pero solo cuando
+         todavía no hay ninguna entrega propia. Mezclar las dos cosas fue
+         un error antes: las cifras de ejemplo contradecían las reales y
+         ya no se sabía cuál creer. */
+      const entregados = Store.misEnvios()
+        .filter(e => e.estado === 'entregado')
+        .sort((a, b) => (b.validadoAt || b.salida || '')
+          .localeCompare(a.validadoAt || a.salida || ''));
+
+      const m3Real = entregados.reduce((t, e) =>
+        t + (Number(e.volumenRecibido ?? e.volumenDeclarado) || 0), 0);
+
+      const fechaCorta = iso => iso
+        ? new Date(iso).toLocaleDateString('es-CL',
+            { day: '2-digit', month: 'long', year: 'numeric' })
+        : 'sin fecha';
+
+      const tarjetasReales = entregados.map(e => {
+        const m3 = Number(e.volumenRecibido ?? e.volumenDeclarado) || 0;
+        return `
+        <div class="card route-card">
+          <div class="route-head">
+            <b>${Shell.escape(e.origenComuna)} – ${Shell.escape(e.destinoNombre)}</b>
+            ${Shell.badge('Pesaje validado', 'var(--leaf)', '✅')}
+          </div>
+          <div class="route-info">
+            <span class="info-line">📦 Recibido: <b>${m3} m³</b></span>
+            <span class="info-line">⚡ Energía: <b>${Ficha.energia(m3)} MWh</b></span>
+            ${e.pesoRecibido != null
+              ? `<span class="info-line">⚖️ Balanza: <b>${e.pesoRecibido} kg</b></span>` : ''}
+            ${(e.paradas || []).length
+              ? `<span class="info-line">🔗 Viaje consolidado: <b>${e.paradas.length + 1} predios</b></span>` : ''}
+          </div>
+          <div class="route-foot">
+            <span class="date">📅 ${fechaCorta(e.validadoAt || e.salida)}</span>
+            <span style="display:flex;gap:14px">
+              ${Comprobante.boton(e, { clase: 'link-btn', texto: '🌿 Sello Verde' })}
+              <a class="link-btn" href="seguimiento.html?id=${encodeURIComponent(e.id)}">Ver detalle ›</a>
+            </span>
+          </div>
+        </div>`;
+      }).join('');
+
       const h = DATA.historial;
       const volumen = h.reduce((s, r) => s + r.volumen, 0);
 
@@ -50,19 +100,48 @@
             <button class="link-btn" onclick='Shell.toast("Resumen ${r.origen}–${r.destino}")'>Ver resumen ›</button></div>
         </div>`).join('');
 
+      const hayReales = entregados.length > 0;
+
       document.getElementById('content').innerHTML = `
-        <div class="grid cols-2" style="margin-top:4px">
+        <div class="grid cols-3" style="margin-top:4px">
           <div class="card pad" style="display:flex;align-items:center;gap:12px">
-            <div class="li-ic" style="background:rgba(46,125,50,.13);color:var(--leaf)">✅</div>
-            <div><div style="font-size:18px;font-weight:800">${h.length}</div><div class="li-sub">Rutas completadas</div></div>
+            <div class="li-ic" style="background:${Shell.tinte('var(--leaf)')};color:var(--leaf)">✅</div>
+            <div><div style="font-size:18px;font-weight:800">${hayReales ? entregados.length : h.length}</div>
+              <div class="li-sub">${hayReales ? 'Entregas cerradas' : 'Rutas de ejemplo'}</div></div>
           </div>
           <div class="card pad" style="display:flex;align-items:center;gap:12px">
-            <div class="li-ic" style="background:rgba(67,160,71,.13);color:var(--leaf)">📦</div>
-            <div><div style="font-size:18px;font-weight:800">${volumen} m³</div><div class="li-sub">Volumen recolectado</div></div>
+            <div class="li-ic" style="background:${Shell.tinte('var(--leaf)')};color:var(--leaf)">📦</div>
+            <div><div style="font-size:18px;font-weight:800">${hayReales ? m3Real : volumen} m³</div>
+              <div class="li-sub">Volumen recolectado</div></div>
+          </div>
+          <div class="card pad" style="display:flex;align-items:center;gap:12px">
+            <div class="li-ic" style="background:${Shell.tinte('var(--warning)')};color:var(--warning)">⚡</div>
+            <div><div style="font-size:18px;font-weight:800">${
+              Ficha.energia(hayReales ? m3Real : volumen)} MWh</div>
+              <div class="li-sub">Energía equivalente</div></div>
           </div>
         </div>
-        <div class="section"><div class="section-title">Recolecciones anteriores</div><div class="section-sub">Trazabilidad de tus cargas</div></div>
-        <div class="grid" style="margin-top:12px">${cards}</div>`;
+
+        ${hayReales ? `
+          <div class="section">
+            <div class="section-title">Entregas con comprobante</div>
+            <div class="section-sub">
+              Cada una tiene su Sello Verde: acredita el volumen pesado en la
+              planta y que ese sarmiento no se quemó.
+            </div>
+          </div>
+          <div class="grid" style="margin-top:12px">${tarjetasReales}</div>`
+        : `
+          <div class="section">
+            <div class="section-title">Recolecciones anteriores</div>
+            <div class="section-sub">
+              Todavía no tienes entregas cerradas. Esto es un ejemplo de cómo
+              se verá tu historial, con su comprobante por cada retiro.
+            </div>
+          </div>
+          <div class="grid" style="margin-top:12px">${cards}</div>`}`;
+
+      Comprobante.conectar(document.getElementById('content'));
 
       /* Resumen de la próxima ruta. Vive en Inicio, Rutas e Historial con
          el mismo código: lo que muestra depende del perfil de quien mira. */

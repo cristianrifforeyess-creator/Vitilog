@@ -103,10 +103,10 @@ const DATA = {
      Es una decisión del viñatero al publicar, no una obligación: el que ya
      tiene gente no necesita pedir nada. */
   manoObra: [
-    { id: 'propia', label: 'Tengo mi propia gente', ic: '👷',
-      desc: 'Mi cuadrilla carga el camión' },
-    { id: 'solicita', label: 'Necesito cuadrilla', ic: '🙋',
-      desc: 'Que la plataforma me asigne cargadores' },
+    { id: 'propia', label: 'Cuadrilla o maquinaria propia', ic: '👷',
+      desc: 'Mi gente, o mi tractor con horquilla, sube el sarmiento' },
+    { id: 'solicita', label: 'Solicitar cargador o tropa VITILOG', ic: '🙋',
+      desc: 'La plataforma asigna quién carga el camión' },
   ],
 
   /* Cómo se llega al campo. Define qué camiones pueden entrar, que es un

@@ -28,6 +28,7 @@
   <script src="js/ruteo.js"></script>
   <script src="js/mosaico.js"></script>
   <script src="js/ficha.js"></script>
+  <script src="js/comprobante.js"></script>
   <script src="js/finanzas.js"></script>
   <script src="js/soporte.js"></script>
   <script src="js/shell.js"></script>
@@ -60,9 +61,10 @@
         const frescura = Shell.frescura(envio);
         const perdida = Shell.senalPerdida(envio);
 
-        /* Consolidación de carga: cuánto lleva y cuánto le cabe todavía. */
+        /* Consolidación de carga: cuánto lleva y cuánto le cabe todavía.
+           La barra la dibuja Shell.barraTolva; acá solo hace falta el
+           total cargado, que se muestra junto a los kilómetros. */
         const yo = Store.currentUser();
-        const capacidad = Number(yo && yo.capacidad) || 0;
         const cargado = (Number(envio.volumenDeclarado) || 0)
           + (envio.paradas || []).reduce((t, p) => t + (Number(p.volumen) || 0), 0);
         const libre = Store.capacidadRestante(envio, yo);
@@ -102,6 +104,9 @@
               Así se gasta menos batería y menos datos.
             </p>
           </div>
+
+          <!-- Acceso al predio: la portería -->
+          ${tarjetaPorteria()}
 
           <!-- Avance del viaje -->
           <div class="card pad" style="margin-top:14px">
@@ -167,15 +172,25 @@
                     <div class="li-title">${Shell.escape(p.comuna)} · ${p.volumen} m³</div>
                     <div class="li-sub">${Shell.escape(p.productor || 'Productor VITILOG')}</div>
                   </div>
-                  ${p.recogida ? '' : `<button class="link-btn" data-recogida="${Shell.escape(p.cargaId)}">Ya cargué</button>`}
+                  ${p.recogida ? '' : `
+                    ${p.telefono ? `<button class="link-btn" data-porteria-parada="${
+                      Shell.escape(p.cargaId)}">🏁 En portería</button>` : ''}
+                    <button class="link-btn" data-recogida="${Shell.escape(p.cargaId)}">Ya cargué</button>`}
                 </div>`).join('')}
             </div>` : ''}
 
-          <!-- Consolidación: cargas que caben y quedan de paso -->
+          <!-- Consolidación: cuánto le cabe y qué le queda de paso -->
+          <div class="section">
+            <div class="section-title">Capacidad de la tolva</div>
+            <div class="section-sub">Lo que llevas y lo que todavía te cabe</div>
+            <div style="margin-top:12px">${Shell.barraTolva(envio, yo)}</div>
+          </div>
           <div class="section">
             <div class="section-title">Aprovechar el viaje</div>
             <div class="section-sub">
-              Te quedan <b>${libre} m³</b> libres de ${capacidad || '?'} m³
+              ${libre > 0
+                ? 'Cargas libres que te caben y no te desvían del camino'
+                : 'No se te puede sumar nada más en este viaje'}
             </div>
           </div>
           <div id="consolidar" style="margin-top:12px">
@@ -223,6 +238,71 @@
         conectar(seg);
       }
 
+      /* -------- En portería --------
+         El camión llegó al portón del predio y necesita que le abran.
+
+         Parece un detalle y es el que más tiempo se come: los portones
+         están con candado, el que tiene la llave anda en otro cuartel y
+         el camión se queda esperando sin que nadie en la casa lo sepa.
+         Un aviso con el contexto ya escrito —quién llega, con qué
+         patente, por cuántos metros cúbicos— resuelve en un mensaje lo
+         que si no son tres llamadas.
+
+         El estado queda guardado con la hora, no como un simple sí:
+         después lo que importa es cuánto esperó, y esta es la única
+         forma de saberlo. */
+      function textoPorteria(destinatario, volumen) {
+        const yo2 = Store.currentUser();
+        const lineas = [
+          '*AgroConecta · En portería*',
+          '',
+          `Soy ${yo2.nombre}, transportista.`,
+          `Estoy en la portería de ${destinatario}`
+            + (yo2.patente ? ` con el camión ${yo2.patente}.` : '.'),
+          `Vengo por los ${volumen} m³ de sarmiento del retiro ${envio.id}.`,
+          '',
+          '¿Me indicas por dónde entro y quién me acompaña al acopio?',
+        ];
+        // WhatsApp respeta los saltos de línea, y así se lee de un vistazo.
+        return lineas.join('\n');
+      }
+
+      function tarjetaPorteria() {
+        const v = Store.accountByEmail(envio.vinateroEmail);
+        const tel = v ? v.telefono : '';
+        const avisado = envio.porteriaAt
+          ? new Date(envio.porteriaAt).toLocaleTimeString('es-CL',
+              { hour: '2-digit', minute: '2-digit' })
+          : null;
+
+        return `
+          <div class="card pad" style="margin-top:14px;${
+            avisado ? '' : 'border:1.5px solid var(--warning)'}">
+            <div class="envio-cabecera">
+              <div class="li-ic" style="background:${Shell.tinte(
+                avisado ? 'var(--leaf)' : 'var(--warning)')};color:${
+                avisado ? 'var(--leaf)' : 'var(--warning)'}">🏁</div>
+              <div class="titulo">
+                ${avisado ? 'Avisaste a las ' + avisado : 'En portería / Acceso a predio'}
+                <div class="li-sub" style="font-weight:400">
+                  ${avisado
+                    ? 'El productor ya sabe que estás en la entrada.'
+                    : 'Avisa cuando llegues al portón, antes de bajarte a buscar a alguien.'}
+                </div>
+              </div>
+            </div>
+            <button class="btn ${avisado ? 'ghost' : ''} block" style="margin-top:14px"
+                    id="btn-porteria">
+              ${avisado ? '🔄 Volver a avisar' : '🏁 Estoy en la portería'}
+            </button>
+            ${tel ? '' : `
+              <p class="section-sub" style="margin-top:9px">
+                Este productor no tiene teléfono declarado: queda registrada la
+                hora, pero el mensaje habrá que darlo en persona.
+              </p>`}
+          </div>`;
+      }
+
       function nombreProductor() {
         const v = Store.accountByEmail(envio.vinateroEmail);
         return v ? v.nombre : 'Productor VITILOG';
@@ -251,6 +331,39 @@
             envio = Store.envioPorId(envio.id) || envio;
             Shell.toast('Parada marcada como cargada');
             render();
+          };
+        });
+
+        /* Avisar en la portería hace dos cosas de una vez: deja la hora
+           anotada en el retiro —para el viñatero y para el historial— y
+           abre WhatsApp con el mensaje ya escrito. El orden importa: si
+           se abriera WhatsApp primero, el navegador cambia de aplicación
+           y el guardado se queda a medias. */
+        const porteria = $('btn-porteria');
+        if (porteria) porteria.onclick = async () => {
+          porteria.disabled = true;
+          const error = await Store.marcarPorteria(envio.id);
+          envio = Store.envioPorId(envio.id) || envio;
+          if (error) { Shell.toast(error); porteria.disabled = false; return; }
+
+          const v = Store.accountByEmail(envio.vinateroEmail);
+          const url = Shell.urlWhatsApp(v ? v.telefono : '',
+            textoPorteria(nombreProductor(), envio.volumenDeclarado));
+          Shell.notificar('Aviso de portería enviado',
+            `${envio.origenComuna} · ${nombreProductor()}`);
+          if (url) window.open(url, '_blank', 'noopener');
+          else Shell.toast('Hora registrada. El productor no tiene WhatsApp declarado.');
+          render();
+        };
+
+        document.querySelectorAll('[data-porteria-parada]').forEach(b => {
+          b.onclick = () => {
+            const p = (envio.paradas || []).find(x => x.cargaId === b.dataset.porteriaParada);
+            if (!p) return;
+            const url = Shell.urlWhatsApp(p.telefono,
+              textoPorteria(p.productor || p.comuna, p.volumen));
+            if (url) window.open(url, '_blank', 'noopener');
+            else Shell.toast('Esa parada no tiene teléfono declarado');
           };
         });
 

@@ -34,6 +34,7 @@
   <script src="js/ruteo.js"></script>
   <script src="js/mosaico.js"></script>
   <script src="js/ficha.js"></script>
+  <script src="js/comprobante.js"></script>
   <script src="js/finanzas.js"></script>
   <script src="js/soporte.js"></script>
   <script src="js/shell.js"></script>
@@ -114,11 +115,14 @@
                   <div class="li-title">${Shell.escape(e.origenComuna)} → ${Shell.escape(e.destinoNombre)}</div>
                   <div class="li-sub">${e.volumenRecibido ?? e.volumenDeclarado} m³ recibidos${e.pesoRecibido ? ' · ' + e.pesoRecibido + ' kg' : ''}</div>
                 </div>
+                ${Comprobante.boton(e, { clase: 'link-btn', texto: '🌿 Sello Verde' })}
                 <div class="li-chev">›</div>
               </div>`).join('')}
           </div>`;
 
         $('panel').innerHTML = html + cerradosHtml;
+
+        Comprobante.conectar($('panel'));
 
         $('panel').querySelectorAll('[data-ir]').forEach(el => {
           el.addEventListener('click', ev => {

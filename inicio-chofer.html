@@ -36,6 +36,7 @@
   <script src="js/ruteo.js"></script>
   <script src="js/mosaico.js"></script>
   <script src="js/ficha.js"></script>
+  <script src="js/comprobante.js"></script>
   <script src="js/finanzas.js"></script>
   <script src="js/soporte.js"></script>
   <script src="js/shell.js"></script>
@@ -120,11 +121,13 @@
                     <div class="li-title">${Shell.escape(e.origenComuna)} → ${Shell.escape(e.destinoNombre)}</div>
                     <div class="li-sub">${e.volumenRecibido ?? e.volumenDeclarado} m³ entregados</div>
                   </div>
+                  ${Comprobante.boton(e, { clase: 'link-btn', texto: '🌿 Sello Verde' })}
                   <div class="li-chev">›</div>
                 </div>`).join('')}
             </div>` : ''}`;
 
         conectar(cargas);
+        Comprobante.conectar(c);
       }
 
       /* Pide el GPS y, si no se puede, acompaña al chofer en vez de
@@ -240,6 +243,8 @@
             <div class="progress" style="margin-top:12px">
               <div style="width:${Math.round(seg.progreso*100)}%;background:${est.color}"></div>
             </div>
+            <!-- Cuánto lleva y cuánto le cabe, sin tener que abrir el viaje -->
+            <div style="margin-top:14px">${Shell.barraTolva(envio, u, { compacta: true })}</div>
             <button class="btn block" style="margin-top:14px" onclick="location.href='viaje.html'">
               🚚 Abrir mi viaje${sinLeer ? ' · 💬 ' + sinLeer : ''}
             </button>
@@ -338,6 +343,29 @@
           </div>`;
       }
 
+      /* El viaje que tendría si aceptara esta carga, solo para dibujar la
+         barra. Si ya va en ruta, la carga nueva entra como una parada más
+         de ese viaje; si no, el viaje empieza con ella. No se guarda
+         nada: es un objeto de mentira que vive lo que dura el modal. */
+      function tolvaSimulada(carga) {
+        const activo = Store.servicioActivo();
+        if (activo) {
+          return {
+            ...activo,
+            paradas: (activo.paradas || []).concat([{
+              cargaId: carga.id, comuna: carga.comuna, volumen: carga.volumen,
+              productor: carga.productor || '',
+            }]),
+          };
+        }
+        return {
+          choferEmail: u.email,
+          origenComuna: carga.comuna,
+          volumenDeclarado: carga.volumen,
+          paradas: [],
+        };
+      }
+
       /* ¿Le sirve esta carga a su camión? El aviso no bloquea: el que
          conoce el campo puede saber que sí entra, y decidir él. */
       function compat(carga) {
@@ -361,6 +389,7 @@
                 ${carga.km != null ? Shell.badge('a ' + carga.km + ' km', 'var(--primary)', '📍') : ''}
               </div>
               <div class="li-sub">♻️ ${Shell.escape(carga.destino)} · 📅 ${Shell.escape(carga.fecha || 'Por confirmar')}</div>
+              ${Shell.avisoConsolidado(carga)}
               ${carga.manoObra === 'solicita'
                 ? `<div class="li-sub">🙋 Pide cuadrilla${cuadrillaPara(carga) ? ' · ' + Shell.escape(cuadrillaPara(carga).nombre) : ': no hay disponible'}</div>`
                 : ''}
@@ -494,6 +523,15 @@
                 : '📏 El servicio de rutas no respondió: son estimaciones en línea recta.'}
             </div>
           </div>
+          <!-- Cómo queda la tolva si acepta. Se simula el viaje que
+               tendría: su carga actual, si hay, más esta. Verlo antes de
+               aceptar es lo que permite decidir si todavía conviene sumar
+               otra viña o si con esta ya va completo. -->
+          <div class="field">
+            <label>Tu tolva si tomas esta carga</label>
+            ${Shell.barraTolva(tolvaSimulada(carga), u)}
+          </div>
+
           ${carga.manoObra === 'solicita' ? `
             <div class="card pad" style="background:var(--surface-alt);margin-bottom:14px">
               <b>🙋 Esta viña pide cuadrilla</b>

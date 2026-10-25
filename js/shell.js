@@ -1232,6 +1232,107 @@ const Shell = {
   badge(text, color, ic) {
     return `<span class="badge" style="color:${color};background:${Shell.tinte(color)}">${ic ? ic + ' ' : ''}${text}</span>`;
   },
+
+  /* =====================================================================
+     Capacidad de la tolva
+     =====================================================================
+     Cuánto lleva el camión y cuánto le cabe todavía, dibujado.
+
+     El número solo no sirve de nada al volante: "quedan 11 m³" obliga a
+     comparar mentalmente con la capacidad para saber si vale la pena un
+     desvío. La barra lo contesta de una mirada, y por eso separa lo que
+     subió en la viña de origen de lo que se sumó en las paradas: son dos
+     decisiones distintas y conviene ver el peso de cada una.
+
+     Si el transportista no declaró su capacidad no se inventa ninguna: se
+     dice que falta el dato y se manda a Ajustes, porque una barra con una
+     capacidad supuesta es peor que no tener barra. */
+  barraTolva(envio, cuenta = null, { compacta = false } = {}) {
+    const chofer = cuenta || (envio && Store.accountByEmail(envio.choferEmail))
+      || Store.currentUser();
+    const capacidad = Number(chofer && chofer.capacidad) || 0;
+
+    if (!capacidad) {
+      return `
+        <div class="tolva tolva-sin-dato">
+          <div class="tolva-fila">
+            <b>Capacidad sin declarar</b>
+            <a class="link-btn" href="configuracion.html">Declararla ›</a>
+          </div>
+          <div class="li-sub">
+            Sin la capacidad de tu tolva no se puede calcular cuánto te cabe
+            todavía, y no aparecen cargas para sumar al viaje.
+          </div>
+        </div>`;
+    }
+
+    const origen = Number(envio && envio.volumenDeclarado) || 0;
+    const paradas = ((envio && envio.paradas) || [])
+      .reduce((t, x) => t + (Number(x.volumen) || 0), 0);
+    const cargado = origen + paradas;
+    const libre = Math.max(0, Math.round((capacidad - cargado) * 10) / 10);
+    const pct = v => Math.max(0, Math.min(100, v / capacidad * 100));
+    const lleno = Math.round(pct(cargado));
+
+    /* El color dice qué hacer: verde queda sitio, ámbar va justo, morado
+       está completo y no tiene sentido seguir ofreciéndole cargas. */
+    const color = libre <= 0 ? 'var(--primary)'
+      : lleno >= 80 ? 'var(--warning)' : 'var(--leaf)';
+
+    const vol = n => (Math.round(n * 10) / 10) + ' m³';
+
+    return `
+      <div class="tolva">
+        <div class="tolva-fila">
+          <b>${vol(cargado)} de ${vol(capacidad)}</b>
+          <span class="badge" style="color:${color};background:${Shell.tinte(color)}">
+            ${libre <= 0 ? '🚛 Va completo' : '📦 Caben ' + vol(libre)}
+          </span>
+        </div>
+        <div class="tolva-barra" role="img"
+             aria-label="Tolva al ${lleno}% de su capacidad: ${vol(libre)} libres">
+          <div class="tolva-parte tolva-origen" style="width:${pct(origen)}%"></div>
+          ${paradas ? `<div class="tolva-parte tolva-paradas" style="width:${pct(paradas)}%"></div>` : ''}
+        </div>
+        ${compacta ? '' : `
+          <div class="tolva-leyenda">
+            <span><i class="tolva-punto tolva-origen"></i> ${Shell.escape(
+              (envio && envio.origenComuna) || 'Origen')} · ${vol(origen)}</span>
+            ${paradas ? `<span><i class="tolva-punto tolva-paradas"></i>
+              ${((envio && envio.paradas) || []).length} parada(s) · ${vol(paradas)}</span>` : ''}
+            <span><i class="tolva-punto tolva-libre"></i> Libre · ${vol(libre)}</span>
+          </div>`}
+      </div>`;
+  },
+
+  /* Cómo está el residuo en el campo, en una línea, para las listas de
+     cargas.
+
+     Se distinguen tres casos y no dos: declarada accesible, declarada
+     todavía repartida entre las hileras, y sin declarar. El tercero son
+     las cargas publicadas antes de que existiera la casilla, y no se
+     puede inventar una respuesta por ellas: decir "sin confirmar" es
+     distinto de decir "no está lista". */
+  avisoConsolidado(carga) {
+    if (!carga || carga.consolidado === undefined || carga.consolidado === null) return '';
+    if (carga.consolidado === true) {
+      return `<div class="li-sub" style="color:var(--leaf)">
+                ✅ Acopiado en cabecera, accesible para camión pesado
+              </div>`;
+    }
+    return `<div class="li-sub" style="color:var(--warning)">
+              ⚠️ Aún no consolidado: confirma con el productor antes de ir
+            </div>`;
+  },
+
+  /* Enlace de WhatsApp a un número cualquiera, con el texto ya escrito.
+     El número se normaliza igual que en Servicio al cliente: en terreno
+     los teléfonos se anotan de seis maneras distintas. */
+  urlWhatsApp(telefono, texto) {
+    const n = (typeof Soporte !== 'undefined') ? Soporte.numero(telefono) : '';
+    if (!n) return null;
+    return 'https://wa.me/' + n + '?text=' + encodeURIComponent(texto || '');
+  },
 };
 
 /* Aplica el tema de inmediato (evita parpadeo) aunque init() no se haya llamado. */

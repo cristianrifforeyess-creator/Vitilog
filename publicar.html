@@ -46,9 +46,30 @@
         </div>
 
         <div class="field">
-          <label id="l-mano">¿Quién carga el camión?</label>
+          <label id="l-mano">Esquema de estiba: ¿quién carga el camión?</label>
           <div class="rol-opciones" id="mano-obra" role="radiogroup"
                aria-labelledby="l-mano" style="margin-bottom:0"></div>
+          <div class="section-sub" style="margin-top:6px">
+            Si pides cargadores, la plataforma asigna la tropa disponible más
+            cercana cuando un transportista tome la carga.
+          </div>
+        </div>
+
+        <!-- Declaración obligatoria. Va al final, pegada al botón: es lo
+             último que se mira antes de publicar. -->
+        <div class="field">
+          <label class="confirma pendiente" id="caja-consolidado" for="consolidado">
+            <input type="checkbox" id="consolidado">
+            <span class="texto">
+              <b>Confirmo que el residuo está consolidado y accesible</b>
+              <span>
+                El sarmiento ya está acopiado en la cabecera o en el callejón,
+                donde un camión pesado puede llegar y cargar. Si todavía está
+                repartido entre las hileras, el viaje se pierde: el camión no
+                puede entrar a buscarlo hilera por hilera.
+              </span>
+            </span>
+          </label>
         </div>
 
         <div class="field">
@@ -118,6 +139,16 @@
       }
       renderManoObra();
 
+      /* La casilla cambia de color al marcarla. Sin esto, el aviso en
+         ámbar se queda encendido aunque ya esté resuelto, y deja de
+         significar algo. */
+      const caja = $('caja-consolidado');
+      $('consolidado').addEventListener('change', e => {
+        caja.classList.toggle('pendiente', !e.target.checked);
+        caja.classList.toggle('listo', e.target.checked);
+        if (e.target.checked) $('err').textContent = '';
+      });
+
       // Fecha mínima = mañana
       const t = new Date(); t.setDate(t.getDate() + 1);
       $('fecha').value = t.toISOString().slice(0, 10);
@@ -131,6 +162,14 @@
         if (!comuna) return ($('err').textContent = 'Selecciona una comuna');
         if (!volumen || volumen <= 0) return ($('err').textContent = 'Ingresa un volumen válido');
         if (volumen > 500) return ($('err').textContent = 'Volumen demasiado alto');
+        /* Sin la declaración no se publica. Es la única validación que no
+           es sobre un dato sino sobre el estado del campo, y es la que
+           más viajes perdidos evita. */
+        if (!$('consolidado').checked) {
+          caja.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return ($('err').textContent =
+            'Confirma que el sarmiento está acopiado y accesible para el camión.');
+        }
 
         const [y, m, d] = $('fecha').value.split('-');
         // Se espera a que quede guardada antes de salir: si la base es
@@ -142,6 +181,7 @@
           notas: $('notas').value.trim(),
           acceso,
           manoObra,
+          consolidado: true,
           ownerEmail: Store.currentEmail(),
         }).then(() => {
           // Se informa a cuántos transportistas quedó visible la carga.
@@ -173,6 +213,17 @@
                        ? cerca + ' tiene(n) su base a menos de 80 km de ' + Shell.escape(comuna) + '.'
                        : 'Ninguno tiene base cerca, pero igual pueden tomarla.'}
                    </div>`}
+            </div>
+            <div class="card pad" style="background:var(--surface-alt);margin-bottom:16px">
+              <div class="li-sub">
+                ✅ Declarada como <b>consolidada en cabecera o callejón</b>,
+                accesible para transporte pesado.
+              </div>
+              <div class="li-sub" style="margin-top:4px">
+                👷 Estiba: <b>${manoObra === 'solicita'
+                  ? 'cargador o tropa VITILOG'
+                  : 'cuadrilla o maquinaria propia'}</b>
+              </div>
             </div>
             <button class="btn block" onclick="location.href='rutas.html'">Ver el estado de mis cargas</button>
             <button class="btn ghost block" style="margin-top:10px" onclick="location.href='inicio.html'">Volver al inicio</button>`);

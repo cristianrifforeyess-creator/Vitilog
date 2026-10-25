@@ -56,6 +56,8 @@ Carpetas
   js/data.js          -> datos de ejemplo (Región del Maule) y cargas de muestra
   js/store.js         -> base de datos local (localStorage), cuentas y roles
   js/shell.js         -> navegación por rol, tema, sesión y utilidades
+  js/comprobante.js   -> Comprobante de Disposición Limpia y Sello Verde
+  js/demo.js          -> datos de demostración (solo lo carga admin.html)
 
 Nota: las contraseñas se guardan en texto plano (prototipo). Los datos son
 locales por navegador; no se sincronizan entre equipos. Las cargas que ve una
@@ -132,6 +134,50 @@ empresas.html (Buscar Empresas) muestra solo las que reciben sarmientos
 —biomasa y compostaje—, ordenadas por cercanía y con la distancia calculada
 desde la comuna del usuario. Los transportistas registrados aparecen en el
 mapa, pero no en ese buscador, porque no son un lugar donde dejar el residuo.
+
+Cómo se guardan los datos en el navegador
+-----------------------------------------
+Todo lo que es "base de datos" vive en una sola llave de localStorage,
+vitilog_db, con una lista por tabla:
+
+  { version, guardado, cuentas, cargas, puntos, envios, mensajes, movimientos }
+
+Antes había una llave por tabla. Se juntaron por dos razones: media docena de
+escrituras por cada cambio, y la posibilidad de quedar a medias —las cargas
+guardadas y los envíos no— si el navegador cortaba la página en el momento
+justo. Con un objeto único, o se guarda todo o no se guarda nada.
+
+Las versiones viejas se migran solas la primera vez que se abre el sitio: se
+leen las llaves sueltas, se escribe el objeto nuevo y recién entonces se
+borran las viejas. No hay que hacer nada.
+
+Aparte quedan, a propósito, las cosas que son de este aparato y no de la base:
+  vitilog_session    -> con qué cuenta entraste
+  vitilog_theme      -> claro u oscuro
+  vitilog_chat_visto -> qué mensajes ya leíste
+  vitilog_nube_url / vitilog_nube_key -> credenciales de Supabase
+  vitilog_ruteo      -> caché de rutas de OSRM
+
+Si estuvieran dentro del objeto de datos, restablecer la demostración te
+echaría de tu propia sesión y te volvería a pedir las credenciales.
+
+Datos de demostración
+---------------------
+En Administración -> Resumen hay un botón discreto, "Restablecer demo /
+Cargar datos oficiales". Deja el escenario completo y siempre el mismo:
+dos viñas (Curicó y Linares), una planta en Talca, un transportista con
+tropa, un cargador individual, cuatro cargas publicadas, un viaje en curso
+que consolida Curicó y Molina, y una entrega cerrada con pesaje validado y
+su Sello Verde.
+
+Todas las cuentas sembradas terminan en @demo.agroconecta.cl y entran con la
+clave demo1234. Todo lo que crea lleva identificadores que empiezan con
+"demo-": esa es la única forma de limpiar lo de la demostración sin tocar lo
+de nadie más.
+
+Con la base compartida conectada, el botón SOLO reemplaza los registros de
+demostración. Vaciar todo queda disponible únicamente con base local, porque
+en la compartida borraría las cuentas y las cargas de los demás.
 
 Base de datos compartida
 ------------------------

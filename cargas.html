@@ -79,6 +79,7 @@
                 ${Shell.badge(c.destino, color)}
               </div>
               <div class="li-sub">📅 Disponible: ${Shell.escape(c.fecha || 'Por confirmar')}</div>
+              ${Shell.avisoConsolidado(c)}
               ${c.notas ? `<div class="li-sub">📝 ${Shell.escape(c.notas)}</div>` : ''}
             </div>
             <button class="btn" style="padding:10px 14px;font-size:13.5px" data-retiro="${i}">🚚 Programar</button>

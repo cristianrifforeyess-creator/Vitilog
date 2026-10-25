@@ -294,6 +294,21 @@ drop policy if exists movimientos_todo on movimientos;
 create policy movimientos_todo on movimientos for all using (true) with check (true);
 
 -- ---------------------------------------------------------------------
+-- Consolidación en cabecera y aviso de portería
+-- ---------------------------------------------------------------------
+-- consolidado: el viñatero declaró, al publicar, que el sarmiento ya está
+-- acopiado en la cabecera o el callejón, donde un camión pesado puede
+-- llegar y cargar. Es obligatorio marcarlo para publicar, pero la columna
+-- parte en false porque las cargas publicadas antes de esto no declararon
+-- nada y no se les puede suponer una respuesta.
+alter table cargas add column if not exists consolidado boolean default false;
+
+-- porteria_at: hora en que el camión avisó que estaba en el portón del
+-- predio. Se guarda la hora y no un sí/no porque lo que interesa después
+-- es cuánto esperó para que le abrieran.
+alter table envios add column if not exists porteria_at timestamptz;
+
+-- ---------------------------------------------------------------------
 -- Tiempo real: qué tablas avisan sus cambios por WebSocket
 -- ---------------------------------------------------------------------
 -- Sin esto, js/vivo.js se conecta pero no recibe nada: Supabase solo

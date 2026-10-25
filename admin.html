@@ -32,9 +32,11 @@
   <script src="js/ruteo.js"></script>
   <script src="js/mosaico.js"></script>
   <script src="js/ficha.js"></script>
+  <script src="js/comprobante.js"></script>
   <script src="js/finanzas.js"></script>
   <script src="js/soporte.js"></script>
   <script src="js/shell.js"></script>
+  <script src="js/demo.js"></script>
   <script>
     Shell.init('admin', { rol: Store.ROL_ADMIN }).then(listo => { if (!listo) return;
       const $ = id => document.getElementById(id);
@@ -127,7 +129,123 @@
           <div class="section">
             <div class="section-title">Cargas por comuna</div>
             <div class="grid" style="margin-top:12px">${porComunaHtml()}</div>
+          </div>
+
+          <!-- Herramienta de taller, no de operación: va al final, en gris
+               y sin icono grande, porque se usa una vez antes de mostrar
+               la aplicación y no todos los días. -->
+          <div class="section">
+            <button class="btn ghost" id="btn-demo"
+                    style="font-size:13.5px;padding:11px 16px">
+              🧪 Restablecer demo / Cargar datos oficiales
+            </button>
+            <div class="section-sub" style="margin-top:8px">
+              Deja el escenario de Curicó, Molina, Talca y Linares listo para
+              una demostración en vivo.
+            </div>
           </div>`;
+
+        $('btn-demo').onclick = panelDemo;
+      }
+
+      /* -------- Restablecer la demostración --------
+         Lo que hace y lo que no, se dice antes de hacerlo.
+
+         Con base local, "vaciar todo" es exactamente eso. Con la base
+         compartida no puede serlo: ahí viven las cuentas de todos los que
+         están usando la aplicación, y borrarlas para dejar bonita una
+         presentación sería inaceptable. Por eso, en ese modo, solo se
+         reemplazan los registros de demostración —los que terminan en
+         @demo.agroconecta.cl— y se dice en pantalla. */
+      function panelDemo() {
+        const inv = Demo.inventario();
+        const enNube = Store.enNube();
+
+        Shell.openModal(`
+          <div class="handle"></div>
+          <div style="display:flex;align-items:center;gap:12px">
+            <div class="li-ic" style="background:${Shell.tinte('var(--primary)')};color:var(--primary)">🧪</div>
+            <div style="flex:1">
+              <b style="font-size:17px">Datos de demostración</b>
+              <div class="li-sub">Un escenario completo y siempre el mismo</div>
+            </div>
+          </div>
+
+          <div class="card pad" style="background:var(--surface-alt);margin-top:14px">
+            <div class="li-sub"><b>Se va a sembrar:</b></div>
+            <div class="li-sub" style="margin-top:4px">
+              🍇 Dos viñas (Curicó y Linares) · 🏭 una planta en Talca ·
+              🚚 un transportista con tropa · 💪 un cargador individual
+            </div>
+            <div class="li-sub" style="margin-top:4px">
+              🌾 Cuatro cargas publicadas · 🔗 un viaje en curso consolidando
+              Curicó y Molina · ✅ una entrega cerrada con pesaje validado y
+              su Sello Verde
+            </div>
+            <div class="li-sub" style="margin-top:8px">
+              Las cuentas entran con la clave <b>${Shell.escape(Demo.CLAVE)}</b>
+              y todas terminan en <b>${Shell.escape(Demo.DOMINIO)}</b>.
+            </div>
+          </div>
+
+          ${inv.cuentas.length || inv.cargas.length || inv.envios.length ? `
+            <div class="card pad" style="margin-top:12px">
+              <div class="li-sub">
+                Ya hay datos de demostración: ${inv.cuentas.length} cuenta(s),
+                ${inv.cargas.length} carga(s), ${inv.envios.length} envío(s) y
+                ${inv.movimientos.length} movimiento(s). Se reemplazan, no se
+                duplican.
+              </div>
+            </div>` : ''}
+
+          <div class="card pad" style="margin-top:12px;border:1.5px dashed ${
+            enNube ? 'var(--info)' : 'var(--warning)'}">
+            <div class="li-sub">
+              ${enNube
+                ? '☁️ <b>Base compartida.</b> Esto solo toca los registros de demostración: '
+                  + 'las cuentas y las cargas reales de quienes usan la aplicación no se '
+                  + 'tocan, en ningún caso. Vaciar todo no está disponible acá, porque '
+                  + 'borraría datos que no son tuyos.'
+                : '💾 <b>Base local.</b> Los datos son solo de este navegador, así que '
+                  + 'acá sí se puede vaciar todo y volver a cero.'}
+            </div>
+          </div>
+
+          <button class="btn block" style="margin-top:14px" id="demo-cargar">
+            ▶ Cargar datos de demostración
+          </button>
+          ${enNube ? '' : `
+            <button class="btn ghost block" style="margin-top:10px;color:var(--danger)"
+                    id="demo-vaciar">
+              🗑️ Vaciar todo y volver a cero
+            </button>`}
+          <button class="btn ghost block" style="margin-top:10px"
+                  onclick="Shell.closeModal()">Cancelar</button>`);
+
+        $('demo-cargar').onclick = async () => {
+          const b = $('demo-cargar');
+          b.disabled = true;
+          b.textContent = 'Sembrando el escenario…';
+          const r = await Demo.cargar();
+          Shell.closeModal();
+          if (r.error) return Shell.toast(r.error);
+          await Store.sincronizar({ forzar: true });
+          render();
+          Shell.toast(`Demo lista: ${r.cuentas} cuentas, ${r.cargas} cargas, ${r.envios} envíos`);
+        };
+
+        const vaciar = $('demo-vaciar');
+        if (vaciar) vaciar.onclick = () => confirmar(
+          'Vaciar todo',
+          'Se borran las cuentas, las cargas, los envíos y el libro de '
+          + 'movimientos de este navegador. La administración y las plantas '
+          + 'del mapa se vuelven a sembrar solas. No se puede deshacer.',
+          async () => {
+            const error = await Demo.vaciarTodo();
+            if (error) return Shell.toast(error);
+            render();
+            Shell.toast('Base local vacía');
+          });
       }
 
       function porComunaHtml() {
