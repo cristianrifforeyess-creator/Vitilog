@@ -37,6 +37,7 @@
   <script src="js/mosaico.js"></script>
   <script src="js/ficha.js"></script>
   <script src="js/comprobante.js"></script>
+  <script src="js/avisos.js"></script>
   <script src="js/finanzas.js"></script>
   <script src="js/soporte.js"></script>
   <script src="js/shell.js"></script>
@@ -134,29 +135,61 @@
           <div class="sub">${s.sub}</div>
         </div>`).join('');
 
-      const recientes = cargas.slice(0, 3);
-      const recientesHtml = recientes.length === 0
+      /* -------- Cargas recientes, juntas por productor --------
+         Igual que en el panel del transportista, y por el mismo motivo:
+         un viñatero que publicó cuatro cargas llenaba cuatro tarjetas
+         seguidas y parecían cuatro productores distintos. Agrupadas se ve
+         de una sola mirada cuánto ofrece cada uno en total, que es lo que
+         decide si vale la pena mandar un camión.
+
+         Se muestran los tres primeros productores, no las tres primeras
+         cargas: antes, uno solo con tres publicaciones se comía la
+         sección entera. */
+      const grupos = Shell.agruparPorProductor(cargas).slice(0, 3);
+
+      /* Una carga suelta dentro de la tarjeta de su productor. */
+      function filaCarga(c) {
+        const color = tipoColor(c.destino);
+        return `
+          <div class="carga-fila">
+            <div class="li-ic" style="background:${Shell.tinte(color)};color:${color}">${tipoIcono(c.destino)}</div>
+            <div class="carga-datos">
+              <div class="carga-titulo">
+                <b>${c.volumen} m³</b> · ${Shell.escape(c.comuna)}
+                ${Shell.badge(c.destino, color)}
+              </div>
+              <div class="li-sub">📅 Disponible: ${Shell.escape(c.fecha || 'Por confirmar')}</div>
+              ${Shell.avisoConsolidado(c)}
+            </div>
+          </div>`;
+      }
+
+      const recientesHtml = grupos.length === 0
         ? `<div class="empty"><div class="ic">🌾</div><p>Todavía no hay cargas publicadas</p></div>`
-        : recientes.map((c, i) => {
-            const color = tipoColor(c.destino);
+        : grupos.map((g, i) => {
+            const varias = g.cargas.length > 1;
             return `
-              <div class="card list-item">
-                <div class="li-ic" style="background:${Shell.tinte(color)};color:${color}">${tipoIcono(c.destino)}</div>
-                <div class="li-body">
-                  <div class="li-title">${Shell.escape(c.productor)}</div>
-                  <div class="li-sub">${Shell.escape(c.comuna)} · ${c.volumen} m³ · ${c.destino}</div>
-                  <div class="li-sub">📅 Disponible: ${Shell.escape(c.fecha || 'Por confirmar')}</div>
+              <div class="card pad route-card">
+                <div class="grupo-cabecera">
+                  <div class="li-ic" style="background:${Shell.tinte('var(--primary)')};color:var(--primary)">🍇</div>
+                  <div class="grupo-titulo">
+                    <b>${Shell.escape(g.productor)}</b>
+                    <span class="li-sub">
+                      ${varias ? `${g.cargas.length} cargas · ` : ''}${g.volumen} m³ en total
+                      · ${g.comunas.map(Shell.escape).join(', ')}
+                    </span>
+                  </div>
+                  <button class="btn ghost" style="padding:10px 14px;font-size:13.5px"
+                          data-i="${i}">📞 Contactar</button>
                 </div>
-                <button class="btn ghost" style="padding:8px 12px;font-size:13px" data-i="${i}">📞 Contactar</button>
+                <div class="grupo-cargas">${g.cargas.map(filaCarga).join('')}</div>
               </div>`;
           }).join('');
 
-      const alertasHtml = DATA.alertasEmpresa.map(a => `
-        <div class="card list-item">
-          <div class="li-ic" style="background:${Shell.tinte(a.color)}">${a.ic}</div>
-          <div class="li-body"><div class="li-title">${a.titulo}</div><div class="li-sub">${a.detalle}</div></div>
-          <div class="li-chev">›</div>
-        </div>`).join('');
+      /* Los avisos salen de los retiros y las cargas de esta planta.
+         Antes eran tres frases fijas de data.js: una carga de 31 m³ que
+         no existía y un camión asignado el 29/08 que tampoco. */
+      const alertasHtml = Avisos.html();
 
       document.getElementById('content').innerHTML = `
         <div>
@@ -215,15 +248,20 @@
 
         <div class="section">
           <div class="section-title">Últimas cargas publicadas</div>
-          <div class="section-sub">Contacta directamente al viñatero</div>
+          <div class="section-sub">
+            ${grupos.length
+              ? 'Agrupadas por productor · contacta directamente al viñatero'
+              : 'Contacta directamente al viñatero'}
+          </div>
           <div class="grid" style="margin-top:12px" id="recientes">${recientesHtml}</div>
-          ${recientes.length ? `<div style="text-align:right;margin-top:10px">
+          ${grupos.length ? `<div style="text-align:right;margin-top:10px">
             <button class="link-btn" onclick="location.href='cargas.html'">Ver todas las cargas ›</button>
           </div>` : ''}
         </div>
 
         <div class="section">
-          <div class="section-title">Alertas Recientes</div>
+          <div class="section-title">Avisos</div>
+          <div class="section-sub">Sobre tus retiros, las cargas nuevas y tu cuenta</div>
           <div class="grid" style="margin-top:12px">${alertasHtml}</div>
         </div>`;
 
@@ -246,29 +284,23 @@
         };
       });
 
-      // Contacto directo desde las tarjetas de cargas recientes.
+      /* Contacto directo desde las tarjetas de cargas recientes. Ahora el
+         índice es el del grupo, no el de una carga suelta: se llama al
+         productor por todo lo que ofrece, que es de lo que hay que
+         hablar con él. */
       document.querySelectorAll('#recientes button[data-i]').forEach(b => {
         b.onclick = () => {
-          const c = recientes[+b.dataset.i];
-          Shell.contactar(c.productor, `${c.comuna} · ${c.volumen} m³ de sarmientos`, {
-            tel: c.telefono, email: c.email, ic: '🍇',
+          const g = grupos[+b.dataset.i];
+          const detalle = g.cargas.length > 1
+            ? `${g.cargas.length} cargas · ${g.volumen} m³ en ${g.comunas.join(', ')}`
+            : `${g.comunas[0]} · ${g.volumen} m³ de sarmientos`;
+          Shell.contactar(g.productor, detalle, {
+            tel: g.telefono, email: g.email, ic: '🍇',
           });
         };
       });
 
-      document.getElementById('btn-notif').onclick = () => {
-        Shell.openModal(`
-          <div class="handle"></div>
-          <b style="font-size:18px">Notificaciones</b>
-          <div style="margin-top:12px">
-          ${DATA.alertasEmpresa.map(a => `
-            <div class="list-item" style="padding:10px 0">
-              <div class="li-ic" style="background:${Shell.tinte(a.color)}">${a.ic}</div>
-              <div class="li-body"><div class="li-title">${a.titulo}</div><div class="li-sub">${a.detalle}</div></div>
-            </div>`).join('')}
-          </div>
-          <button class="btn ghost block" style="margin-top:8px" onclick="Shell.closeModal()">Cerrar</button>`);
-      };
+      Avisos.montarCampana('btn-notif');
 
       /* Resumen de la próxima ruta. Vive en Inicio, Rutas e Historial con
          el mismo código: lo que muestra depende del perfil de quien mira. */

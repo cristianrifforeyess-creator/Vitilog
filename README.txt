@@ -57,6 +57,7 @@ Carpetas
   js/store.js         -> base de datos local (localStorage), cuentas y roles
   js/shell.js         -> navegación por rol, tema, sesión y utilidades
   js/comprobante.js   -> Comprobante de Disposición Limpia y Sello Verde
+  js/avisos.js        -> los avisos de cada perfil, calculados de sus datos
   js/demo.js          -> datos de demostración (solo lo carga admin.html)
 
 Nota: las contraseñas se guardan en texto plano (prototipo). Los datos son
@@ -160,6 +161,28 @@ Aparte quedan, a propósito, las cosas que son de este aparato y no de la base:
 
 Si estuvieran dentro del objeto de datos, restablecer la demostración te
 echaría de tu propia sesión y te volvería a pedir las credenciales.
+
+Nada de datos inventados en pantalla
+------------------------------------
+Lo que la aplicación muestra sale siempre de los datos de quien mira. Se
+quitaron, en este orden, todas las cosas que no cumplían eso:
+
+  · Los cuatro números fijos del resumen de Inicio (3,8 km / 18 min...).
+  · Las pestañas "Disponibles" y "Programadas" de Rutas, que además solo
+    las veía el viñatero, que es a quien menos le servían.
+  · Las seis cargas de ejemplo de data.js, que se mezclaban con las
+    reales en el panel de la planta y le sumaban 106 m³ inexistentes al
+    "volumen ofertado". Encima se les podía programar un retiro.
+  · Las tres "alertas recientes" de cada perfil, iguales para todos.
+    Ahora las calcula js/avisos.js con los retiros, las cargas y la
+    membresía de cada cuenta, y la campana cuenta solo lo que pide hacer
+    algo ahora.
+  · Dos casillas de notificaciones en Ajustes que no estaban conectadas a
+    nada. En su lugar se muestra el permiso real del navegador.
+
+El historial de ejemplo sigue en data.js, pero solo aparece cuando la
+cuenta todavía no tiene ninguna entrega cerrada, y dice en pantalla que
+es un ejemplo.
 
 Datos de demostración
 ---------------------

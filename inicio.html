@@ -33,6 +33,7 @@
   <script src="js/mosaico.js"></script>
   <script src="js/ficha.js"></script>
   <script src="js/comprobante.js"></script>
+  <script src="js/avisos.js"></script>
   <script src="js/finanzas.js"></script>
   <script src="js/soporte.js"></script>
   <script src="js/shell.js"></script>
@@ -41,12 +42,9 @@
       const user = Store.currentUser();
       const c = document.getElementById('content');
 
-      const alertasHtml = DATA.alertas.map((a, i) => `
-        <div class="card list-item" onclick="Shell.toast('${Shell.escape(a.titulo)}')">
-          <div class="li-ic" style="background:${Shell.tinte(a.color)}">${a.ic}</div>
-          <div class="li-body"><div class="li-title">${a.titulo}</div><div class="li-sub">${a.detalle}</div></div>
-          <div class="li-chev">›</div>
-        </div>`).join('');
+      /* Los avisos salen de las cargas y los retiros de este usuario.
+         Antes eran tres frases fijas de data.js, iguales para todos. */
+      const alertasHtml = Avisos.html();
 
       // Zona de recolección: la comuna que el usuario eligió al registrarse.
       const ubi = Shell.ubicacionCuenta();
@@ -120,7 +118,8 @@
         </div>
 
         <div class="section">
-          <div class="section-title">Alertas Recientes</div>
+          <div class="section-title">Avisos</div>
+          <div class="section-sub">Sobre tus cargas, tus retiros y tu cuenta</div>
           <div class="grid" style="margin-top:12px">${alertasHtml}</div>
         </div>`;
 
@@ -136,19 +135,8 @@
         Shell.encuadrarMapa(mini.querySelector('.map-geo'), ubi, 1.2);
       }
 
-      document.getElementById('btn-notif').onclick = () => {
-        Shell.openModal(`
-          <div class="handle"></div>
-          <b style="font-size:18px">Notificaciones</b>
-          <div style="margin-top:12px">
-          ${DATA.alertas.map(a => `
-            <div class="list-item" style="padding:10px 0">
-              <div class="li-ic" style="background:${Shell.tinte(a.color)}">${a.ic}</div>
-              <div class="li-body"><div class="li-title">${a.titulo}</div><div class="li-sub">${a.detalle}</div></div>
-            </div>`).join('')}
-          </div>
-          <button class="btn ghost block" style="margin-top:8px" onclick="Shell.closeModal()">Cerrar</button>`);
-      };
+      // La campana: lleva el contador de lo que pide hacer algo ahora.
+      Avisos.montarCampana('btn-notif');
 
       window.borrarCarga = (id) => { Store.removeCarga(id).then(() => location.reload()); };
 

@@ -1,10 +1,8 @@
 /* Datos de ejemplo (Región del Maule) — equivalente a MockData de la app. */
 const DATA = {
-  alertas: [
-    { ic: '✅', color: 'var(--leaf)', titulo: 'Zona lista para recolectar', detalle: 'Sarmientos acumulados en Curicó' },
-    { ic: '🏭', color: 'var(--primary)', titulo: 'Nueva empresa disponible', detalle: 'BioEnergía Maule busca cargas en tu zona' },
-    { ic: '💰', color: 'var(--warning)', titulo: 'Flete optimizado', detalle: 'Ahorro estimado del 30% agrupando cargas' },
-  ],
+  /* Las alertas de ejemplo se quitaron: eran tres frases fijas, iguales
+     para todos los usuarios y verdaderas para ninguno. Lo que se muestra
+     ahora lo calcula js/avisos.js con los datos de cada cuenta. */
 
   /* Las rutas en curso, disponibles y programadas de ejemplo se quitaron:
      llenaban dos pestañas del andamiaje original que solo veía el
@@ -24,36 +22,14 @@ const DATA = {
      fuente con coordenadas. Así el mapa y el buscador nunca se contradicen.
      Ver Shell.empresasParaBuscador() en js/shell.js. */
 
-  /* Cargas de sarmientos publicadas por productores. Son las que ve una
-     cuenta de empresa/transportista, junto a las que se publiquen desde
-     publicar.html en este mismo navegador. */
-  cargasDemo: [
-    { id: 'demo-1', productor: 'Viña Los Maitenes', comuna: 'Curicó', volumen: 14, destino: 'Biomasa',
-      fecha: '27/08/2026', km: 12, notas: 'Acceso por camino interior. Entra camión de hasta 12 m.',
-      telefono: '+56 9 7412 3390', email: 'contacto@losmaitenes.cl' },
-    { id: 'demo-2', productor: 'Agrícola Santa Rita del Maule', comuna: 'Molina', volumen: 22, destino: 'Compostaje',
-      fecha: '29/08/2026', km: 32, notas: 'Sarmientos apilados junto al galpón, listos para cargar.',
-      telefono: '+56 9 6620 8145', email: 'operaciones@santaritamaule.cl' },
-    { id: 'demo-3', productor: 'Viñedos Don Aurelio', comuna: 'San Javier', volumen: 9, destino: 'Indistinto',
-      fecha: '01/09/2026', km: 64, notas: 'Poda reciente. Se puede coordinar el retiro en la mañana.',
-      telefono: '+56 9 5238 7701', email: 'aurelio@vinedosdonaurelio.cl' },
-    { id: 'demo-4', productor: 'Hacienda Río Claro', comuna: 'Talca', volumen: 31, destino: 'Biomasa',
-      fecha: '03/09/2026', km: 58, notas: 'Volumen grande: conviene programar dos viajes.',
-      telefono: '+56 9 8890 4412', email: 'logistica@haciendarioclaro.cl' },
-    { id: 'demo-5', productor: 'Viña El Peumo', comuna: 'Linares', volumen: 12, destino: 'Compostaje',
-      fecha: '05/09/2026', km: 71, notas: 'Los últimos 2 km son de camino de ripio.',
-      telefono: '+56 9 4471 6628', email: 'elpeumo@correo.cl' },
-    { id: 'demo-6', productor: 'Sociedad Agrícola Parral Sur', comuna: 'Parral', volumen: 18, destino: 'Indistinto',
-      fecha: '09/09/2026', km: 88, notas: 'Solicitan aviso con 24 horas de anticipación.',
-      telefono: '+56 9 3315 9074', email: 'contacto@parralsur.cl' },
-  ],
+  /* Las cargas de ejemplo se quitaron. Se mezclaban con las reales en el
+     panel de la planta y en sus totales: seis publicaciones con
+     productores y teléfonos inventados que sumaban 106 m³ que no
+     existían, y a las que se les podía programar un retiro.
 
-  /* Alertas del panel de empresa. */
-  alertasEmpresa: [
-    { ic: '🌾', color: 'var(--leaf)', titulo: 'Nueva carga publicada', detalle: 'Hacienda Río Claro ofrece 31 m³ en Talca' },
-    { ic: '🚚', color: 'var(--in-progress)', titulo: 'Retiro programado', detalle: 'Camión asignado a Molina para el 29/08' },
-    { ic: '💰', color: 'var(--warning)', titulo: 'Flete compartido', detalle: 'Agrupa Curicó y Molina y ahorra 30% del viaje' },
-  ],
+     Para mostrar la aplicación con datos hay una herramienta que hace
+     eso bien: Administración -> Restablecer demo, en js/demo.js. Esa
+     siembra cuentas de verdad, con las que se puede entrar. */
 
   /* Rubros de una empresa receptora. El transporte no está acá: quien
      traslada la carga se registra como chofer, que es su propio perfil. */

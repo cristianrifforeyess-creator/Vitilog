@@ -136,11 +136,23 @@
           </div>
         </div>
 
+        <!-- Había acá dos casillas, "Alertas de recolección" y "Novedades
+             por correo", que no estaban conectadas a nada: se podían
+             marcar y desmarcar sin que cambiara nada. Un interruptor que
+             miente es peor que no tenerlo. Lo que sí existe es el permiso
+             de notificaciones del propio navegador, y eso es lo que se
+             ofrece. -->
         <div class="section-title" style="color:var(--primary);margin-top:28px">Notificaciones</div>
-        <div class="card" style="margin-top:12px">
-          <div class="list-item"><div class="li-ic">🔔</div><div class="li-body"><div class="li-title" id="l-alerta">Alertas de recolección</div></div><input type="checkbox" checked></div>
-          <div style="height:1px;background:var(--border)"></div>
-          <div class="list-item"><div class="li-ic">✉️</div><div class="li-body"><div class="li-title">Novedades por correo</div></div><input type="checkbox"></div>
+        <div class="card pad" style="margin-top:12px">
+          <div class="list-item" style="padding:0">
+            <div class="li-ic">🔔</div>
+            <div class="li-body">
+              <div class="li-title" id="l-alerta">Avisos en este dispositivo</div>
+              <div class="li-sub" id="estado-notif">Comprobando…</div>
+            </div>
+            <button class="btn ghost" style="padding:10px 14px;font-size:13.5px"
+                    id="btn-permiso-notif">Activar</button>
+          </div>
         </div>
 
         <div class="section-title" style="color:var(--primary);margin-top:28px">Sesión</div>
@@ -192,6 +204,40 @@
       $('f-empresa').style.display = esEmpresa ? 'block' : 'none';
       $('f-encargado').style.display = esEmpresa ? 'block' : 'none';
       $('l-alerta').textContent = esEmpresa ? 'Avisos de nuevas cargas' : 'Alertas de recolección';
+
+      /* -------- Permiso de notificaciones --------
+         Se muestra el estado real del navegador, no una preferencia
+         guardada: si el permiso está denegado, decir "activado" sería
+         mentir, y el usuario se quedaría esperando avisos que nunca
+         van a llegar. Denegado solo se puede revertir desde el propio
+         navegador, así que se dice dónde. */
+      function pintarNotificaciones() {
+        const caja = $('estado-notif');
+        const boton = $('btn-permiso-notif');
+        if (!Shell.puedeNotificar()) {
+          caja.textContent = 'Este navegador no admite avisos del sistema.';
+          boton.style.display = 'none';
+          return;
+        }
+        const estado = Notification.permission;
+        if (estado === 'granted') {
+          caja.textContent = 'Activados. Te avisamos aunque tengas la pestaña cerrada.';
+          boton.style.display = 'none';
+        } else if (estado === 'denied') {
+          caja.textContent = 'Bloqueados. Se cambia en los permisos del sitio, '
+            + 'en el candado de la barra de direcciones.';
+          boton.style.display = 'none';
+        } else {
+          caja.textContent = 'Sin activar. Los avisos solo se ven con la aplicación abierta.';
+          boton.style.display = '';
+        }
+      }
+      pintarNotificaciones();
+
+      $('btn-permiso-notif').onclick = async () => {
+        await Shell.pedirPermisoNotificaciones();
+        pintarNotificaciones();
+      };
 
       // Campos del transportista
       ['f-modalidad', 'f-patente', 'f-capacidad', 'f-vehiculo', 'f-estiba', 'f-disponible']

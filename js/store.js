@@ -700,20 +700,36 @@ const Store = {
     else this._guardarBase();
   },
 
-  /* Cargas visibles para una empresa: las publicadas por los viñateros
-     más las de ejemplo de data.js. */
+  /* Cargas visibles para una planta receptora: las que publicaron los
+     viñateros y todavía nadie se comprometió a retirar.
+
+     Antes esto devolvía además seis cargas de ejemplo de data.js, con
+     productores y teléfonos inventados. Se sumaban a los totales del
+     panel —"volumen ofertado", "potencial energético"— y se les podía
+     programar un retiro. La planta terminaba viendo 106 m³ que no
+     existían y pudiendo llamar a un número que no era de nadie.
+
+     Tampoco descontaba las cargas ya tomadas, así que una misma carga se
+     podía encargar dos veces. Ahora usa el mismo criterio que ve el
+     transportista: si ya va en un camión, no está disponible. */
   cargasPublicadas() {
-    const reales = this._cache.cargas.map(c => {
-      const dueno = this.accountByEmail(c.ownerEmail);
-      return {
-        ...c,
-        productor: dueno ? dueno.nombre : 'Productor AgroConecta',
-        telefono: dueno ? dueno.telefono : '',
-        email: c.ownerEmail,
-      };
+    const comprometidas = new Set();
+    this._cache.envios.forEach(e => {
+      if (e.cargaId) comprometidas.add(e.cargaId);
+      (e.paradas || []).forEach(p => comprometidas.add(p.cargaId));
     });
-    const demo = (typeof DATA !== 'undefined' && DATA.cargasDemo) ? DATA.cargasDemo : [];
-    return reales.concat(demo);
+
+    return this._cache.cargas
+      .filter(c => !comprometidas.has(c.id) && c.estado !== 'retirada')
+      .map(c => {
+        const dueno = this.accountByEmail(c.ownerEmail);
+        return {
+          ...c,
+          productor: dueno ? dueno.nombre : 'Productor AgroConecta',
+          telefono: dueno ? dueno.telefono : '',
+          email: c.ownerEmail,
+        };
+      });
   },
 
   /* =====================================================================

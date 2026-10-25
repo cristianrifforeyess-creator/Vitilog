@@ -15,6 +15,7 @@
         <img class="tb-logo" src="img/logo-claro.svg" alt="AgroConecta" width="38" height="38">
         <div><h1>Servicios disponibles</h1><p id="tb-sub">Región del Maule</p></div>
         <div class="tb-actions">
+          <button title="Avisos" id="btn-notif" aria-label="Avisos">🔔</button>
           <button title="Buscar servicios nuevos" id="btn-refrescar" aria-label="Actualizar">🔄</button>
           <button title="Ajustes" onclick="location.href='configuracion.html'" aria-label="Ajustes">⚙️</button>
         </div>
@@ -37,6 +38,7 @@
   <script src="js/mosaico.js"></script>
   <script src="js/ficha.js"></script>
   <script src="js/comprobante.js"></script>
+  <script src="js/avisos.js"></script>
   <script src="js/finanzas.js"></script>
   <script src="js/soporte.js"></script>
   <script src="js/shell.js"></script>
@@ -128,6 +130,9 @@
 
         conectar(cargas);
         Comprobante.conectar(c);
+        /* La campana se recalcula en cada dibujado: si acaba de aceptar
+           un servicio, el contador tiene que bajar solo. */
+        Avisos.montarCampana('btn-notif');
       }
 
       /* Pide el GPS y, si no se puede, acompaña al chofer en vez de
@@ -255,6 +260,7 @@
       /* Panel del que solo carga. No elige trabajos: se los asigna la
          administración junto con la ruta y el chofer al que asiste. */
       function renderCargador() {
+        Avisos.montarCampana('btn-notif');
         const mias = Store.misEstibas();
         const pendientes = mias.filter(e => e.estado !== 'entregado');
         const hechas = mias.filter(e => e.estado === 'entregado');

@@ -92,7 +92,9 @@
                <div class="ic">🚚</div>
                <p>No tienes retiros en curso.</p>
                <p style="font-size:13px">Cuando una empresa programe el retiro de una de tus cargas, aparecerá acá y podrás seguir el camión en el mapa.</p>
-               <button class="btn" style="margin-top:16px" id="btn-demo">▶ Simular un retiro de prueba</button>
+               ${Store.enNube() ? '' : `
+                 <button class="btn" style="margin-top:16px" id="btn-demo">▶ Simular un retiro de prueba</button>
+                 <p style="font-size:12.5px;margin-top:8px">Crea un retiro falso en este navegador, para ver cómo funciona el seguimiento.</p>`}
              </div>`
           : `<div class="section" style="margin-top:16px">
                <div class="section-title">Retiros en curso</div>
@@ -134,7 +136,14 @@
       }
 
       /* Crea un retiro de demostración desde la comuna del usuario hasta la
-         planta con cupos más cercana. Sirve para probar el seguimiento. */
+         planta con cupos más cercana. Sirve para probar el seguimiento.
+
+         Solo aparece con base local. Con la base compartida metía un
+         retiro falso, con un chofer inventado, en la base que ven todos:
+         cualquiera que entrara después se encontraba un camión en ruta
+         que no existe. Para mostrar la aplicación con datos está
+         Administración -> Restablecer demo, que siembra un escenario
+         completo y se puede limpiar. */
       async function crearEnvioDemo() {
         const ubi = Shell.ubicacionCuenta();
         if (!ubi) {

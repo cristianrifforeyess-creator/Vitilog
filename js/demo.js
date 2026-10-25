@@ -60,7 +60,14 @@ const Demo = {
       rol: 'chofer', nombre: 'Marco Villalobos',
       comuna: 'Talca', telefono: '+56 9 7745 2210',
       patente: 'KDJS-42', capacidad: 28,
-      vehiculo: 'barandas', modalidad: 'independiente',
+      vehiculo: 'barandas',
+      /* Vinculado a la planta de Talca: así el panel de la empresa tiene
+         flota que mostrar y se puede demostrar el encargo de un retiro,
+         que es el único flujo que no se puede enseñar con un
+         transportista suelto. */
+      modalidad: 'empresa',
+      empresa_nombre: 'BioEnergía Maule',
+      empresa_email: 'planta.talca@demo.agroconecta.cl',
       /* Lleva su propia tropa: así la demostración muestra el caso en que
          la estiba la resuelve el transportista y no la plataforma. */
       estiba: 'cuadrilla', cuadrilla_nombre: 'Tropa Villalobos',
