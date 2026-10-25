@@ -160,6 +160,8 @@
       function panelDemo() {
         const inv = Demo.inventario();
         const enNube = Store.enNube();
+        const hayDemo = !!(inv.cuentas.length || inv.cargas.length
+          || inv.envios.length || inv.movimientos.length);
 
         Shell.openModal(`
           <div class="handle"></div>
@@ -188,13 +190,18 @@
             </div>
           </div>
 
-          ${inv.cuentas.length || inv.cargas.length || inv.envios.length ? `
-            <div class="card pad" style="margin-top:12px">
-              <div class="li-sub">
-                Ya hay datos de demostración: ${inv.cuentas.length} cuenta(s),
-                ${inv.cargas.length} carga(s), ${inv.envios.length} envío(s) y
-                ${inv.movimientos.length} movimiento(s). Se reemplazan, no se
-                duplican.
+          ${hayDemo ? `
+            <div class="card pad" style="margin-top:12px;border:1.5px solid var(--primary)">
+              <div class="li-title">Ahora mismo hay datos de demostración cargados</div>
+              <div class="li-sub" style="margin-top:4px">
+                ${inv.cuentas.length} cuenta(s), ${inv.cargas.length} carga(s),
+                ${inv.envios.length} envío(s) y ${inv.movimientos.length} movimiento(s).
+                ${enNube
+                  ? 'Los están viendo todos los que entren a la aplicación.'
+                  : 'Solo existen en este navegador.'}
+              </div>
+              <div class="li-sub" style="margin-top:4px">
+                Volver a cargarlos los reemplaza, no los duplica.
               </div>
             </div>` : ''}
 
@@ -212,8 +219,13 @@
           </div>
 
           <button class="btn block" style="margin-top:14px" id="demo-cargar">
-            ▶ Cargar datos de demostración
+            ${hayDemo ? '🔄 Volver a cargar los datos de demostración'
+                      : '▶ Cargar datos de demostración'}
           </button>
+          ${hayDemo ? `
+            <button class="btn ghost block" style="margin-top:10px" id="demo-limpiar">
+              🧹 Quitar los datos de demostración
+            </button>` : ''}
           ${enNube ? '' : `
             <button class="btn ghost block" style="margin-top:10px;color:var(--danger)"
                     id="demo-vaciar">
@@ -233,6 +245,26 @@
           render();
           Shell.toast(`Demo lista: ${r.cuentas} cuentas, ${r.cargas} cargas, ${r.envios} envíos`);
         };
+
+        /* Quitar sin volver a sembrar. Faltaba: con la base compartida el
+           panel solo dejaba cargar, así que una vez sembrada la
+           demostración no había forma de dejarla limpia desde la
+           aplicación. Se borra exactamente lo mismo que reemplazaría una
+           recarga, ni un registro más. */
+        const limpiar = $('demo-limpiar');
+        if (limpiar) limpiar.onclick = () => confirmar(
+          'Quitar los datos de demostración',
+          `Se borran ${inv.cuentas.length} cuenta(s) @demo.agroconecta.cl y todo `
+          + `lo suyo: ${inv.cargas.length} carga(s), ${inv.envios.length} envío(s) `
+          + `y ${inv.movimientos.length} movimiento(s). Las cuentas y las cargas `
+          + 'reales no se tocan.',
+          async () => {
+            const b = await Demo.limpiar();
+            await Store.sincronizar({ forzar: true });
+            render();
+            Shell.toast(`Quitados: ${b.cuentas} cuentas, ${b.cargas} cargas, `
+              + `${b.envios} envíos, ${b.movimientos} movimientos`);
+          });
 
         const vaciar = $('demo-vaciar');
         if (vaciar) vaciar.onclick = () => confirmar(
