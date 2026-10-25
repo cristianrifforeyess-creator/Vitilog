@@ -15,11 +15,6 @@
       <div class="content">
         <!-- Resumen de la próxima ruta: la misma tarjeta de Inicio. -->
         <div id="proxima-ruta"></div>
-        <div class="tabs" role="tablist">
-          <button class="tab active" id="tab-segui" role="tab" onclick="setTab('segui')">Seguimiento</button>
-          <button class="tab" id="tab-disp" role="tab" onclick="setTab('disp')">Disponibles</button>
-          <button class="tab" id="tab-prog" role="tab" onclick="setTab('prog')">Programadas</button>
-        </div>
         <div id="panel" class="stagger"></div>
       </div>
     </main>
@@ -39,17 +34,20 @@
   <script src="js/soporte.js"></script>
   <script src="js/shell.js"></script>
   <script>
-    // Accesible para viñatero y empresa: los dos siguen el mismo retiro.
+    /* Accesible para viñatero y empresa: los dos siguen el mismo retiro.
+
+       Acá hubo durante mucho tiempo tres pestañas, y dos eran del
+       andamiaje original: "Disponibles" y "Programadas", llenas con las
+       rutas de ejemplo de data.js. Se le mostraban solo al viñatero, que
+       es justo a quien menos le sirven —"cargas listas para recolectar"
+       es la pantalla del transportista, el que las va a buscar; el
+       viñatero publica las suyas, no toma rutas ajenas—, y además las
+       cifras eran inventadas y contradecían las de verdad.
+
+       Queda una sola pantalla, con los retiros reales de quien mira. */
     Shell.init('rutas').then(listo => { if (!listo) return;
       const $ = id => document.getElementById(id);
       let reloj = null;
-
-      // Las pestañas de ejemplo son del flujo del viñatero.
-      const soloSeguimiento = Store.rolActual() !== Store.ROL_VINATERO;
-      if (soloSeguimiento) {
-        $('tab-disp').style.display = 'none';
-        $('tab-prog').style.display = 'none';
-      }
 
       /* ================= Seguimiento en vivo ================= */
 
@@ -172,68 +170,11 @@
         location.href = 'seguimiento.html?id=' + encodeURIComponent(envio.id);
       }
 
-      /* ================= Pestañas antiguas ================= */
-
-      function badgeFor(r) {
-        if (r.estado === 'enCurso') return Shell.badge('En progreso', 'var(--in-progress)', '🚚');
-        if (r.fecha) return Shell.badge('Programada', 'var(--primary)', '📅');
-        return Shell.badge(r.pendientes + ' pendientes', 'var(--warning)', '⏳');
-      }
-
-      function routeCard(r) {
-        const progreso = r.estado === 'enCurso' ? `
-          <div style="margin-top:14px">
-            <div class="info-line">🚚 Camión en camino · ${r.hechas} de ${r.totales} cargas</div>
-            <div class="progress"><div style="width:${(r.hechas / r.totales * 100)}%"></div></div>
-          </div>` : '';
-        const foot = r.eta
-          ? `<div class="route-foot"><span class="date"></span><b style="color:var(--in-progress)">⏲ Llegada ${r.eta}</b></div>`
-          : `<div class="route-foot">
-               <span class="date">${r.fecha ? '📅 ' + r.fecha + (r.hora ? ' · ' + r.hora : '') : ''}</span>
-             </div>`;
-        return `
-          <div class="card route-card">
-            <div class="route-head"><b>Ruta ${r.origen} – ${r.destino}</b>${badgeFor(r)}</div>
-            <div class="route-info">
-              <span class="info-line">🟢 Inicio: <b>${r.origen}</b></span>
-              <span class="info-line">📍 Destino: <b>${r.destino}</b></span>
-              <span class="info-line">📦 Volumen: <b>${r.volumen} m³</b></span>
-              <span class="info-line">⏱️ Tiempo: <b>${r.minutos} min</b></span>
-            </div>
-            ${progreso}${foot}
-          </div>`;
-      }
-
-      /* ================= Cambio de pestaña ================= */
-      function setTab(t) {
-        ['segui', 'disp', 'prog'].forEach(k =>
-          $('tab-' + k).classList.toggle('active', k === t));
-        detenerReloj();
-
-        if (t === 'segui') {
-          panelSeguimiento();
-          reloj = setInterval(panelSeguimiento, 5000);   // se refresca solo
-        } else if (t === 'disp') {
-          $('panel').innerHTML = `
-            <div class="section" style="margin-top:16px"><div class="section-title">En Curso</div><div class="section-sub">Recolección en progreso ahora</div></div>
-            <div style="margin-top:12px">${routeCard(DATA.enCurso)}</div>
-            <div class="section"><div class="section-title">Rutas Disponibles</div><div class="section-sub">Cargas listas para recolectar</div></div>
-            <div class="grid" style="margin-top:12px">${DATA.disponibles.map(routeCard).join('')}</div>`;
-        } else {
-          $('panel').innerHTML = `
-            <div class="section" style="margin-top:16px"><div class="section-title">Rutas Programadas</div><div class="section-sub">Recolecciones agendadas</div></div>
-            <div class="grid" style="margin-top:12px">${DATA.programadas.map(routeCard).join('')}</div>`;
-        }
-
-        const p = $('panel');
-        p.classList.remove('stagger'); void p.offsetWidth; p.classList.add('stagger');
-      }
-
       function detenerReloj() { if (reloj) { clearInterval(reloj); reloj = null; } }
       window.addEventListener('beforeunload', detenerReloj);
 
-      window.setTab = setTab;
-      setTab('segui');
+      panelSeguimiento();
+      reloj = setInterval(panelSeguimiento, 5000);   // se refresca solo
 
       /* Resumen de la próxima ruta. Vive en Inicio, Rutas e Historial con
          el mismo código: lo que muestra depende del perfil de quien mira. */

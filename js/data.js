@@ -6,22 +6,14 @@ const DATA = {
     { ic: '💰', color: 'var(--warning)', titulo: 'Flete optimizado', detalle: 'Ahorro estimado del 30% agrupando cargas' },
   ],
 
-  enCurso: {
-    origen: 'Parral', destino: 'Talca', volumen: 20, minutos: 40, km: 88,
-    estado: 'enCurso', hechas: 2, totales: 6, eta: '11:45 AM',
-  },
+  /* Las rutas en curso, disponibles y programadas de ejemplo se quitaron:
+     llenaban dos pestañas del andamiaje original que solo veía el
+     viñatero y que mostraban cifras inventadas junto a las reales. Lo
+     que de verdad tiene en curso o agendado sale de sus envíos.
 
-  disponibles: [
-    { origen: 'Curicó', destino: 'Talca', volumen: 12, minutos: 26, km: 58, pendientes: 5 },
-    { origen: 'Linares', destino: 'Molina', volumen: 18, minutos: 32, km: 71, pendientes: 4 },
-    { origen: 'Constitución', destino: 'San Javier', volumen: 15, minutos: 28, km: 64, pendientes: 3 },
-  ],
-
-  programadas: [
-    { origen: 'Molina', destino: 'Curicó', volumen: 10, minutos: 22, km: 40, fecha: '27 de agosto, 2026', hora: '09:00 AM' },
-    { origen: 'San Javier', destino: 'Linares', volumen: 16, minutos: 30, km: 55, fecha: '2 de septiembre, 2026', hora: '08:30 AM' },
-  ],
-
+     El historial de abajo sigue, pero solo como respaldo: historial.html
+     lo muestra únicamente cuando todavía no hay ninguna entrega propia, y
+     dice en pantalla que es un ejemplo. */
   historial: [
     { origen: 'Constitución', destino: 'Talca', volumen: 12, minutos: 26, km: 60, fecha: '19 de agosto, 2026', hora: '10:05 AM' },
     { origen: 'Curicó', destino: 'Molina', volumen: 9, minutos: 18, km: 40, fecha: '12 de agosto, 2026', hora: '12:40 PM' },
