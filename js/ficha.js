@@ -76,6 +76,24 @@ const Ficha = {
     const m3De = e => (Number(e.volumenRecibido) || Number(e.volumenDeclarado) || 0)
       + (e.paradas || []).reduce((t, p) => t + (Number(p.volumen) || 0), 0);
 
+    /* El cargador individual no conduce: sus números no son viajes sino
+       estibas. Mostrarle "volumen trasladado" cuando él nunca manejó un
+       camión le dice que esta pantalla no es para él. */
+    if (Store.esSoloCargador()) {
+      const mias = Store.misEstibas() || [];
+      const hechas = mias.filter(entregado);
+      const m3 = hechas.reduce((t, e) => t + m3De(e), 0);
+      return {
+        titulo: 'Lo que has cargado',
+        datos: [
+          { val: hechas.length, lbl: 'Estibas completadas' },
+          { val: Math.round(m3 * 10) / 10 + ' m³', lbl: 'Volumen cargado' },
+          { val: this.energia(m3) + ' MWh', lbl: 'Energía movida', color: 'var(--warning)' },
+          { val: mias.length - hechas.length, lbl: 'Pendientes' },
+        ],
+      };
+    }
+
     if (rol === Store.ROL_CHOFER) {
       const mios = Store.envios().filter(e => e.choferEmail === yo);
       const hechos = mios.filter(entregado);

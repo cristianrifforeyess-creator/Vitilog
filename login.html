@@ -48,6 +48,31 @@
           </button>
         </div>
 
+        <!-- Paso 1b: dentro de transportista hay dos oficios distintos.
+             El que conduce y el que carga. Se pregunta acá y no en
+             Configuración porque define la cuenta: el cargador no tiene
+             camión que declarar y su panel no muestra cargas para tomar.
+             Solo aparece al crear la cuenta; al entrar no hace falta,
+             porque el perfil ya lo sabe. -->
+        <div id="caja-oficio" style="display:none">
+          <div class="section-sub" style="margin:4px 0 10px">¿Cuál es tu caso?</div>
+          <div class="rol-opciones" id="oficios" role="radiogroup"
+               aria-label="Tipo de transportista">
+            <button type="button" class="rol-opcion activa" data-of="independiente"
+                    role="radio" aria-checked="true">
+              <span class="ic" aria-hidden="true">🚚</span>
+              <span class="texto"><b>Transportista</b><span>Tengo camión y traslado las cargas</span></span>
+              <span class="marca" aria-hidden="true">●</span>
+            </button>
+            <button type="button" class="rol-opcion" data-of="cargador"
+                    role="radio" aria-checked="false">
+              <span class="ic" aria-hidden="true">💪</span>
+              <span class="texto"><b>Cargador individual</b><span>No conduzco: solo cargo el camión</span></span>
+              <span class="marca" aria-hidden="true">○</span>
+            </button>
+          </div>
+        </div>
+
         <!-- La administración es interna: no compite visualmente con los tres
              perfiles que de verdad usa la gente. -->
         <div class="acceso-interno" id="caja-admin">
@@ -152,6 +177,9 @@
     let rol = Store.ROL_VINATERO;
     let isLogin = true;
     let tipoEmpresa = 'Biomasa';
+    /* Dentro de transportista: 'independiente' (conduce) o 'cargador'
+       (solo carga). Parte en el primero porque es el caso común. */
+    let oficio = 'independiente';
 
     /* Textos del panel de bienvenida según el tipo de cuenta. */
     const COPY = {
@@ -175,6 +203,15 @@
         pills: ['Cargas cercanas', 'Tú eliges', 'GPS en el viaje'],
         subLogin: 'Entra para ver los servicios disponibles',
         subRegistro: 'Crea tu cuenta de transportista',
+      },
+      /* El cargador individual ve otra promesa: no se le ofrecen cargas
+         para tomar, porque no conduce. Lo suyo es que le llegue trabajo. */
+      cargador: {
+        titulo: 'Cargar sarmientos es tu oficio. Acá te llega el trabajo.',
+        texto: 'No necesitas camión ni pertenecer a ninguna empresa. El equipo de VITILOG te deriva a los retiros que piden cuadrilla y te dice a qué predio ir y con qué transportista.',
+        pills: ['Sin camión', 'Sin empresa', 'Te asignamos la ruta'],
+        subLogin: 'Entra para ver tus estibas',
+        subRegistro: 'Crea tu cuenta de cargador individual',
       },
       [Store.ROL_ADMIN]: {
         titulo: 'Administración de la plataforma AgroConecta.',
@@ -210,12 +247,23 @@
       });
     }
 
+    function renderOficios() {
+      $('oficios').querySelectorAll('.rol-opcion').forEach(b => {
+        const activa = b.dataset.of === oficio;
+        b.classList.toggle('activa', activa);
+        b.setAttribute('aria-checked', activa);
+        b.querySelector('.marca').textContent = activa ? '●' : '○';
+      });
+    }
+
     function render() {
       const esEmpresa = rol === Store.ROL_EMPRESA;
       const esChofer = rol === Store.ROL_CHOFER;
       const esAdmin = rol === Store.ROL_ADMIN;
       if (esAdmin) isLogin = true;          // la administración no se registra
-      const copy = COPY[rol];
+      // El cargador tiene su propio texto, aunque comparta el rol chofer.
+      const esCargador = esChofer && !isLogin && oficio === 'cargador';
+      const copy = esCargador ? COPY.cargador : COPY[rol];
 
       $('brand-title').textContent = copy.titulo;
       $('brand-text').textContent = copy.texto;
@@ -239,18 +287,26 @@
       $('switch-text').textContent = isLogin ? '¿No tienes cuenta?' : '¿Ya tienes cuenta?';
       $('switch-btn').textContent = isLogin ? 'Regístrate' : 'Inicia sesión';
 
+      // El sub-paso solo al crear la cuenta: es lo que la define.
+      $('caja-oficio').style.display = (esChofer && !isLogin) ? 'block' : 'none';
+      renderOficios();
+
       $('f-nombre').style.display = isLogin ? 'none' : 'block';
       $('f-comuna').style.display = isLogin ? 'none' : 'block';
       $('f-tipo').style.display = (!isLogin && esEmpresa) ? 'block' : 'none';
       $('f-encargado').style.display = (!isLogin && esEmpresa) ? 'block' : 'none';
-      ['f-telefono', 'f-patente', 'f-capacidad'].forEach(i =>
-        $(i).style.display = (!isLogin && esChofer) ? 'block' : 'none');
+      $('f-telefono').style.display = (!isLogin && esChofer) ? 'block' : 'none';
+      /* Patente y capacidad son del camión. Pedírselas a alguien que no
+         conduce es pedirle que invente algo. */
+      ['f-patente', 'f-capacidad'].forEach(i =>
+        $(i).style.display = (!isLogin && esChofer && !esCargador) ? 'block' : 'none');
       $('caja-recordar').style.display = isLogin ? 'flex' : 'none';
 
       $('l-nombre').textContent = esEmpresa ? 'Nombre de la empresa' : 'Nombre';
       $('nombre').placeholder = esEmpresa ? 'Ej: BioEnergía Maule'
         : esChofer ? 'Tu nombre y apellido' : 'Tu nombre';
       $('l-comuna').textContent = esEmpresa ? 'Comuna de la planta o base'
+        : esCargador ? 'Comuna donde trabajas'
         : esChofer ? 'Comuna donde tienes tu base' : 'Comuna';
       $('comuna').options[0].textContent = (esEmpresa || esChofer)
         ? 'Selecciona la comuna de tu base' : 'Selecciona tu comuna';
@@ -267,6 +323,10 @@
     /* -------- Interacciones -------- */
     $('roles').querySelectorAll('.rol-opcion').forEach(b => {
       b.onclick = () => { rol = b.dataset.rol; render(); };
+    });
+
+    $('oficios').querySelectorAll('.rol-opcion').forEach(b => {
+      b.onclick = () => { oficio = b.dataset.of; render(); };
     });
 
     $('switch-btn').onclick = () => { isLogin = !isLogin; render(); };
@@ -342,6 +402,7 @@
             telefono: $('telefono').value,
             patente: $('patente').value,
             capacidad: $('capacidad').value,
+            modalidad: rol === Store.ROL_CHOFER ? oficio : undefined,
           });
         }
       } catch (err) {

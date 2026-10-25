@@ -575,22 +575,39 @@ const Store = {
 
   /* Cuenta de transportista: acepta los servicios que publican los viñateros.
      Sea independiente o de empresa, es este mismo perfil. */
-  async registerChofer({ nombre, email, password, comuna, telefono, patente, capacidad }) {
+  async registerChofer({ nombre, email, password, comuna, telefono, patente,
+                         capacidad, modalidad }) {
     email = (email || '').trim();
     if (this.accountByEmail(email)) return 'Ya existe una cuenta con ese correo';
     const { hash, sal } = await this._cifrar(password);
+
+    /* Cargador o conductor se decide al registrarse, no después.
+
+       Antes todo el mundo entraba como transportista y el que solo carga
+       tenía que ir a buscarlo a Configuración. Quedaba registrado como
+       alguien que conduce —apareciendo en los filtros de camiones, con
+       patente y capacidad que no tiene— hasta que lo cambiara. Son dos
+       oficios distintos y se preguntan de entrada.
+
+       Lo que sí se deja para después es si conduce por su cuenta o para
+       una empresa: eso no cambia lo que la aplicación le muestra. */
+    const esCargador = modalidad === 'cargador';
+
     await this.upsertAccount({
       rol: this.ROL_CHOFER,
-      nombre: (nombre || '').trim() || 'Transportista',
+      nombre: (nombre || '').trim() || (esCargador ? 'Cargador' : 'Transportista'),
       email, clave_hash: hash, clave_sal: sal,
       comuna: (comuna || '').trim() || 'Región del Maule',
       telefono: (telefono || '').trim(),
-      patente: (patente || '').trim().toUpperCase(),
-      capacidad: Number(capacidad) || 0,
-      /* Parte como independiente. Si conduce para una empresa, lo cambia
-         después en Configuración: así el registro queda corto. */
-      modalidad: 'independiente',
+      // El cargador no declara camión: no tiene.
+      patente: esCargador ? '' : (patente || '').trim().toUpperCase(),
+      capacidad: esCargador ? 0 : (Number(capacidad) || 0),
+      modalidad: esCargador ? 'cargador' : 'independiente',
       empresa_nombre: '', empresa_email: '',
+      /* El cargador parte trabajando solo; si tiene tropa lo dice en su
+         perfil. El transportista parte sin cuadrilla propia. */
+      estiba: esCargador ? 'propio' : 'no',
+      cuadrilla_nombre: '', cuadrilla_personas: 0,
       disponible: true, activa: true,
     });
     this.setSession(email);

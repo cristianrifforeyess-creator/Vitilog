@@ -261,6 +261,11 @@
          administración junto con la ruta y el chofer al que asiste. */
       function renderCargador() {
         Avisos.montarCampana('btn-notif');
+        /* El encabezado también cambia. Decirle "Servicios disponibles" a
+           quien no conduce es ofrecerle algo que esta pantalla no le va a
+           mostrar: a él no le salen cargas para tomar, le llegan estibas
+           derivadas. */
+        document.querySelector('.topbar h1').textContent = 'Mis estibas';
         const mias = Store.misEstibas();
         const pendientes = mias.filter(e => e.estado !== 'entregado');
         const hechas = mias.filter(e => e.estado === 'entregado');
