@@ -127,6 +127,7 @@ const Shell = {
       return false;
     }
     this._renderNav(activeKey, rolActual);
+    this.barraDemo(user);
     this._ensureOverlays();
     this.pintarMapas();
     this._avisarOrigen();
@@ -1323,6 +1324,62 @@ const Shell = {
     return `<div class="li-sub" style="color:var(--warning)">
               ⚠️ Aún no consolidado: confirma con el productor antes de ir
             </div>`;
+  },
+
+  /* =====================================================================
+     Barra del perfil universal
+     =====================================================================
+     Solo aparece cuando se entró con la cuenta de demostración. Deja
+     saltar entre viñatero, transportista, cargador y planta sin cerrar
+     sesión ni acordarse de cuatro correos.
+
+     Va arriba y en morado, bien visible, por una razón concreta: quien
+     la está usando tiene que saber en todo momento que lo que ve es una
+     demostración y desde qué perfil la mira. Una barra discreta acá
+     sería un favor a nadie. */
+  barraDemo(user) {
+    const u = user || Store.currentUser();
+    const vieja = document.getElementById('barra-demo');
+    if (vieja) vieja.remove();
+    if (!u || !Store.esUniversal(u)) return;
+
+    const actual = Store.vistaDemo();
+    const barra = document.createElement('div');
+    barra.id = 'barra-demo';
+    barra.className = 'barra-demo';
+    barra.innerHTML = `
+      <span class="barra-demo-rotulo">👀 Estás viendo AgroConecta como:</span>
+      <span class="barra-demo-vistas">
+        ${Store.VISTAS_DEMO.map(v => `
+          <button type="button" class="barra-demo-chip ${v.id === actual ? 'activa' : ''}"
+                  data-vista="${v.id}" title="${Shell.escape(v.desc)}"
+                  aria-pressed="${v.id === actual}">
+            <span aria-hidden="true">${v.ic}</span> ${v.label}
+          </button>`).join('')}
+      </span>`;
+
+    /* Debajo de la cabecera de la página, no flotando: tiene que empujar
+       el contenido, no taparlo. */
+    const main = document.querySelector('.main');
+    const topbar = main && main.querySelector('.topbar');
+    if (topbar && topbar.parentNode) {
+      topbar.parentNode.insertBefore(barra, topbar.nextSibling);
+    } else if (main) {
+      main.insertBefore(barra, main.firstChild);
+    } else {
+      document.body.insertBefore(barra, document.body.firstChild);
+    }
+
+    barra.querySelectorAll('[data-vista]').forEach(b => {
+      b.onclick = () => {
+        if (b.dataset.vista === actual) return;
+        Store.verComo(b.dataset.vista);
+        /* Se va a la pantalla de inicio del perfil nuevo: quedarse en la
+           de antes mostraría una página que ese perfil no debería ver, y
+           el guardia de init() rebotaría igual. */
+        location.href = this.homeFor(Store.rolActual());
+      };
+    });
   },
 
   /* Enlace de WhatsApp a un número cualquiera, con el texto ya escrito.

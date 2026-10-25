@@ -277,7 +277,18 @@
         c.innerHTML = `
           ${Shell.avisoPerfil()}
 
+          <!-- El cargador cobra por su trabajo igual que el transportista:
+               el reparto del flete le abona su parte de la estiba. Le
+               faltaba la billetera, que es lo único del panel del chofer
+               que sí le corresponde. -->
           <div class="section" style="margin-top:4px">
+            <div class="section-title">Mis ganancias</div>
+            <div class="section-sub">Lo que has ganado cargando</div>
+            <div style="margin-top:12px">${
+              Finanzas.walletHtml(u.email, { titulo: 'Ganancias por estiba' })}</div>
+          </div>
+
+          <div class="section">
             <div class="section-title">Estibas que te asignaron</div>
             <div class="section-sub">
               ${pendientes.length === 0

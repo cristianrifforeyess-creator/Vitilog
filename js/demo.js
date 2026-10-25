@@ -86,9 +86,37 @@ const Demo = {
     },
   ],
 
+  /* -------- La cuenta universal --------
+     Una sola con la que cualquiera recorre los cuatro perfiles, para no
+     tener que repartir cuatro correos y cuatro claves en una
+     presentación. El rol con el que se mira se elige desde la barra de
+     arriba y queda en el navegador de cada uno, así que varias personas
+     pueden estar usándola a la vez sin estorbarse.
+
+     Se guarda como viñatero porque hay que guardarla como algo; lo que
+     manda es la vista elegida. */
+  UNIVERSAL: {
+    email: 'demo@agroconecta.cl',
+    rol: 'vinatero', nombre: 'Cuenta de demostración',
+    /* En San Javier y no en Talca: la planta de la demostración está en
+       Talca, así el viaje tiene kilómetros de verdad. Con las dos en la
+       misma comuna la tarjeta decía '0 km · 1 min', que no demuestra
+       nada. */
+    comuna: 'San Javier', telefono: '+56 9 2196 5307', hectareas: 12,
+    /* Datos de transportista para que esa vista no salga a medias: la
+     cuenta es la misma, lo que cambia es desde dónde se la mira. */
+    patente: 'DEMO-01', capacidad: 20, vehiculo: 'barandas',
+    modalidad: 'independiente',
+    estiba: 'cuadrilla', cuadrilla_nombre: 'Cuadrilla de demostración',
+    cuadrilla_personas: 3,
+    tipo: 'Biomasa', encargado: 'Equipo VITILOG',
+    disponible: true,
+  },
+
   correo(prefijo) { return prefijo + this.DOMINIO; },
   esCuentaDemo(email) {
-    return String(email || '').toLowerCase().endsWith(this.DOMINIO);
+    const e = String(email || '').toLowerCase();
+    return e.endsWith(this.DOMINIO) || e === this.UNIVERSAL.email;
   },
   esRegistroDemo(id) {
     return String(id || '').startsWith(this.PREFIJO);
@@ -136,6 +164,18 @@ const Demo = {
         notas: 'Poda terminada. Pedimos cuadrilla, no tenemos gente esta semana.',
         acceso: 'normal', manoObra: 'solicita', consolidado: true,
         creada: this._hace(1440),
+      },
+      {
+        /* De la cuenta universal: sin esto, su vista de viñatero abre sin
+           nada que mirar, que es la peor primera impresión posible.
+           Queda sin retirar a propósito, para que la tarjeta de la
+           próxima ruta tenga algo que calcular. */
+        id: this.PREFIJO + 'c5', ownerEmail: this.UNIVERSAL.email,
+        comuna: 'San Javier', volumen: 11, destino: 'Biomasa',
+        fecha: this._fecha(2), estado: 'publicada',
+        notas: 'Carga de la cuenta de demostración.',
+        acceso: 'normal', manoObra: 'solicita', consolidado: true,
+        creada: this._hace(300),
       },
       {
         id: this.PREFIJO + 'c4', ownerEmail: this.correo('vina.linares'),
@@ -238,6 +278,38 @@ const Demo = {
         escrowEstado: 'ninguno', escrowAt: null, liquidadoAt: null,
         creado: this._hace(1600),
       },
+      {
+        /* La estiba de la cuenta universal: un retiro programado en
+           Linares que ella va a cargar.
+
+           Sale de otra viña a propósito. Al principio lo puse como carga
+           suya, y entonces la cuenta era el viñatero y la planta del
+           mismo viaje: la tarjeta de la vista de planta medía la
+           distancia desde su propia comuna hasta su propia comuna y
+           mostraba "0 km · 1 min". Separándolos, las cuatro vistas dan
+           números reales. */
+        ...comun,
+        id: this.PREFIJO + 'env-universal',
+        cargaId: null,
+        vinateroEmail: this.correo('vina.linares'),
+        origenComuna: 'Linares',
+        origenLat: Shell.coordComuna('Linares').lat,
+        origenLng: Shell.coordComuna('Linares').lng,
+        estado: 'programado',
+        salida: null,
+        minutosTotal: 96,
+        progreso: 0,
+        vehLat: null, vehLng: null, posicionAt: null,
+        volumenDeclarado: 16,
+        volumenRecibido: null, pesoRecibido: null, observaciones: '',
+        paradas: [],
+        cuadrillaEmail: this.UNIVERSAL.email,
+        cuadrillaNombre: this.UNIVERSAL.cuadrilla_nombre,
+        validadoPor: '', validadoAt: null, porteriaAt: null,
+        tarifa: null, estibaCobrada: false,
+        escrowEstado: 'ninguno', escrowAt: null, liquidadoAt: null,
+        creado: this._hace(240),
+      },
     ];
   },
 
@@ -286,6 +358,14 @@ const Demo = {
     return null;
   },
 
+  /* Solo la cuenta universal, sin el escenario completo. Sirve para
+     repartir un acceso de prueba sin meter cuatro cargas y tres envíos
+     en una base que está en uso. */
+  async crearUniversal() {
+    if (Store.rolActual() !== Store.ROL_ADMIN) return 'Solo la administración';
+    return await Store.crearCuenta(this.UNIVERSAL, this.CLAVE);
+  },
+
   /* =====================================================================
      Sembrar
      ===================================================================== */
@@ -300,7 +380,7 @@ const Demo = {
 
     const borrado = await this.limpiar();
 
-    for (const c of this.CUENTAS) {
+    for (const c of this.CUENTAS.concat([this.UNIVERSAL])) {
       const error = await Store.crearCuenta(c, this.CLAVE);
       if (error) return { error };
     }
@@ -331,7 +411,7 @@ const Demo = {
 
     return {
       borrado,
-      cuentas: this.CUENTAS.length,
+      cuentas: this.CUENTAS.length + 1,
       cargas: this.cargas().length,
       envios: envios.length,
     };

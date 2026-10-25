@@ -154,6 +154,16 @@
           <span id="switch-text">¿No tienes cuenta?</span>
           <button type="button" id="switch-btn">Regístrate</button>
         </div>
+
+        <!-- Solo aparece si la cuenta de demostración existe de verdad.
+             Si nadie la creó, acá no hay nada: mejor que ofrecer un
+             acceso que no va a funcionar. -->
+        <div class="acceso-demo" id="caja-demo" style="display:none">
+          <button type="button" id="link-demo">
+            👀 Entrar como demostración
+          </button>
+          <span id="demo-pista"></span>
+        </div>
       </div>
     </div>
   </div>
@@ -428,9 +438,29 @@
       location.href = Shell.homeFor(rol);
     });
 
+    /* -------- Acceso de demostración --------
+       Rellena el formulario en vez de entrar directo: así quien lo usa ve
+       con qué cuenta está entrando, y puede volver a usarla después sin
+       tener que buscar el botón. */
+    function pintarAccesoDemo() {
+      const cuenta = Store.accountByEmail(Store.UNIVERSAL);
+      if (!cuenta) return;                       // nadie la creó: no se ofrece
+      $('caja-demo').style.display = 'flex';
+      $('demo-pista').textContent = Store.UNIVERSAL + ' · demo1234';
+      $('link-demo').onclick = () => {
+        isLogin = true;
+        rol = Store.rolDe(cuenta);
+        render();
+        $('email').value = Store.UNIVERSAL;
+        $('password').value = 'demo1234';
+        $('submit').focus();
+      };
+    }
+
     /* -------- Arranque -------- */
     Store.sincronizar().then(problema => {
       if (problema) mostrarError(problema);
+      pintarAccesoDemo();
       if (Store.currentEmail() && Store.currentUser()) {
         location.href = Shell.homeFor(Store.rolActual());
         return;

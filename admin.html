@@ -162,6 +162,7 @@
         const enNube = Store.enNube();
         const hayDemo = !!(inv.cuentas.length || inv.cargas.length
           || inv.envios.length || inv.movimientos.length);
+        const hayUniversal = !!Store.accountByEmail(Demo.UNIVERSAL.email);
 
         Shell.openModal(`
           <div class="handle"></div>
@@ -170,6 +171,29 @@
             <div style="flex:1">
               <b style="font-size:17px">Datos de demostración</b>
               <div class="li-sub">Un escenario completo y siempre el mismo</div>
+            </div>
+          </div>
+
+          <!-- El perfil universal se puede crear solo, sin el escenario
+               completo: sirve para repartir un acceso de prueba sin meter
+               cargas y envíos en una base que está en uso. -->
+          <div class="card pad" style="margin-top:14px;border:1.5px solid var(--primary-light)">
+            <div class="list-item" style="padding:0">
+              <div class="li-ic" style="background:${Shell.tinte('var(--primary-light)')};color:var(--primary-light)">👀</div>
+              <div class="li-body">
+                <div class="li-title">Perfil de demostración universal</div>
+                <div class="li-sub">
+                  ${hayUniversal
+                    ? 'Ya existe. Entra con <b>' + Shell.escape(Demo.UNIVERSAL.email)
+                      + '</b> y clave <b>' + Shell.escape(Demo.CLAVE)
+                      + '</b>, y cambia de perfil desde la barra de arriba.'
+                    : 'Una sola cuenta para recorrer los cuatro perfiles: viñatero, '
+                      + 'transportista, cargador y planta, sin cerrar sesión.'}
+                </div>
+              </div>
+              ${hayUniversal ? '' : `
+                <button class="btn" style="padding:10px 14px;font-size:13.5px"
+                        id="demo-universal">Crear</button>`}
             </div>
           </div>
 
@@ -233,6 +257,17 @@
             </button>`}
           <button class="btn ghost block" style="margin-top:10px"
                   onclick="Shell.closeModal()">Cancelar</button>`);
+
+        const universal = $('demo-universal');
+        if (universal) universal.onclick = async () => {
+          universal.disabled = true;
+          const error = await Demo.crearUniversal();
+          Shell.closeModal();
+          if (error) return Shell.toast(error);
+          await Store.sincronizar({ forzar: true });
+          render();
+          Shell.toast('Perfil de demostración creado: ' + Demo.UNIVERSAL.email);
+        };
 
         $('demo-cargar').onclick = async () => {
           const b = $('demo-cargar');

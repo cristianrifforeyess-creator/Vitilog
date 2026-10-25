@@ -26,11 +26,22 @@
           <div class="field" id="f-vinatero"><label>Hectáreas de viñedo</label><input class="input" id="hectareas" type="number"></div>
           <div class="field" id="f-empresa" style="display:none"><label>Rubro de la empresa</label><select id="tipo"></select></div>
           <div class="field" id="f-encargado" style="display:none"><label>Persona de contacto</label><input class="input" id="encargado"></div>
-          <!-- Cómo trabaja el transportista. Vive acá dentro del perfil, no en
-               el registro: las dos modalidades usan las mismas herramientas,
-               solo cambia cómo te presentas ante el viñatero. -->
+          <!-- Qué haces. Es la pregunta que define la aplicación entera:
+               el que conduce ve cargas para tomar y maneja un camión; el
+               que carga recibe estibas que le deriva la administración.
+               Cambiarla acá cambia el perfil completo, no una etiqueta. -->
+          <div class="field" id="f-oficio" style="display:none">
+            <label id="l-oficio">¿Qué haces?</label>
+            <div class="rol-opciones" id="oficios" role="radiogroup"
+                 aria-labelledby="l-oficio" style="margin-bottom:8px"></div>
+            <div class="section-sub" id="ayuda-oficio"></div>
+          </div>
+
+          <!-- Y, solo si conduce, para quién. Al cargador no se le
+               pregunta: no pertenecer a ninguna empresa es parte de lo
+               que lo define. -->
           <div class="field" id="f-modalidad" style="display:none">
-            <label id="l-modalidad">Cómo trabajas</label>
+            <label id="l-modalidad">¿Conduces por tu cuenta o para una empresa?</label>
             <div class="rol-opciones" id="modalidades" role="radiogroup"
                  aria-labelledby="l-modalidad" style="margin-bottom:8px"></div>
             <div class="section-sub">Solo cambia cómo apareces ante el viñatero. Las herramientas son las mismas.</div>
@@ -180,8 +191,14 @@
       const u = Store.currentUser();
       const esEmpresa = Store.rolDe(u) === Store.ROL_EMPRESA;
       const esChofer = Store.rolDe(u) === Store.ROL_CHOFER;
-      // Modalidad elegida en pantalla; se guarda al presionar "Guardar cambios".
+      /* Modalidad elegida en pantalla; se guarda al presionar "Guardar
+         cambios". Guarda las dos preguntas en un solo valor:
+         'cargador', o bien 'independiente' / 'empresa' si conduce. */
       let modalidad = u.modalidad || 'independiente';
+      /* Para quién conduce, recordado aparte. Si pasa a cargador y se
+         arrepiente antes de guardar, vuelve a lo que tenía y no a un
+         valor por omisión que nunca eligió. */
+      let patron = modalidad === 'cargador' ? 'independiente' : modalidad;
       let empresaEmail = u.empresa_email || '';
       let vehiculo = u.vehiculo || '';
       let estiba = u.estiba || 'no';
@@ -240,13 +257,15 @@
       };
 
       // Campos del transportista
-      ['f-modalidad', 'f-patente', 'f-capacidad', 'f-vehiculo', 'f-estiba', 'f-disponible']
+      ['f-oficio', 'f-modalidad', 'f-patente', 'f-capacidad', 'f-vehiculo',
+       'f-estiba', 'f-disponible']
         .forEach(i => $(i).style.display = esChofer ? 'block' : 'none');
-      // f-estiba se recoloca en aplicarModalidad: solo lo ve el cargador.
+      // Varios de esos los vuelve a esconder aplicarModalidad según el oficio.
       if (esChofer) {
         $('f-vinatero').style.display = 'none';
         $('patente').value = u.patente || '';
         $('capacidad').value = u.capacidad || '';
+        pintarOficios();
         pintarModalidades();
         aplicarModalidad();
         pintarVehiculos();
@@ -263,12 +282,10 @@
           $('empresa-nombre').style.display = empresaEmail ? 'none' : 'block';
         };
         $('disponible').checked = u.disponible !== false;
-        $('disp-sub').textContent = u.disponible !== false
-          ? 'Las cargas nuevas te llegarán' : 'No recibirás avisos de cargas';
+        pintarDisponible();
         $('disponible').onchange = async () => {
           await Store.updateAccount({ disponible: $('disponible').checked });
-          $('disp-sub').textContent = $('disponible').checked
-            ? 'Las cargas nuevas te llegarán' : 'No recibirás avisos de cargas';
+          pintarDisponible();
           Shell.toast($('disponible').checked ? 'Disponible' : 'No disponible');
         };
       }
@@ -338,12 +355,66 @@
         $('f-empresa-nombre').style.display = modalidad === 'empresa' ? 'block' : 'none';
       }
 
+      /* El interruptor de disponibilidad, en un solo lugar.
+
+         Antes su texto lo escribían dos trozos de código distintos —uno
+         al cargar la página y otro al cambiar de oficio— y el último en
+         correr ganaba. Resultado: un cargador leía "Las cargas nuevas te
+         llegarán", que es lo que le pasa a un transportista. */
+      function pintarDisponible() {
+        const soloCarga = modalidad === 'cargador';
+        const activo = $('disponible').checked;
+        const titulo = document.querySelector('#f-disponible .li-title');
+        if (titulo) {
+          titulo.textContent = soloCarga
+            ? 'Disponible para cargar' : 'Disponible para tomar servicios';
+        }
+        $('disp-sub').textContent = soloCarga
+          ? (activo ? 'La administración puede derivarte estibas'
+                    : 'No se te derivarán estibas')
+          : (activo ? 'Las cargas nuevas te llegarán'
+                    : 'No recibirás avisos de cargas');
+      }
+
+      /* Las dos tarjetas del oficio. Cambiarlas cambia el perfil entero,
+         así que debajo se explica qué implica cada una. */
+      function pintarOficios() {
+        const actual = modalidad === 'cargador' ? 'cargador' : 'transportista';
+        $('oficios').innerHTML = DATA.oficiosChofer.map(o => `
+          <button type="button" class="rol-opcion ${o.id === actual ? 'activa' : ''}"
+                  data-o="${o.id}" role="radio" aria-checked="${o.id === actual}">
+            <span class="ic" aria-hidden="true">${o.ic}</span>
+            <span class="texto"><b>${o.label}</b><span>${o.desc}</span></span>
+            <span class="marca" aria-hidden="true">${o.id === actual ? '●' : '○'}</span>
+          </button>`).join('');
+        $('oficios').querySelectorAll('.rol-opcion').forEach(b => {
+          b.onclick = () => {
+            /* Al pasar a cargador se guarda el patrón anterior, para
+               recuperarlo si vuelve a transportista sin haber guardado. */
+            modalidad = b.dataset.o === 'cargador' ? 'cargador' : patron;
+            pintarOficios();
+            pintarModalidades();
+            aplicarModalidad();
+          };
+        });
+        $('ayuda-oficio').textContent = actual === 'cargador'
+          ? 'No se te piden datos del camión y no verás cargas para tomar: recibes las estibas que te deriva la administración de AgroConecta.'
+          : 'Verás las cargas publicadas y podrás tomarlas, con tu camión y tu GPS durante el viaje.';
+      }
+
       /* El cargador individual no conduce: no tiene camión que declarar y
          la estiba deja de ser opcional, porque es justamente su oficio. */
       function aplicarModalidad() {
         const soloCarga = modalidad === 'cargador';
         ['f-patente', 'f-capacidad', 'f-vehiculo'].forEach(i =>
           $(i).style.display = soloCarga ? 'none' : 'block');
+
+        /* "¿Para quién conduces?" no tiene sentido para quien no conduce.
+           Era lo último que le quedaba en pantalla de un perfil ajeno. */
+        $('f-modalidad').style.display = soloCarga ? 'none' : 'block';
+
+        // Estar "disponible" significa otra cosa en cada oficio.
+        pintarDisponible();
 
         /* La pregunta la ven los dos, pero con opciones distintas: el
            transportista puede llevar su tropa, no cargar él mismo. */
@@ -353,6 +424,8 @@
         $('ayuda-estiba').textContent = soloCarga
           ? 'La administración de AgroConecta te deriva a las viñas que piden cargadores, con la ruta y el transportista al que asistes.'
           : 'Si llevas tu equipo, las viñas que pidan cargadores se te asignan a ti. Tú conduces; ellos cargan.';
+
+        if (!soloCarga) patron = modalidad;   // por si se va y vuelve
 
         if (soloCarga) {
           $('f-empresa-nombre').style.display = 'none';

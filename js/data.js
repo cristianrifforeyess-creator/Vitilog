@@ -37,17 +37,31 @@ const DATA = {
 
   /* Cómo trabaja un chofer. Se elige dentro de su perfil, no al registrarse:
      la herramienta es la misma, cambia solo cómo se presenta. */
-  modalidadesChofer: [
-    { id: 'independiente', label: 'Independiente', ic: '🧑‍🌾',
-      desc: 'Trabajo por mi cuenta con mi propio camión' },
-    { id: 'empresa', label: 'Parte de una empresa', ic: '🏢',
-      desc: 'Conduzco para una empresa de transporte' },
+  /* Son dos preguntas distintas y antes estaban en una sola lista de tres
+     opciones. Eso obligaba a elegir entre "independiente", "parte de una
+     empresa" y "cargador individual" como si fueran lo mismo, cuando la
+     primera y la segunda son el mismo oficio con distinto patrón, y la
+     tercera es otro oficio.
+
+     1. ¿Qué haces? Conducir o cargar. Define la aplicación entera.
+     2. Si conduces, ¿por tu cuenta o para una empresa? Solo cambia cómo
+        te presentas, y no se le pregunta a quien no conduce. */
+  oficiosChofer: [
+    { id: 'transportista', label: 'Transportista', ic: '🚚',
+      desc: 'Tengo camión y traslado las cargas' },
     /* El que no conduce: su oficio es la estiba, por su cuenta y sin
        pertenecer a ninguna empresa. No tiene camion que declarar, y es
        la administracion la que le asigna la ruta o el chofer al que va
        a asistir. */
     { id: 'cargador', label: 'Cargador individual', ic: '💪',
-      desc: 'No conduzco: solo cargo, y no pertenezco a ninguna empresa' },
+      desc: 'No conduzco: solo cargo el camión' },
+  ],
+
+  modalidadesChofer: [
+    { id: 'independiente', label: 'Por mi cuenta', ic: '🧑‍🌾',
+      desc: 'Trabajo con mi propio camión' },
+    { id: 'empresa', label: 'Para una empresa', ic: '🏢',
+      desc: 'Conduzco para una empresa de transporte' },
   ],
 
   /* Estados por los que pasa un envío, en orden. El seguimiento avanza por

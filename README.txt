@@ -194,13 +194,58 @@ que consolida Curicó y Molina, y una entrega cerrada con pesaje validado y
 su Sello Verde.
 
 Todas las cuentas sembradas terminan en @demo.agroconecta.cl y entran con la
-clave demo1234. Todo lo que crea lleva identificadores que empiezan con
+clave demo1234. Aparte está la cuenta universal, demo@agroconecta.cl, con la
+misma clave: ver más abajo. Todo lo que crea lleva identificadores que empiezan con
 "demo-": esa es la única forma de limpiar lo de la demostración sin tocar lo
 de nadie más.
 
 Con la base compartida conectada, el botón SOLO reemplaza los registros de
 demostración. Vaciar todo queda disponible únicamente con base local, porque
 en la compartida borraría las cuentas y las cargas de los demás.
+
+Perfil de demostración universal
+--------------------------------
+Una sola cuenta, demo@agroconecta.cl / demo1234, con la que cualquiera
+recorre los cuatro perfiles sin cerrar sesión: arriba aparece una barra
+morada con viñatero, transportista, cargador y planta, y al tocar uno la
+aplicación entera cambia.
+
+Sirve para repartir un solo acceso en una presentación, en vez de cuatro
+correos con cuatro claves.
+
+El perfil elegido se guarda EN EL NAVEGADOR de cada uno, no en la cuenta.
+Así varias personas pueden estar usándola a la vez —una mirando como
+planta y otra como viñatero— sin pisarse, y lo que dice la tabla no cambia
+por mucho que se pasee entre perfiles.
+
+La administración no está entre las cuatro vistas a propósito: es el panel
+de control del equipo, no una parte del producto que haya que mostrarle a
+cualquiera.
+
+Se crea desde Administración -> Resumen -> Restablecer demo. Ahí hay un
+botón para crearla sola, sin sembrar el escenario completo, para cuando la
+base está en uso. Cuando existe, la pantalla de acceso ofrece un enlace
+"Entrar como demostración"; si nadie la creó, ese enlace no aparece.
+
+Qué hace cada perfil del transportista
+--------------------------------------
+Dentro de "Soy transportista" hay dos oficios distintos y se eligen al
+crear la cuenta, no después:
+
+  Transportista     -> tiene camión. Se le piden patente, capacidad y tipo
+                       de vehículo. Ve las cargas publicadas y puede
+                       tomarlas. Su menú incluye "Mi viaje".
+  Cargador individual -> no conduce ni pertenece a ninguna empresa. No se
+                       le pide nada del camión, no ve cargas para tomar y
+                       su menú no tiene "Mi viaje": recibe las estibas que
+                       le deriva la administración desde la pestaña
+                       Estiba. Su inicio dice "Mis estibas" y su resumen
+                       cuenta estibas y volumen cargado.
+
+En Ajustes son dos preguntas separadas: "¿Qué haces?" (conducir o cargar)
+y, solo si conduce, "¿por tu cuenta o para una empresa?". Antes eran tres
+opciones en una sola lista, que mezclaba dos cosas distintas y le ofrecía
+al cargador un patrón que por definición no tiene.
 
 Base de datos compartida
 ------------------------

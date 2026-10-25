@@ -41,6 +41,29 @@ const Store = {
   K_SESSION: 'vitilog_session',
   K_THEME: 'vitilog_theme',
 
+  /* -------- Cuenta de demostración universal --------
+     Una sola cuenta con la que cualquiera puede recorrer la aplicación
+     entera: entra una vez y cambia de perfil desde arriba, sin salir ni
+     acordarse de cuatro correos distintos.
+
+     El rol elegido vive en este navegador, no en la cuenta. Así dos
+     personas pueden estar mirándola a la vez, una como viñatero y otra
+     como planta, sin pisarse: lo que cada una ve es cosa de su
+     dispositivo. Y lo que está guardado en la base nunca cambia, por
+     mucho que se pasee entre perfiles. */
+  UNIVERSAL: 'demo@agroconecta.cl',
+  K_ROL_DEMO: 'vitilog_rol_demo',
+
+  /* Las cuatro vistas que ofrece. La administración no está: es el panel
+     de control del equipo, no una parte del producto que haya que
+     mostrarle a cualquiera. */
+  VISTAS_DEMO: [
+    { id: 'vinatero', label: 'Viñatero', ic: '🍇', desc: 'Publica sus sarmientos' },
+    { id: 'chofer', label: 'Transportista', ic: '🚚', desc: 'Toma cargas y conduce' },
+    { id: 'cargador', label: 'Cargador', ic: '💪', desc: 'Solo carga el camión' },
+    { id: 'empresa', label: 'Planta', ic: '🏭', desc: 'Recibe y pesa' },
+  ],
+
   ROL_VINATERO: 'vinatero',
   ROL_EMPRESA: 'empresa',
   ROL_CHOFER: 'chofer',
@@ -424,7 +447,7 @@ const Store = {
      del transportista (camión, modalidad y disponibilidad). */
   _cuentaHaciaNube(a) {
     return {
-      email: a.email, rol: this.rolDe(a), nombre: a.nombre,
+      email: a.email, rol: this._rolGuardado(a), nombre: a.nombre,
       clave_hash: a.clave_hash, clave_sal: a.clave_sal,
       comuna: a.comuna || '', telefono: a.telefono || '',
       hectareas: Number(a.hectareas) || 0,
@@ -505,13 +528,47 @@ const Store = {
     }
   },
 
+  /* -------- Perfil universal -------- */
+  esUniversal(acc) {
+    return !!acc && (acc.email || '').toLowerCase() === this.UNIVERSAL;
+  },
+
+  /* Desde qué perfil está mirando ahora. Siempre una de VISTAS_DEMO. */
+  vistaDemo() {
+    const v = this._read(this.K_ROL_DEMO, null);
+    return this.VISTAS_DEMO.some(x => x.id === v) ? v : 'vinatero';
+  },
+
+  /* Cambia de perfil. Devuelve a dónde hay que ir, porque cada uno tiene
+     su propia pantalla de inicio. */
+  verComo(vista) {
+    if (!this.VISTAS_DEMO.some(x => x.id === vista)) return null;
+    this._write(this.K_ROL_DEMO, vista);
+    return vista;
+  },
+
   /* -------- Roles -------- */
-  rolDe(acc) {
+  /* El rol tal como está guardado en la cuenta, sin mirar desde dónde se
+     esté viendo. Es lo que viaja a la base: el paseo por los perfiles de
+     la cuenta universal no debe reescribir lo que dice la tabla. */
+  _rolGuardado(acc) {
     if (!acc) return this.ROL_VINATERO;
     if (acc.rol === this.ROL_EMPRESA) return this.ROL_EMPRESA;
     if (acc.rol === this.ROL_CHOFER) return this.ROL_CHOFER;
     if (acc.rol === this.ROL_ADMIN) return this.ROL_ADMIN;
     return this.ROL_VINATERO;
+  },
+
+  rolDe(acc) {
+    /* La cuenta universal responde según el perfil elegido en este
+       dispositivo. Todo lo demás del sitio —los menús, los permisos, las
+       pantallas— pregunta por acá, así que con esto basta para que
+       cambiar de vista cambie la aplicación entera. */
+    if (this.esUniversal(acc)) {
+      const v = this.vistaDemo();
+      return v === 'cargador' ? this.ROL_CHOFER : v;
+    }
+    return this._rolGuardado(acc);
   },
   rolActual() {
     const u = this.currentUser();
@@ -928,7 +985,10 @@ const Store = {
      chofer al que asiste se los asigna la administracion. */
   esSoloCargador(cuenta) {
     const u = cuenta || this.currentUser();
-    return !!u && this.rolDe(u) === this.ROL_CHOFER && u.modalidad === 'cargador';
+    if (!u) return false;
+    // En la cuenta universal lo decide la vista elegida, no un campo.
+    if (this.esUniversal(u)) return this.vistaDemo() === 'cargador';
+    return this.rolDe(u) === this.ROL_CHOFER && u.modalidad === 'cargador';
   },
 
   /* Cargadores individuales registrados y disponibles. */
